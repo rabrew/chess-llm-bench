@@ -141,30 +141,46 @@ class JobQueue:
             conn.commit()
         return inserted
 
-    def claim_job(self, worker_id: str) -> dict[str, Any] | None:
+    def claim_job(self, worker_id: str, model: str | None = None) -> dict[str, Any] | None:
         """Atomically claim the next pending job.
 
         Args:
             worker_id: Unique identifier for the claiming worker
+            model: If set, only claim jobs for this model
 
         Returns:
             Job dictionary or None if no pending jobs
         """
         with self._connect() as conn:
             # Atomic claim using UPDATE...RETURNING (SQLite 3.35+)
-            cursor = conn.execute("""
-                UPDATE jobs
-                SET status = 'in_progress',
-                    worker_id = ?,
-                    claimed_at = ?
-                WHERE job_id = (
-                    SELECT job_id FROM jobs
-                    WHERE status = 'pending'
-                    ORDER BY ROWID
-                    LIMIT 1
-                )
-                RETURNING *
-            """, (worker_id, datetime.utcnow().isoformat()))
+            if model:
+                cursor = conn.execute("""
+                    UPDATE jobs
+                    SET status = 'in_progress',
+                        worker_id = ?,
+                        claimed_at = ?
+                    WHERE job_id = (
+                        SELECT job_id FROM jobs
+                        WHERE status = 'pending' AND model = ?
+                        ORDER BY ROWID
+                        LIMIT 1
+                    )
+                    RETURNING *
+                """, (worker_id, datetime.utcnow().isoformat(), model))
+            else:
+                cursor = conn.execute("""
+                    UPDATE jobs
+                    SET status = 'in_progress',
+                        worker_id = ?,
+                        claimed_at = ?
+                    WHERE job_id = (
+                        SELECT job_id FROM jobs
+                        WHERE status = 'pending'
+                        ORDER BY ROWID
+                        LIMIT 1
+                    )
+                    RETURNING *
+                """, (worker_id, datetime.utcnow().isoformat()))
 
             row = cursor.fetchone()
             conn.commit()

@@ -59,10 +59,7 @@ else
 fi
 
 print_header "STEP 3/7: LC0 GPU EVALUATION"
-print_info "Using Lc0 ONNX batch inference (RTX 5080)"
-print_info "Speed: ~3,000 pos/sec | Est. time: ~32 min for 5.8M positions"
-echo ""
-python scripts/precompute_lc0_batch.py --batch-size 256
+print_info "SKIPPED — lc0_eval unused by evaluator; stockfish_eval+stockfish_best_move already present in dataset"
 
 print_header "STEP 4/7: PULLING OLLAMA MODELS"
 CONFIGURED_MODELS=$(python3 -c "import yaml; c=yaml.safe_load(open('config/config.yaml')); print('\n'.join(c['models']))" 2>/dev/null)
@@ -77,26 +74,60 @@ else
     python scripts/pull_models.py
 fi
 
-print_header "STEPS 5+6/7: GENERATING JOBS AND RUNNING BENCHMARK (TIER BY TIER)"
-print_info "Processing one difficulty tier at a time to manage disk usage..."
+print_header "STEPS 5+6/7: GENERATING JOBS AND RUNNING BENCHMARK (MODEL BY MODEL, ALL TIERS)"
+print_info "Processing all tiers for one model at a time to maximise RAM usage..."
 WORKERS=$(grep -oP 'count:\s*\K\d+' config/config.yaml || echo '4')
 print_info "Workers: $WORKERS"
+MODELS=$(python3 -c "import yaml; c=yaml.safe_load(open('config/config.yaml')); print('\n'.join(c['models']))" 2>/dev/null)
 echo ""
 
-for tier in easy medium hard extreme; do
-    print_header "TIER: $tier"
-    print_info "Generating jobs for $tier tier..."
-    python scripts/generate_jobs.py --tier "$tier"
+RESULTS_FILE="results/evaluations.jsonl"
+JOBS_PER_TIER=2500  # 3000 jobs per tier; skip if >= this many results already saved
 
-    print_info "Running workers for $tier tier..."
-    python scripts/run_workers.py --workers "$WORKERS"
+tier_done() {
+    local model="$1" tier="$2"
+    local count
+    count=$(python3 -c "
+import json, sys
+model, tier = sys.argv[1], sys.argv[2]
+n = sum(1 for line in open('$RESULTS_FILE')
+        if json.loads(line).get('model') == model and json.loads(line).get('difficulty') == tier)
+print(n)
+" "$model" "$tier" 2>/dev/null || echo 0)
+    [ "$count" -ge "$JOBS_PER_TIER" ]
+}
 
-    print_info "$tier tier complete. Wiping job DB to free space..."
-    rm -f /mnt/shared/chess-llm-bench/jobs/jobs.db
-    echo ""
-done
+while IFS= read -r model; do
+    [ -z "$model" ] && continue
+    print_header "MODEL: $model"
+    for tier in easy medium hard extreme; do
+        if tier_done "$model" "$tier"; then
+            print_info "Model: $model | Tier: $tier — already complete, SKIPPING"
+            echo ""
+            continue
+        fi
 
-print_header "STEP 7/7: GENERATING RESULTS"
+        print_info "Model: $model | Tier: $tier — generating jobs..."
+        python scripts/generate_jobs.py --tier "$tier" --model "$model"
+
+        print_info "Running workers for $model ($tier)..."
+        python scripts/run_workers.py --workers "$WORKERS" --model "$model"
+
+        print_info "$model/$tier complete. Wiping job DB..."
+        rm -f /mnt/shared/chess-llm-bench/jobs/jobs.db
+        rm -f /mnt/shared/chess-llm-bench/jobs/jobs.db-shm
+        rm -f /mnt/shared/chess-llm-bench/jobs/jobs.db-wal
+        echo ""
+    done
+done <<< "$MODELS"
+
+print_header "STEP 7/7: RETRYING ILLEGAL MOVES"
+print_info "Re-prompting models with legal move list for all illegal/missing moves..."
+echo ""
+python scripts/retry_illegal_moves.py
+echo ""
+
+print_header "STEP 8/8: GENERATING RESULTS"
 print_info "Creating plots and metrics..."
 echo ""
 python scripts/generate_plots.py --save-metrics
@@ -104,8 +135,9 @@ python scripts/generate_plots.py --save-metrics
 print_header "COMPLETE!"
 echo -e "  Finished: $(date)"
 echo ""
-echo -e "  ${GREEN}Results:${NC}  results/evaluations.jsonl"
-echo -e "  ${GREEN}Plots:${NC}    results/plots/"
-echo -e "  ${GREEN}Metrics:${NC}  results/metrics/"
+echo -e "  ${GREEN}Results:${NC}       results/evaluations.jsonl"
+echo -e "  ${GREEN}Retried moves:${NC} results/evaluations_retried.jsonl"
+echo -e "  ${GREEN}Plots:${NC}         results/plots/"
+echo -e "  ${GREEN}Metrics:${NC}       results/metrics/"
 echo ""
 echo -e "${BLUE}════════════════════════════════════════════════════════════════${NC}"

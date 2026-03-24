@@ -30,8 +30,8 @@ def signal_handler(signum, frame):
 
 def worker_process(args):
     """Worker process entry point."""
-    worker_id, config_path, max_jobs, dry_run = args
-    return run_worker(worker_id, config_path, max_jobs, dry_run)
+    worker_id, config_path, max_jobs, dry_run, model = args
+    return run_worker(worker_id, config_path, max_jobs, dry_run, model=model)
 
 
 def write_run_log(config: dict, run_id: str, log_dir: str) -> None:
@@ -86,6 +86,11 @@ def main():
         "--status",
         action="store_true",
         help="Show queue status and exit",
+    )
+    parser.add_argument(
+        "--model",
+        default=None,
+        help="Only process jobs for this specific model",
     )
     parser.add_argument(
         "-v", "--verbose",
@@ -165,13 +170,14 @@ def main():
             args.config,
             args.max_jobs or 10,
             args.dry_run,
+            model=args.model,
         )
         print(f"\nProcessed {jobs_processed} jobs")
         return
 
     # Run workers in parallel
     worker_args = [
-        (f"worker_{i}", args.config, args.max_jobs, args.dry_run)
+        (f"worker_{i}", args.config, args.max_jobs, args.dry_run, args.model)
         for i in range(num_workers)
     ]
 

@@ -77,12 +77,31 @@ class OllamaClient:
             logger.error(f"Failed to pull model {model}: {e}")
             return False
 
-    def chat(self, model: str, prompt: str) -> dict[str, Any]:
+    @staticmethod
+    def _get_options(model: str) -> dict[str, Any]:
+        """Build Ollama options for a model.
+
+        For large models (70B+) that exceed VRAM, cap num_gpu so layers
+        overflow into RAM rather than crashing with OOM.
+        16GB VRAM holds ~28 layers of a 70B Q4 model (remaining ~52 go to RAM).
+        """
+        model_lower = model.lower()
+        if "72b" in model_lower:
+            # qwen2.5:72b is ~47GB — push 26 layers to GPU (~15GB VRAM),
+            # remaining ~54 layers use ~30GB RAM. Reduce ctx to save VRAM headroom.
+            return {"num_gpu": 26, "num_ctx": 512}
+        if "70b" in model_lower:
+            # llama3.3:70b is ~43GB — 16GB VRAM fits ~26 layers safely
+            return {"num_gpu": 26}
+        return {}
+
+    def chat(self, model: str, prompt: str, system_prompt: str | None = None) -> dict[str, Any]:
         """Send a chat request to Ollama.
 
         Args:
             model: Model tag to use
             prompt: User prompt
+            system_prompt: Optional system prompt prepended as a system message
 
         Returns:
             Dictionary with 'response' (raw text), 'inference_ms' (duration),
@@ -90,17 +109,34 @@ class OllamaClient:
         """
         start_time = time.time()
         last_error = None
+        options = self._get_options(model)
+        # Reasoning models (deepseek-r1) run long CoT before answering — extend timeout
+        # Large offloaded models (70B+) also need more time
+        if "deepseek-r1" in model.lower():
+            timeout = 600
+        elif options.get("num_gpu") is not None:
+            timeout = 600
+        else:
+            timeout = self.timeout
+
+        messages: list[dict[str, str]] = []
+        if system_prompt:
+            messages.append({"role": "system", "content": system_prompt})
+        messages.append({"role": "user", "content": prompt})
 
         for attempt in range(self.max_retries):
             try:
+                payload: dict[str, Any] = {
+                    "model": model,
+                    "messages": messages,
+                    "stream": False,
+                }
+                if options:
+                    payload["options"] = options
                 response = requests.post(
                     f"{self.base_url}/api/chat",
-                    json={
-                        "model": model,
-                        "messages": [{"role": "user", "content": prompt}],
-                        "stream": False,
-                    },
-                    timeout=self.timeout,
+                    json=payload,
+                    timeout=timeout,
                 )
                 response.raise_for_status()
                 data = response.json()
@@ -132,6 +168,82 @@ class OllamaClient:
             "error": last_error,
             "model": model,
         }
+
+
+MOVE_SYSTEM_PROMPT = (
+    "You are a chess engine. When given a FEN position, output exactly one legal move "
+    "in Standard Algebraic Notation (SAN).\n\n"
+    "The prompt will tell you which side is to move. Only move that side's pieces.\n\n"
+    "A legal move must satisfy ALL of the following:\n"
+    "- Only move pieces belonging to the side that is to move.\n"
+    "- The piece you are moving must actually exist on the square you name.\n"
+    "- The piece must be able to reach the destination square by its movement rules "
+    "(e.g. a bishop moves diagonally, a knight in an L-shape, a pawn one square forward "
+    "or diagonally to capture).\n"
+    "- The move must not leave your own king in check.\n"
+    "- Castling (O-O or O-O-O) is only legal if the king and rook have not moved, "
+    "there are no pieces between them, and the king does not pass through check.\n"
+    "- En passant is only legal if the FEN en-passant square is set.\n\n"
+    "Output the move only — no explanation, no punctuation, no move numbers.\n"
+    "Examples of correct output: e4, Nf3, O-O, Bxc6, exd5, Qh5+"
+)
+
+EVAL_SYSTEM_PROMPT = (
+    "You are a chess position evaluator. When given a chess position, output a single "
+    "integer representing the centipawn evaluation from White's perspective.\n\n"
+    "Positive = White is better. Negative = Black is better. 0 = equal.\n"
+    "Typical range is -2000 to +2000.\n\n"
+    "Output only the integer — no text, no explanation, no sign if positive."
+)
+
+EXPLANATION_SYSTEM_PROMPT = (
+    "You are a chess analyst. When given a chess position, identify who stands better "
+    "and give a one-sentence explanation of the key reason.\n\n"
+    "Respond using this exact format:\n"
+    "Explanation: <White / Black / Equal> — <one sentence reason>\n\n"
+    "Do not include anything else in your response."
+)
+
+
+def build_eval_prompt(fen: str, pgn_moves: str | None = None) -> str:
+    """Build an isolated prompt asking only for the centipawn evaluation."""
+    moves_section = f"\nMoves played so far:\n{pgn_moves}\n" if pgn_moves else ""
+    return (
+        f"You are analysing a chess position.{moves_section}\n"
+        f"Current position (FEN):\n{fen}\n\n"
+        "What is the centipawn evaluation of this position from White's perspective?\n"
+        "Positive = White is better. Negative = Black is better. 0 = equal.\n"
+        "Respond with a single integer only."
+    )
+
+
+def build_explanation_prompt(fen: str, pgn_moves: str | None = None) -> str:
+    """Build an isolated prompt asking only for a positional explanation."""
+    moves_section = f"\nMoves played so far:\n{pgn_moves}\n" if pgn_moves else ""
+    return (
+        f"You are analysing a chess position.{moves_section}\n"
+        f"Current position (FEN):\n{fen}\n\n"
+        "Who stands better in this position — White, Black, or is it equal?\n"
+        "Give a one-sentence explanation of the key reason.\n\n"
+        "Respond using this exact format:\n"
+        "Explanation: <White / Black / Equal> — <one sentence reason>"
+    )
+
+
+def build_move_prompt(fen: str) -> str:
+    """Build an isolated prompt asking only for the best move.
+
+    Used alongside the main three-task prompt so T2 gets its own focused call
+    with a chess-engine system prompt that explains legality rules.
+    """
+    import chess as _chess
+    board = _chess.Board(fen)
+    side = "White" if board.turn == _chess.WHITE else "Black"
+    return (
+        f"Position (FEN): {fen}\n"
+        f"It is {side} to move.\n\n"
+        f"What is the best move for {side}? Respond with the SAN move only."
+    )
 
 
 def build_prompt(
@@ -189,6 +301,36 @@ Explanation: <White / Black / Equal> — <one sentence reason>"""
     return intro + moves_section + fen_section + questions + cot_section + response_format
 
 
+def parse_eval_response(response_text: str) -> dict[str, Any]:
+    """Parse an eval-only response — extract the first integer found."""
+    result: dict[str, Any] = {
+        "eval": None,
+        "move": None,
+        "explanation": None,
+        "side_claimed": None,
+        "parse_errors": [],
+    }
+    match = re.search(r"-?\d+", response_text.strip())
+    if match:
+        result["eval"] = int(match.group())
+    else:
+        result["parse_errors"].append("No integer found in eval-only response")
+    return result
+
+
+def parse_explanation_response(response_text: str) -> dict[str, Any]:
+    """Parse an explanation-only response — extract explanation and side_claimed."""
+    # Reuse the full parser and discard eval/move fields
+    full = parse_response(response_text)
+    return {
+        "eval": None,
+        "move": None,
+        "explanation": full["explanation"],
+        "side_claimed": full["side_claimed"],
+        "parse_errors": full["parse_errors"],
+    }
+
+
 def parse_response(response_text: str) -> dict[str, Any]:
     """Parse the LLM response to extract Eval, Move, and Explanation.
 
@@ -211,6 +353,14 @@ def parse_response(response_text: str) -> dict[str, Any]:
 
     for line in lines:
         line = line.strip()
+        # Strip markdown bold markers first so "**1. Eval:**" becomes "1. Eval:"
+        line = line.replace("**", "")
+        # Capture question number before stripping, to handle unlabeled answers
+        # e.g. "2. d4" (no "Move:" label) — number tells us which field it is
+        num_match = re.match(r"^(\d+)\.\s*(.+)$", line)
+        question_num = int(num_match.group(1)) if num_match else None
+        # Strip leading numbered-list prefix e.g. "1. ", "2. ", "3. "
+        line = re.sub(r"^\d+\.\s*", "", line)
 
         # Parse Eval
         if line.lower().startswith("eval:"):
@@ -231,17 +381,19 @@ def parse_response(response_text: str) -> dict[str, Any]:
             # Clean up common formatting issues
             move_str = move_str.split()[0] if move_str.split() else ""
             move_str = move_str.rstrip(".,;")
+            # Strip inline code backticks e.g. `Nf6`
+            move_str = move_str.strip("`")
+            # Strip PGN move-number prefixes e.g. "1...Nc5" -> "Nc5", "21.e4" -> "e4"
+            move_str = re.sub(r"^\d+\.+", "", move_str)
             if move_str:
                 result["move"] = move_str
             else:
                 result["parse_errors"].append("Empty move field")
 
-        # Parse Explanation
+        # Parse Explanation (with or without "Explanation:" label)
         elif line.lower().startswith("explanation:"):
             explanation = line[12:].strip()
             result["explanation"] = explanation
-
-            # Extract side claimed
             explanation_lower = explanation.lower()
             if explanation_lower.startswith("white"):
                 result["side_claimed"] = "White"
@@ -250,13 +402,55 @@ def parse_response(response_text: str) -> dict[str, Any]:
             elif explanation_lower.startswith("equal"):
                 result["side_claimed"] = "Equal"
             else:
-                # Try to find side mention in the explanation
                 if "white" in explanation_lower and "black" not in explanation_lower:
                     result["side_claimed"] = "White"
                 elif "black" in explanation_lower and "white" not in explanation_lower:
                     result["side_claimed"] = "Black"
                 elif "equal" in explanation_lower or "draw" in explanation_lower:
                     result["side_claimed"] = "Equal"
+        elif result["explanation"] is None and re.match(r"^(white|black|equal)\b", line, re.IGNORECASE):
+            explanation = line
+            result["explanation"] = explanation
+            explanation_lower = explanation.lower()
+            if explanation_lower.startswith("white"):
+                result["side_claimed"] = "White"
+            elif explanation_lower.startswith("black"):
+                result["side_claimed"] = "Black"
+            elif explanation_lower.startswith("equal"):
+                result["side_claimed"] = "Equal"
+        elif result["explanation"] is None and re.search(r"(white|black|equal).{0,30}(better|winning|advantage|stands)", line, re.IGNORECASE):
+            # Catch lines like "Who stands better? — Black is slightly better..."
+            explanation = re.sub(r"^.*?[—–-]\s*", "", line).strip() or line
+            result["explanation"] = explanation
+            explanation_lower = explanation.lower()
+            if "white" in explanation_lower and "black" not in explanation_lower:
+                result["side_claimed"] = "White"
+            elif "black" in explanation_lower and "white" not in explanation_lower:
+                result["side_claimed"] = "Black"
+            elif "equal" in explanation_lower or "draw" in explanation_lower:
+                result["side_claimed"] = "Equal"
+
+        # Fallback: unlabeled numbered answer — infer field from question number
+        # Handles formats like "1. 25\n2. d4\n3. White is better because..."
+        elif question_num == 1 and result["eval"] is None:
+            match = re.search(r"-?\d+", line)
+            if match:
+                result["eval"] = int(match.group())
+        elif question_num == 2 and result["move"] is None:
+            move_str = line.split()[0] if line.split() else ""
+            move_str = move_str.rstrip(".,;").strip("`")
+            move_str = re.sub(r"^\d+\.+", "", move_str)
+            if move_str:
+                result["move"] = move_str
+        elif question_num == 3 and result["explanation"] is None:
+            result["explanation"] = line
+            explanation_lower = line.lower()
+            if "white" in explanation_lower and "black" not in explanation_lower:
+                result["side_claimed"] = "White"
+            elif "black" in explanation_lower and "white" not in explanation_lower:
+                result["side_claimed"] = "Black"
+            elif "equal" in explanation_lower or "draw" in explanation_lower:
+                result["side_claimed"] = "Equal"
 
     # Check for missing fields
     if result["eval"] is None:

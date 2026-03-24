@@ -200,7 +200,7 @@ class LichessPuzzleFetcher:
             return puzzles_by_tier
 
         sampled_df = pd.concat(sampled_rows)
-        n_workers = mp.cpu_count()
+        n_workers = min(mp.cpu_count(), 8)
         print(f"\n  Validating {len(sampled_df):,} positions using {n_workers} CPU cores...")
 
         # Convert to list of dicts for parallel processing

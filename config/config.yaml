@@ -13,8 +13,8 @@ lc0:
 
 ollama:
   base_url: http://localhost:11434
-  timeout: 180
-  max_retries: 3
+  timeout: 90
+  max_retries: 2
 
 models:
   # Small (3-7B) - fast
@@ -22,7 +22,6 @@ models:
   - gemma3:4b
   - qwen2.5:7b
   - mistral:7b
-  - deepseek-r1:7b
   - wizardlm2:7b
 
   # Medium (8-14B)
@@ -30,7 +29,6 @@ models:
   - gemma3:12b
   - qwen2.5:14b
   - phi4:14b
-  - deepseek-r1:14b
   - solar:10.7b
 
   # Large (30B+) - slow but interesting
@@ -42,18 +40,25 @@ models:
   - llama3.3:70b
   - qwen2.5:72b
 
+  # Reasoning models (slow - run last)
+  - deepseek-r1:7b
+  - deepseek-r1:14b
+
 dataset:
   lichess_source: local  # "api" or "local"
   lichess_csv_path: data/lichess_puzzles.csv
   pgn_path: data/games.pgn
 
 benchmark:
-  max_positions_per_tier: 0  # 0 = unlimited (use all positions)
+  max_positions_per_tier: 1000  # 1000 x 4 tiers = 4,000 total positions
   random_seed: 42
   prompt_formats:
     - fen_only
     - pgn+fen
     - cot
+    - eval_only
+    - move_only
+    - explanation_only
 
 evaluation:
   cpl_threshold: 50
@@ -62,7 +67,7 @@ evaluation:
     max: 2000
 
 workers:
-  count: 4
+  count: 6
 
 correction_loop:
   enabled: true

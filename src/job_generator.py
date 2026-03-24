@@ -153,6 +153,7 @@ def populate_job_queue(
     data_loader: DataLoader | None = None,
     job_queue: JobQueue | None = None,
     tier: str | None = None,
+    model: str | None = None,
 ) -> int:
     """Populate the job queue with all benchmark jobs.
 
@@ -160,12 +161,15 @@ def populate_job_queue(
         config: Configuration dictionary
         data_loader: DataLoader instance (creates new if None)
         job_queue: JobQueue instance (creates new if None)
+        tier: Only generate jobs for this difficulty tier
+        model: Only generate jobs for this specific model
 
     Returns:
         Number of jobs inserted
     """
     # Get configuration
-    models = config.get("models", [])
+    all_models = config.get("models", [])
+    models = [model] if model else all_models
     prompt_formats = config.get("benchmark", {}).get(
         "prompt_formats", ["fen_only", "pgn+fen", "cot"]
     )

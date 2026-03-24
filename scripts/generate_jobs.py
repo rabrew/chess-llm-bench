@@ -33,6 +33,11 @@ def main():
         help="Only generate jobs for a specific difficulty tier",
     )
     parser.add_argument(
+        "--model",
+        default=None,
+        help="Only generate jobs for a specific model",
+    )
+    parser.add_argument(
         "-v", "--verbose",
         action="store_true",
         help="Enable verbose output",
@@ -66,8 +71,9 @@ def main():
     else:
         # Generate jobs
         tier_msg = f" for tier: {args.tier}" if args.tier else ""
-        logger.info(f"Generating benchmark jobs{tier_msg}...")
-        inserted = populate_job_queue(config, tier=args.tier)
+        model_msg = f", model: {args.model}" if args.model else ""
+        logger.info(f"Generating benchmark jobs{tier_msg}{model_msg}...")
+        inserted = populate_job_queue(config, tier=args.tier, model=args.model)
         print(f"\nInserted {inserted} jobs into the queue")
 
 

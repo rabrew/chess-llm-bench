@@ -2,15 +2,29 @@
 
 import logging
 import os
+import re
 import time
 from typing import Any
 
+import chess
+
 from .data_loader import DataLoader
-from .engine_wrapper import StockfishEngine
 from .evaluator import score_all, should_trigger_correction
 from .feedback_loop import CorrectionLoopManager
 from .job_queue import JobQueue
-from .llm_client import OllamaClient, build_prompt, parse_response
+from .llm_client import (
+    OllamaClient,
+    build_prompt,
+    build_move_prompt,
+    build_eval_prompt,
+    build_explanation_prompt,
+    MOVE_SYSTEM_PROMPT,
+    EVAL_SYSTEM_PROMPT,
+    EXPLANATION_SYSTEM_PROMPT,
+    parse_response,
+    parse_eval_response,
+    parse_explanation_response,
+)
 from .result_writer import ResultWriter, build_result_record, get_completed_job_ids
 from .utils import load_config
 
@@ -25,6 +39,7 @@ class Worker:
         worker_id: str,
         config: dict[str, Any],
         dry_run: bool = False,
+        model: str | None = None,
     ):
         """Initialize worker.
 
@@ -32,10 +47,12 @@ class Worker:
             worker_id: Unique identifier for this worker
             config: Configuration dictionary
             dry_run: If True, don't write results
+            model: If set, only process jobs for this model
         """
         self.worker_id = worker_id
         self.config = config
         self.dry_run = dry_run
+        self.model = model
 
         # Initialize components — resolve paths to absolute to survive multiprocessing cwd changes
         paths = config.get("paths", {})
@@ -53,17 +70,8 @@ class Worker:
             max_retries=ollama_config.get("max_retries", 3),
         )
 
-        # Stockfish engine (for CPL calculation)
-        stockfish_config = config.get("stockfish", {})
-        self.engine: StockfishEngine | None = None
-        try:
-            self.engine = StockfishEngine(
-                path=stockfish_config.get("path", "/usr/games/stockfish"),
-                depth=stockfish_config.get("depth", 22),
-                threads=stockfish_config.get("threads", 1),
-            )
-        except RuntimeError as e:
-            logger.warning(f"Stockfish not available: {e}")
+        # Stockfish not used — evals are pre-computed in the dataset
+        self.engine = None
 
         # Correction loop manager
         self.correction_manager = CorrectionLoopManager(
@@ -133,35 +141,80 @@ class Worker:
             "theme": job["theme"],
         }
 
-        # Build prompt
-        prompt = build_prompt(
-            fen=job["fen"],
-            pgn_moves=job.get("pgn_moves"),
-            prompt_format=job.get("prompt_format", "pgn+fen"),
-        )
+        prompt_format = job.get("prompt_format", "pgn+fen")
+        fen = job["fen"]
+        pgn_moves = job.get("pgn_moves")
 
-        # Send to LLM
-        llm_result = self.llm_client.chat(job["model"], prompt)
+        def _is_legal(fen: str, san: str | None) -> bool:
+            if not san:
+                return False
+            try:
+                board = chess.Board(fen)
+                return board.parse_san(san) in board.legal_moves
+            except Exception:
+                return False
 
-        if not llm_result["success"]:
-            error_msg = llm_result.get("error", "Unknown error")
-            logger.error(f"Job {job_id} failed: {error_msg}")
-            self.job_queue.fail_job(job_id, error_msg)
-            return None
+        if prompt_format == "eval_only":
+            prompt = build_eval_prompt(fen, pgn_moves)
+            llm_result = self.llm_client.chat(job["model"], prompt, system_prompt=EVAL_SYSTEM_PROMPT)
+            if not llm_result["success"]:
+                self.job_queue.fail_job(job_id, llm_result.get("error", "Unknown error"))
+                return None
+            parsed = parse_eval_response(llm_result["response"])
 
-        # Parse response
-        parsed = parse_response(llm_result["response"])
+        elif prompt_format == "move_only":
+            prompt = build_move_prompt(fen)
+            llm_result = self.llm_client.chat(job["model"], prompt, system_prompt=MOVE_SYSTEM_PROMPT)
+            if not llm_result["success"]:
+                self.job_queue.fail_job(job_id, llm_result.get("error", "Unknown error"))
+                return None
+            move_text = llm_result["response"].strip().split()[0].rstrip(".,;").strip("`")
+            move_text = re.sub(r"^\d+\.+", "", move_text)
+            parsed = {
+                "eval": None,
+                "move": move_text or None,
+                "explanation": None,
+                "side_claimed": None,
+                "parse_errors": [],
+            }
 
-        # Check if all fields are missing
-        if (
-            parsed["eval"] is None
-            and parsed["move"] is None
-            and parsed["explanation"] is None
-        ):
-            error_msg = "All three fields missing from response"
-            logger.error(f"Job {job_id}: {error_msg}")
-            self.job_queue.fail_job(job_id, error_msg)
-            return None
+        elif prompt_format == "explanation_only":
+            prompt = build_explanation_prompt(fen, pgn_moves)
+            llm_result = self.llm_client.chat(job["model"], prompt, system_prompt=EXPLANATION_SYSTEM_PROMPT)
+            if not llm_result["success"]:
+                self.job_queue.fail_job(job_id, llm_result.get("error", "Unknown error"))
+                return None
+            parsed = parse_explanation_response(llm_result["response"])
+
+        else:
+            # Combined prompt (fen_only / pgn+fen / cot)
+            prompt = build_prompt(fen=fen, pgn_moves=pgn_moves, prompt_format=prompt_format)
+            llm_result = self.llm_client.chat(job["model"], prompt)
+            if not llm_result["success"]:
+                self.job_queue.fail_job(job_id, llm_result.get("error", "Unknown error"))
+                return None
+            parsed = parse_response(llm_result["response"])
+
+            # If combined prompt returned illegal/missing move, retry with isolated call
+            if not _is_legal(fen, parsed.get("move")):
+                move_prompt = build_move_prompt(fen)
+                move_result = self.llm_client.chat(job["model"], move_prompt, system_prompt=MOVE_SYSTEM_PROMPT)
+                if move_result["success"] and move_result["response"].strip():
+                    move_text = move_result["response"].strip().split()[0].rstrip(".,;").strip("`")
+                    move_text = re.sub(r"^\d+\.+", "", move_text)
+                    if move_text:
+                        parsed["move"] = move_text
+                llm_result["inference_ms"] += move_result.get("inference_ms", 0)
+
+            if (
+                parsed["eval"] is None
+                and parsed["move"] is None
+                and parsed["explanation"] is None
+            ):
+                error_msg = "All three fields missing from response"
+                logger.error(f"Job {job_id}: {error_msg}")
+                self.job_queue.fail_job(job_id, error_msg)
+                return None
 
         # Score all tasks
         scores = score_all(
@@ -223,33 +276,27 @@ class Worker:
 
         jobs_processed = 0
 
-        try:
-            while True:
-                # Check job limit
-                if max_jobs is not None and jobs_processed >= max_jobs:
-                    logger.info(f"Reached job limit ({max_jobs})")
-                    break
+        while True:
+            # Check job limit
+            if max_jobs is not None and jobs_processed >= max_jobs:
+                logger.info(f"Reached job limit ({max_jobs})")
+                break
 
-                # Claim next job
-                job = self.job_queue.claim_job(self.worker_id)
+            # Claim next job
+            job = self.job_queue.claim_job(self.worker_id, model=self.model)
 
-                if job is None:
-                    logger.info("No more pending jobs")
-                    break
+            if job is None:
+                logger.info("No more pending jobs")
+                break
 
-                # Process job
-                try:
-                    result = self.process_job(job)
-                    if result is not None:
-                        jobs_processed += 1
-                except Exception as e:
-                    logger.exception(f"Error processing job {job['job_id']}: {e}")
-                    self.job_queue.fail_job(job["job_id"], str(e))
-
-        finally:
-            # Cleanup
-            if self.engine:
-                self.engine.close()
+            # Process job
+            try:
+                result = self.process_job(job)
+                if result is not None:
+                    jobs_processed += 1
+            except Exception as e:
+                logger.exception(f"Error processing job {job['job_id']}: {e}")
+                self.job_queue.fail_job(job["job_id"], str(e))
 
         logger.info(f"Worker {self.worker_id} processed {jobs_processed} jobs")
         return jobs_processed
@@ -260,6 +307,7 @@ def run_worker(
     config_path: str = "config/config.yaml",
     max_jobs: int | None = None,
     dry_run: bool = False,
+    model: str | None = None,
 ) -> int:
     """Run a single worker process.
 
@@ -268,10 +316,11 @@ def run_worker(
         config_path: Path to configuration file
         max_jobs: Maximum jobs to process
         dry_run: If True, don't write results
+        model: If set, only process jobs for this model
 
     Returns:
         Number of jobs processed
     """
     config = load_config(config_path)
-    worker = Worker(worker_id, config, dry_run=dry_run)
+    worker = Worker(worker_id, config, dry_run=dry_run, model=model)
     return worker.run(max_jobs=max_jobs)

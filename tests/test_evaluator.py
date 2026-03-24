@@ -62,8 +62,7 @@ class TestScoreT2:
 
     def test_illegal_move(self):
         fen = "r1bqkbnr/pppp1ppp/2n5/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R b KQkq - 3 3"
-        result = score_t2("Qh4", fen, "Nf6", 50)  # Illegal from this position
-        # Qh4 is actually not legal for Black here
+        result = score_t2("Qa5", fen, "Nf6", 50)  # Illegal: queen path d8->c7 blocked by own pawn
         assert result["t2_legal"] is False
 
     def test_none_move(self):
