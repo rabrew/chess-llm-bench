@@ -1,20 +1,16 @@
 """Tests for the dashboard Flask server."""
 import json
-import math
 import os
 import sys
-import tempfile
 import sqlite3
 
 import pytest
 
-# Add dashboard dir to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "dashboard"))
 
 
 @pytest.fixture
 def sample_db(tmp_path):
-    """Create a minimal jobs.db for testing."""
     db_path = tmp_path / "jobs.db"
     conn = sqlite3.connect(db_path)
     conn.execute("""
@@ -40,40 +36,51 @@ def sample_db(tmp_path):
 
 
 @pytest.fixture
-def sample_metrics_dir(tmp_path):
-    """Create minimal CSV metric files for testing."""
-    by_model = tmp_path / "by_model.csv"
-    by_model.write_text(
-        "model,t1_absolute_error_mean,t1_direction_correct_mean,"
-        "t2_legal_mean,t2_cpl_mean,t3_score_mean,job_id_count\n"
-        "llama3.2:3b,2568.0,0.28,0.11,431.0,0.58,19\n"
-        "qwen2.5:7b,1307.0,0.32,0.11,2423.0,0.43,336\n"
-    )
-
-    by_diff = tmp_path / "by_difficulty.csv"
-    by_diff.write_text(
-        "model,difficulty,t1_absolute_error,t2_cpl,t2_legal,t3_score,job_id\n"
-        "llama3.2:3b,easy,363.5,,0.0,1.0,2\n"
-        "qwen2.5:7b,easy,1441.0,452.5,0.04,0.38,52\n"
-        "qwen2.5:7b,hard,714.8,6476.6,0.13,0.41,64\n"
-    )
-
-    halluc = tmp_path / "hallucination_rate.csv"
-    halluc.write_text(
-        "model,difficulty,hallucination_rate,job_id\n"
-        "llama3.2:3b,easy,1.0,2\n"
-        "qwen2.5:7b,easy,0.96,52\n"
-        "qwen2.5:7b,hard,0.88,64\n"
-    )
-
-    return str(tmp_path)
+def sample_jsonl(tmp_path):
+    """Create a minimal evaluations.jsonl for testing."""
+    records = [
+        # llama3.2:3b easy — illegal move
+        {"model": "llama3.2:3b", "difficulty": "easy", "t1_direction_correct": False,
+         "t2_legal": False, "t2_cpl": None, "t3_score": 1.0},
+        {"model": "llama3.2:3b", "difficulty": "easy", "t1_direction_correct": True,
+         "t2_legal": False, "t2_cpl": None, "t3_score": 0.0},
+        # qwen2.5:7b easy — 1 legal out of 4 (25%)
+        {"model": "qwen2.5:7b", "difficulty": "easy", "t1_direction_correct": True,
+         "t2_legal": True,  "t2_cpl": 452.0, "t3_score": 0.5},
+        {"model": "qwen2.5:7b", "difficulty": "easy", "t1_direction_correct": False,
+         "t2_legal": False, "t2_cpl": None, "t3_score": 0.3},
+        {"model": "qwen2.5:7b", "difficulty": "easy", "t1_direction_correct": False,
+         "t2_legal": False, "t2_cpl": None, "t3_score": 0.4},
+        {"model": "qwen2.5:7b", "difficulty": "easy", "t1_direction_correct": True,
+         "t2_legal": False, "t2_cpl": None, "t3_score": 0.2},
+        # qwen2.5:7b hard
+        {"model": "qwen2.5:7b", "difficulty": "hard", "t1_direction_correct": False,
+         "t2_legal": True,  "t2_cpl": 6476.0, "t3_score": 0.4},
+        {"model": "qwen2.5:7b", "difficulty": "hard", "t1_direction_correct": False,
+         "t2_legal": False, "t2_cpl": None,   "t3_score": 0.4},
+        {"model": "qwen2.5:7b", "difficulty": "hard", "t1_direction_correct": True,
+         "t2_legal": False, "t2_cpl": None,   "t3_score": 0.5},
+        {"model": "qwen2.5:7b", "difficulty": "hard", "t1_direction_correct": False,
+         "t2_legal": False, "t2_cpl": None,   "t3_score": 0.3},
+        {"model": "qwen2.5:7b", "difficulty": "hard", "t1_direction_correct": False,
+         "t2_legal": False, "t2_cpl": None,   "t3_score": 0.3},
+        {"model": "qwen2.5:7b", "difficulty": "hard", "t1_direction_correct": False,
+         "t2_legal": False, "t2_cpl": None,   "t3_score": 0.3},
+        {"model": "qwen2.5:7b", "difficulty": "hard", "t1_direction_correct": False,
+         "t2_legal": False, "t2_cpl": None,   "t3_score": 0.4},
+        {"model": "qwen2.5:7b", "difficulty": "hard", "t1_direction_correct": True,
+         "t2_legal": False, "t2_cpl": None,   "t3_score": 0.4},
+    ]
+    path = tmp_path / "evaluations.jsonl"
+    path.write_text("\n".join(json.dumps(r) for r in records) + "\n")
+    return str(path)
 
 
 @pytest.fixture
-def app(sample_db, sample_metrics_dir):
+def app(sample_db, sample_jsonl):
     import server
     server.DB_PATH = sample_db
-    server.METRICS_DIR = sample_metrics_dir
+    server.EVALUATIONS_PATH = sample_jsonl
     server.app.config["TESTING"] = True
     return server.app.test_client()
 
@@ -107,7 +114,6 @@ def test_progress_currently_running(app):
 
 
 def test_progress_not_started_model(app):
-    """Models with only pending jobs should appear with 0 done."""
     resp = app.get("/api/progress")
     data = json.loads(resp.data)
     models = {m["model"]: m for m in data["models"]}
@@ -132,11 +138,20 @@ def test_metrics_by_model_keys(app):
 
 
 def test_metrics_nan_becomes_null(app):
-    """NaN values in CSVs must be serialised as null, not the string 'nan'."""
     resp = app.get("/api/metrics")
     raw = resp.data.decode()
     assert "NaN" not in raw
     assert '"nan"' not in raw
+
+
+def test_metrics_legal_rate(app):
+    resp = app.get("/api/metrics")
+    data = json.loads(resp.data)
+    row = next(r for r in data["by_model"] if r["model"] == "llama3.2:3b")
+    assert row["t2_legal_mean"] == pytest.approx(0.0, abs=0.01)
+    row2 = next(r for r in data["by_model"] if r["model"] == "qwen2.5:7b")
+    # 2 legal out of 12 total (1 easy + 1 hard)
+    assert row2["t2_legal_mean"] == pytest.approx(2/12, abs=0.01)
 
 
 def test_metrics_by_difficulty(app):
@@ -147,7 +162,7 @@ def test_metrics_by_difficulty(app):
         r for r in data["by_difficulty"]
         if r["model"] == "qwen2.5:7b" and r["difficulty"] == "hard"
     )
-    assert row["t2_legal"] == pytest.approx(0.13, abs=0.01)
+    assert row["t2_legal"] == pytest.approx(1/8, abs=0.01)
 
 
 def test_metrics_hallucination(app):
@@ -158,7 +173,8 @@ def test_metrics_hallucination(app):
         r for r in data["hallucination"]
         if r["model"] == "qwen2.5:7b" and r["difficulty"] == "easy"
     )
-    assert row["hallucination_rate"] == pytest.approx(0.96, abs=0.01)
+    # 3 illegal out of 4 = 75%
+    assert row["hallucination_rate"] == pytest.approx(0.75, abs=0.01)
 
 
 # --- static index ---

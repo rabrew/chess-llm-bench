@@ -1,16 +1,15 @@
 """Chess LLM Benchmark Dashboard — Flask server."""
-import csv
 import json
 import math
-import os
 import sqlite3
+from collections import defaultdict
 from pathlib import Path
 
 from flask import Flask, jsonify, send_from_directory
 
 BASE_DIR = Path(__file__).parent.parent
 DB_PATH = "/mnt/shared/chess-llm-bench/jobs/jobs.db"
-METRICS_DIR = str(BASE_DIR / "results" / "metrics")
+EVALUATIONS_PATH = str(BASE_DIR / "results" / "evaluations.jsonl")
 
 app = Flask(__name__, static_folder=str(Path(__file__).parent))
 
@@ -49,12 +48,95 @@ def _null(val):
         return None
 
 
-def _read_csv(filename):
-    path = os.path.join(METRICS_DIR, filename)
-    if not os.path.exists(path):
-        return []
-    with open(path, newline="") as f:
-        return list(csv.DictReader(f))
+def _mean(values):
+    vals = [v for v in values if v is not None]
+    return sum(vals) / len(vals) if vals else None
+
+
+def _compute_metrics():
+    """Read evaluations.jsonl and compute per-model and per-model×difficulty metrics."""
+    # Accumulators: model -> difficulty -> field -> [values]
+    acc = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
+
+    try:
+        with open(EVALUATIONS_PATH) as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    r = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                model = r.get("model")
+                diff  = r.get("difficulty", "unknown")
+                if not model:
+                    continue
+                a = acc[model][diff]
+                v = r.get("t1_direction_correct")
+                if v is not None:
+                    a["t1_direction_correct"].append(float(v))
+                v = r.get("t2_legal")
+                if v is not None:
+                    a["t2_legal"].append(float(v))
+                v = r.get("t2_cpl")
+                if v is not None:
+                    a["t2_cpl"].append(float(v))
+                v = r.get("t3_score")
+                if v is not None:
+                    a["t3_score"].append(float(v))
+    except FileNotFoundError:
+        pass
+
+    DIFFICULTIES = ["easy", "medium", "hard", "extreme"]
+
+    by_model = []
+    by_difficulty = []
+    hallucination = []
+
+    for model, size in MODEL_ORDER:
+        if model not in acc:
+            continue
+        # Flatten all difficulties for per-model aggregates
+        all_t1, all_legal, all_cpl, all_t3 = [], [], [], []
+        for diff in acc[model]:
+            a = acc[model][diff]
+            all_t1    += a["t1_direction_correct"]
+            all_legal += a["t2_legal"]
+            all_cpl   += a["t2_cpl"]
+            all_t3    += a["t3_score"]
+
+        by_model.append({
+            "model": model,
+            "size":  size,
+            "t1_direction_correct_mean": _null(_mean(all_t1)),
+            "t2_legal_mean":             _null(_mean(all_legal)),
+            "t2_cpl_mean":               _null(_mean(all_cpl)),
+            "t3_score_mean":             _null(_mean(all_t3)),
+        })
+
+        for diff in DIFFICULTIES:
+            if diff not in acc[model]:
+                continue
+            a = acc[model][diff]
+            legal_vals = a["t2_legal"]
+            legal_mean = _mean(legal_vals)
+            halluc_rate = _null(1.0 - legal_mean) if legal_mean is not None else None
+            by_difficulty.append({
+                "model":      model,
+                "difficulty": diff,
+                "t2_legal":   _null(legal_mean),
+                "t2_cpl":     _null(_mean(a["t2_cpl"])),
+                "t3_score":   _null(_mean(a["t3_score"])),
+                "t1_direction_correct": _null(_mean(a["t1_direction_correct"])),
+            })
+            hallucination.append({
+                "model":             model,
+                "difficulty":        diff,
+                "hallucination_rate": halluc_rate,
+            })
+
+    return by_model, by_difficulty, hallucination
 
 
 @app.route("/")
@@ -116,48 +198,11 @@ def api_progress():
 
 @app.route("/api/metrics")
 def api_metrics():
-    by_model_rows = _read_csv("by_model.csv")
-    by_diff_rows  = _read_csv("by_difficulty.csv")
-    halluc_rows   = _read_csv("hallucination_rate.csv")
-
-    FLOAT_COLS_MODEL = [
-        "t1_absolute_error_mean", "t1_direction_correct_mean",
-        "t2_legal_mean", "t2_cpl_mean", "t3_score_mean",
-    ]
-    FLOAT_COLS_DIFF = [
-        "t1_absolute_error", "t2_cpl", "t2_legal", "t3_score",
-    ]
-
-    def clean_model_row(r):
-        out = {"model": r["model"], "size": MODEL_SIZE_MAP.get(r["model"], "?")}
-        for col in FLOAT_COLS_MODEL:
-            out[col] = _null(r.get(col))
-        return out
-
-    def clean_diff_row(r):
-        out = {"model": r["model"], "difficulty": r.get("difficulty", "")}
-        for col in FLOAT_COLS_DIFF:
-            out[col] = _null(r.get(col))
-        return out
-
-    def clean_halluc_row(r):
-        return {
-            "model":            r["model"],
-            "difficulty":       r.get("difficulty", ""),
-            "hallucination_rate": _null(r.get("hallucination_rate")),
-        }
-
-    by_model = sorted(
-        [clean_model_row(r) for r in by_model_rows],
-        key=lambda r: MODEL_RANK.get(r["model"], 999),
-    )
-    by_diff  = [clean_diff_row(r)  for r in by_diff_rows]
-    halluc   = [clean_halluc_row(r) for r in halluc_rows]
-
+    by_model, by_difficulty, hallucination = _compute_metrics()
     return jsonify({
-        "by_model":    by_model,
-        "by_difficulty": by_diff,
-        "hallucination": halluc,
+        "by_model":      by_model,
+        "by_difficulty": by_difficulty,
+        "hallucination": hallucination,
     })
 
 

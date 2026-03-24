@@ -12,6 +12,7 @@
   </style>
 </head>
 <body class="min-h-screen p-6 font-mono text-sm">
+  <div class="max-w-6xl mx-auto">
 
   <!-- Header -->
   <div class="flex items-center justify-between mb-6">
@@ -48,25 +49,25 @@
     <!-- Legal Move % -->
     <div class="bg-gray-900 rounded-xl p-5 shadow-lg">
       <h2 class="text-base font-semibold text-white mb-3">Legal Move %</h2>
-      <canvas id="chart-legal" height="220"></canvas>
+      <div style="position:relative;height:220px"><canvas id="chart-legal"></canvas></div>
     </div>
 
     <!-- Hallucination Rate -->
     <div class="bg-gray-900 rounded-xl p-5 shadow-lg">
       <h2 class="text-base font-semibold text-white mb-3">Hallucination Rate</h2>
-      <canvas id="chart-halluc" height="220"></canvas>
+      <div style="position:relative;height:220px"><canvas id="chart-halluc"></canvas></div>
     </div>
 
     <!-- CPL -->
     <div class="bg-gray-900 rounded-xl p-5 shadow-lg">
       <h2 class="text-base font-semibold text-white mb-3">Centipawn Loss (CPL)</h2>
-      <canvas id="chart-cpl" height="220"></canvas>
+      <div style="position:relative;height:220px"><canvas id="chart-cpl"></canvas></div>
     </div>
 
     <!-- Eval Direction Accuracy -->
     <div class="bg-gray-900 rounded-xl p-5 shadow-lg">
       <h2 class="text-base font-semibold text-white mb-3">Eval Direction Accuracy</h2>
-      <canvas id="chart-eval" height="220"></canvas>
+      <div style="position:relative;height:220px"><canvas id="chart-eval"></canvas></div>
     </div>
 
   </div>
@@ -74,7 +75,7 @@
   <!-- Explanation Score (full width) -->
   <div class="bg-gray-900 rounded-xl p-5 shadow-lg">
     <h2 class="text-base font-semibold text-white mb-3">Explanation Score (T3)</h2>
-    <canvas id="chart-t3" height="160"></canvas>
+    <div style="position:relative;height:200px"><canvas id="chart-t3"></canvas></div>
   </div>
 
   <script>
@@ -266,5 +267,6 @@
   setInterval(loadProgress, 5000);
   </script>
 
+  </div> <!-- max-w-6xl -->
 </body>
 </html>
