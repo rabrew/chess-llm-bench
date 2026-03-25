@@ -87,13 +87,28 @@ JOBS_PER_TIER=2500  # 3000 jobs per tier; skip if >= this many results already s
 tier_done() {
     local model="$1" tier="$2"
     local count
-    count=$(python3 -c "
+    count=$(python3 - "$model" "$tier" <<'PYEOF' 2>/dev/null || echo 0
 import json, sys
 model, tier = sys.argv[1], sys.argv[2]
-n = sum(1 for line in open('$RESULTS_FILE')
-        if json.loads(line).get('model') == model and json.loads(line).get('difficulty') == tier)
+results_file = "results/evaluations.jsonl"
+n = 0
+try:
+    with open(results_file) as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                r = json.loads(line)
+                if r.get("model") == model and r.get("difficulty") == tier:
+                    n += 1
+            except json.JSONDecodeError:
+                continue
+except FileNotFoundError:
+    pass
 print(n)
-" "$model" "$tier" 2>/dev/null || echo 0)
+PYEOF
+)
     [ "$count" -ge "$JOBS_PER_TIER" ]
 }
 
@@ -114,9 +129,9 @@ while IFS= read -r model; do
         python scripts/run_workers.py --workers "$WORKERS" --model "$model"
 
         print_info "$model/$tier complete. Wiping job DB..."
-        rm -f /mnt/shared/chess-llm-bench/jobs/jobs.db
-        rm -f /mnt/shared/chess-llm-bench/jobs/jobs.db-shm
-        rm -f /mnt/shared/chess-llm-bench/jobs/jobs.db-wal
+        rm -f /mnt/shared/chess-llm-bench/jobs/db/jobs.db
+        rm -f /mnt/shared/chess-llm-bench/jobs/db/jobs.db-shm
+        rm -f /mnt/shared/chess-llm-bench/jobs/db/jobs.db-wal
         echo ""
     done
 done <<< "$MODELS"
@@ -127,7 +142,13 @@ echo ""
 python scripts/retry_illegal_moves.py
 echo ""
 
-print_header "STEP 8/8: GENERATING RESULTS"
+print_header "STEP 8/9: ENRICHING CPL (Lc0 GPU)"
+print_info "Computing centipawn loss for all legal moves..."
+echo ""
+python scripts/enrich_cpl.py
+echo ""
+
+print_header "STEP 9/9: GENERATING RESULTS"
 print_info "Creating plots and metrics..."
 echo ""
 python scripts/generate_plots.py --save-metrics
