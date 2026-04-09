@@ -12,7 +12,7 @@ from src.job_generator import populate_job_queue, estimate_job_count
 from src.utils import load_config, setup_logging
 
 
-def main():
+def main():  # pragma: no cover
     parser = argparse.ArgumentParser(
         description="Generate benchmark jobs and populate the job queue"
     )
@@ -77,5 +77,5 @@ def main():
         print(f"\nInserted {inserted} jobs into the queue")
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     main()

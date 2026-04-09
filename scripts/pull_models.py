@@ -12,7 +12,7 @@ from src.llm_client import OllamaClient
 from src.utils import load_config, setup_logging
 
 
-def main():
+def main():  # pragma: no cover
     parser = argparse.ArgumentParser(
         description="Pull all configured Ollama models"
     )
@@ -103,5 +103,5 @@ def main():
     print(f"\nSuccessfully pulled/verified {success_count}/{len(models)} models")
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     main()

@@ -81,21 +81,30 @@ class OllamaClient:
     def _get_options(model: str) -> dict[str, Any]:
         """Build Ollama options for a model.
 
-        For large models (70B+) that exceed VRAM, cap num_gpu so layers
-        overflow into RAM rather than crashing with OOM.
-        16GB VRAM holds ~28 layers of a 70B Q4 model (remaining ~52 go to RAM).
+        num_predict caps output tokens to prevent runaway generation filling the
+        KV cache and crashing the Ollama runner. Chess responses are short
+        (eval + move + explanation), so 400 tokens is generous.
+        num_ctx is capped to reduce KV cache VRAM pressure and allow more
+        parallel slots.
         """
         model_lower = model.lower()
         if "72b" in model_lower:
-            # qwen2.5:72b is ~47GB — push 26 layers to GPU (~15GB VRAM),
-            # remaining ~54 layers use ~30GB RAM. Reduce ctx to save VRAM headroom.
-            return {"num_gpu": 26, "num_ctx": 512}
+            return {"num_gpu": 26, "num_ctx": 512, "num_predict": 400}
         if "70b" in model_lower:
-            # llama3.3:70b is ~43GB — 16GB VRAM fits ~26 layers safely
-            return {"num_gpu": 26}
-        return {}
+            return {"num_gpu": 26, "num_ctx": 512, "num_predict": 400}
+        if "deepseek-r1" in model_lower:
+            # DeepSeek-R1 generates long CoT chains before answering — needs
+            # much higher token budget or responses get cut off mid-think.
+            return {"num_ctx": 8192, "num_predict": 3000}
+        if "gemma4" in model_lower:
+            # Gemma4 has built-in thinking/CoT disabled via think:false payload flag.
+            # Without disabling it, thinking tokens consume num_predict budget and
+            # responses come back blank. Options are kept light since no CoT overhead.
+            return {"num_ctx": 1024, "num_predict": 400}
+        # All other models: cap context and output to prevent KV cache OOM
+        return {"num_ctx": 1024, "num_predict": 400}
 
-    def chat(self, model: str, prompt: str, system_prompt: str | None = None) -> dict[str, Any]:
+    def chat(self, model: str, prompt: str, system_prompt: str | None = None, temperature: float | None = None) -> dict[str, Any]:
         """Send a chat request to Ollama.
 
         Args:
@@ -126,13 +135,18 @@ class OllamaClient:
 
         for attempt in range(self.max_retries):
             try:
+                merged_options = dict(options)
+                if temperature is not None:
+                    merged_options["temperature"] = temperature
                 payload: dict[str, Any] = {
                     "model": model,
                     "messages": messages,
                     "stream": False,
                 }
-                if options:
-                    payload["options"] = options
+                if "gemma4" in model.lower():
+                    payload["think"] = False
+                if merged_options:
+                    payload["options"] = merged_options
                 response = requests.post(
                     f"{self.base_url}/api/chat",
                     json=payload,
@@ -230,6 +244,52 @@ def build_explanation_prompt(fen: str, pgn_moves: str | None = None) -> str:
     )
 
 
+def extract_move_from_text(fen: str, text: str) -> str | None:
+    """Try to find a legal move anywhere in the model's response text.
+
+    Attempts, in order:
+    1. Each whitespace token cleaned of punctuation/backticks, tried as SAN.
+    2. Each token tried as UCI (e.g. e2e4, g1f3, e7e8q) and converted to SAN.
+
+    Returns the first legal SAN move found, or None.
+    """
+    import chess as _chess
+
+    try:
+        board = _chess.Board(fen)
+    except Exception:
+        return None
+
+    UCI_RE = re.compile(r'^[a-h][1-8][a-h][1-8][qrbnQRBN]?$')
+
+    candidates = text.strip().split()
+    for raw in candidates:
+        token = raw.strip(".,;:!?()[]{}'\"`*#").rstrip("+#")
+        token = re.sub(r"^\d+\.+", "", token)  # strip move numbers like "1." / "21..."
+        if not token:
+            continue
+
+        # Try as SAN
+        try:
+            move = board.parse_san(token)
+            if move in board.legal_moves:
+                return board.san(move)
+        except Exception:
+            pass
+
+        # Try as UCI
+        uci_token = token.lower()
+        if UCI_RE.match(uci_token):
+            try:
+                move = _chess.Move.from_uci(uci_token)
+                if move in board.legal_moves:
+                    return board.san(move)
+            except Exception:
+                pass
+
+    return None
+
+
 def build_move_prompt(fen: str) -> str:
     """Build an isolated prompt asking only for the best move.
 
@@ -239,10 +299,12 @@ def build_move_prompt(fen: str) -> str:
     import chess as _chess
     board = _chess.Board(fen)
     side = "White" if board.turn == _chess.WHITE else "Black"
+    legal_moves = ", ".join(board.san(m) for m in board.legal_moves)
     return (
         f"Position (FEN): {fen}\n"
         f"It is {side} to move.\n\n"
-        f"What is the best move for {side}? Respond with the SAN move only."
+        f"Legal moves: {legal_moves}\n\n"
+        f"What is the best move for {side}? You MUST pick one of the listed legal moves. Respond with the SAN move only."
     )
 
 
@@ -430,6 +492,16 @@ def parse_response(response_text: str) -> dict[str, Any]:
             elif "equal" in explanation_lower or "draw" in explanation_lower:
                 result["side_claimed"] = "Equal"
 
+        # Fallback: plain unlabeled explanation after eval and move are known
+        elif result["explanation"] is None and result["eval"] is not None and result["move"] is not None:
+            result["explanation"] = line
+            explanation_lower = line.lower()
+            if "white" in explanation_lower and "black" not in explanation_lower:
+                result["side_claimed"] = "White"
+            elif "black" in explanation_lower and "white" not in explanation_lower:
+                result["side_claimed"] = "Black"
+            elif "equal" in explanation_lower or "draw" in explanation_lower:
+                result["side_claimed"] = "Equal"
         # Fallback: unlabeled numbered answer — infer field from question number
         # Handles formats like "1. 25\n2. d4\n3. White is better because..."
         elif question_num == 1 and result["eval"] is None:

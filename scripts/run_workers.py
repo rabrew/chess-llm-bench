@@ -2,9 +2,11 @@
 """CLI script to run benchmark workers."""
 
 import argparse
+import gc
 import json
 import multiprocessing
 import signal
+import sqlite3
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -12,10 +14,12 @@ from pathlib import Path
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+from src.data_loader import DataLoader
 from src.job_queue import JobQueue
 from src.llm_client import OllamaClient
 from src.utils import load_config, setup_logging, ensure_dir
 from src.worker import run_worker
+import src.worker as _worker_module
 
 
 # Global flag for graceful shutdown
@@ -56,7 +60,10 @@ def write_run_log(config: dict, run_id: str, log_dir: str) -> None:
         json.dump(metadata, f, indent=2)
 
 
-def main():
+def main():  # pragma: no cover
+    # Python 3.14 defaults to forkserver on Linux which deadlocks with our setup.
+    # Force fork which is stable and avoids the forkserver handshake deadlock.
+    multiprocessing.set_start_method('fork', force=True)
     parser = argparse.ArgumentParser(
         description="Run benchmark workers to process jobs"
     )
@@ -144,6 +151,11 @@ def main():
     # Determine worker count
     num_workers = args.workers or config.get("workers", {}).get("count", 4)
 
+    # Reset jobs left in_progress by previously crashed workers
+    stale = job_queue.reset_stale_jobs(timeout_minutes=10)
+    if stale:
+        logger.info(f"Reset {stale} stale in_progress jobs to pending")
+
     # Check for pending jobs
     progress = job_queue.get_progress()
     if progress["pending"] == 0:
@@ -175,6 +187,36 @@ def main():
         print(f"\nProcessed {jobs_processed} jobs")
         return
 
+    # Pre-load only the positions needed by pending jobs into a shared dict.
+    # Workers are fork()ed below, so they inherit this dict via COW and never
+    # need to independently load the multi-GB JSON tier files.
+    data_dir = paths.get("data_dir", "data")
+    needed_ids: set[int] = set()
+    try:
+        conn_tmp = sqlite3.connect(db_path)
+        cur_tmp = conn_tmp.cursor()
+        cur_tmp.execute(
+            "SELECT DISTINCT position_id FROM jobs WHERE status IN ('pending', 'in_progress')"
+        )
+        needed_ids = {row[0] for row in cur_tmp.fetchall()}
+        conn_tmp.close()
+    except Exception as e:
+        logger.warning(f"Could not query needed position IDs: {e}")
+
+    if needed_ids:
+        logger.info(f"Pre-loading {len(needed_ids)} positions before forking workers...")
+        loader = DataLoader(data_dir)
+        for tier in ["easy", "medium", "hard", "extreme"]:
+            tier_positions = loader.load_tier(tier)
+            for pos in tier_positions:
+                if pos["id"] in needed_ids:
+                    _worker_module._SHARED_POSITIONS[pos["id"]] = pos
+            loader._cache.pop(tier, None)
+            gc.collect()
+        del loader
+        gc.collect()
+        logger.info(f"Pre-loaded {len(_worker_module._SHARED_POSITIONS)} positions ({len(_worker_module._SHARED_POSITIONS) * 100 // max(len(needed_ids), 1)}% of needed)")
+
     # Run workers in parallel
     worker_args = [
         (f"worker_{i}", args.config, args.max_jobs, args.dry_run, args.model)
@@ -192,5 +234,5 @@ def main():
             raise
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     main()

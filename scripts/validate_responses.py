@@ -144,7 +144,7 @@ def validate_model(model_name, records):
             print(f"    ... and {len(all_issues) - 10} more")
 
 
-def main():
+def main():  # pragma: no cover
     print("Loading records from evaluations.jsonl + backup...\n")
     records = load_records(RESULTS_FILE, BACKUP_FILE)
     print(f"Total records loaded: {len(records)}\n")
@@ -185,5 +185,5 @@ def main():
         print(f"  - {m}")
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     main()

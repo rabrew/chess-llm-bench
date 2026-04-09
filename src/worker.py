@@ -6,6 +6,11 @@ import re
 import time
 from typing import Any
 
+# Shared position cache: populated in the parent process before forking so all
+# workers inherit it via COW without each independently loading gigabyte-scale
+# JSON files.  Keyed by position_id (int).
+_SHARED_POSITIONS: dict[int, dict] = {}
+
 import chess
 
 from .data_loader import DataLoader
@@ -24,6 +29,7 @@ from .llm_client import (
     parse_response,
     parse_eval_response,
     parse_explanation_response,
+    extract_move_from_text,
 )
 from .result_writer import ResultWriter, build_result_record, get_completed_job_ids
 from .utils import load_config
@@ -112,7 +118,11 @@ class Worker:
             return None
 
         # Enrich job with position data from the JSON dataset
-        pos = self.data_loader.get_by_id(job["position_id"])
+        pos = (
+            _SHARED_POSITIONS.get(job["position_id"])
+            if _SHARED_POSITIONS
+            else self.data_loader.get_by_id(job["position_id"])
+        )
         if pos is None:
             error_msg = f"Position {job['position_id']} not found in dataset"
             logger.error(f"Job {job_id}: {error_msg}")
@@ -164,18 +174,17 @@ class Worker:
 
         elif prompt_format == "move_only":
             prompt = build_move_prompt(fen)
-            llm_result = self.llm_client.chat(job["model"], prompt, system_prompt=MOVE_SYSTEM_PROMPT)
+            llm_result = self.llm_client.chat(job["model"], prompt, system_prompt=MOVE_SYSTEM_PROMPT, temperature=0)
             if not llm_result["success"]:
                 self.job_queue.fail_job(job_id, llm_result.get("error", "Unknown error"))
                 return None
-            move_text = llm_result["response"].strip().split()[0].rstrip(".,;").strip("`")
-            move_text = re.sub(r"^\d+\.+", "", move_text)
+            move_text = extract_move_from_text(fen, llm_result["response"])
             parsed = {
                 "eval": None,
-                "move": move_text or None,
+                "move": move_text,
                 "explanation": None,
                 "side_claimed": None,
-                "parse_errors": [],
+                "parse_errors": [] if move_text else ["No legal move found in response"],
             }
 
         elif prompt_format == "explanation_only":
@@ -197,14 +206,18 @@ class Worker:
 
             # If combined prompt returned illegal/missing move, retry with isolated call
             if not _is_legal(fen, parsed.get("move")):
-                move_prompt = build_move_prompt(fen)
-                move_result = self.llm_client.chat(job["model"], move_prompt, system_prompt=MOVE_SYSTEM_PROMPT)
-                if move_result["success"] and move_result["response"].strip():
-                    move_text = move_result["response"].strip().split()[0].rstrip(".,;").strip("`")
-                    move_text = re.sub(r"^\d+\.+", "", move_text)
-                    if move_text:
-                        parsed["move"] = move_text
-                llm_result["inference_ms"] += move_result.get("inference_ms", 0)
+                # First try to rescue a legal move from the original response
+                rescued = extract_move_from_text(fen, llm_result["response"])
+                if rescued:
+                    parsed["move"] = rescued
+                else:
+                    move_prompt = build_move_prompt(fen)
+                    move_result = self.llm_client.chat(job["model"], move_prompt, system_prompt=MOVE_SYSTEM_PROMPT, temperature=0)
+                    if move_result["success"] and move_result["response"].strip():
+                        extracted = extract_move_from_text(fen, move_result["response"])
+                        if extracted:
+                            parsed["move"] = extracted
+                    llm_result["inference_ms"] += move_result.get("inference_ms", 0)
 
             if (
                 parsed["eval"] is None

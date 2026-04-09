@@ -12,7 +12,6 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from scripts.retry_illegal_moves import (
     build_retry_prompt,
-    get_legal_san_moves,
     is_legal,
     parse_move,
 )
@@ -27,26 +26,20 @@ START_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
 
 class TestBuildRetryPrompt:
     def test_includes_fen(self):
-        prompt = build_retry_prompt(START_FEN, "e5", ["e4", "d4", "Nf3"])
+        prompt = build_retry_prompt(START_FEN, "e5")
         assert START_FEN in prompt
 
-    def test_includes_legal_moves(self):
-        prompt = build_retry_prompt(START_FEN, "e5", ["e4", "d4", "Nf3"])
-        assert "e4" in prompt
-        assert "d4" in prompt
-        assert "Nf3" in prompt
-
     def test_illegal_move_mentioned(self):
-        prompt = build_retry_prompt(START_FEN, "e5", ["e4"])
+        prompt = build_retry_prompt(START_FEN, "e5")
         assert "e5" in prompt
         assert "not legal" in prompt
 
     def test_missing_move(self):
-        prompt = build_retry_prompt(START_FEN, None, ["e4"])
+        prompt = build_retry_prompt(START_FEN, None)
         assert "did not provide" in prompt
 
     def test_asks_for_san_only(self):
-        prompt = build_retry_prompt(START_FEN, "e5", ["e4"])
+        prompt = build_retry_prompt(START_FEN, "e5")
         assert "SAN" in prompt or "move" in prompt.lower()
 
 
@@ -85,32 +78,6 @@ class TestParseMove:
     def test_castling(self):
         assert parse_move("O-O") == "O-O"
         assert parse_move("O-O-O") == "O-O-O"
-
-
-# ---------------------------------------------------------------------------
-# get_legal_san_moves
-# ---------------------------------------------------------------------------
-
-class TestGetLegalSanMoves:
-    def test_starting_position_count(self):
-        moves = get_legal_san_moves(START_FEN)
-        assert len(moves) == 20  # 16 pawn + 4 knight moves
-
-    def test_starting_position_contains_e4(self):
-        moves = get_legal_san_moves(START_FEN)
-        assert "e4" in moves
-
-    def test_checkmate_position_no_moves(self):
-        # Fool's mate — Black is checkmated
-        fen = "rnb1kbnr/pppp1ppp/8/4p3/6Pq/5P2/PPPPP2P/RNBQKBNR w KQkq - 1 3"
-        moves = get_legal_san_moves(fen)
-        assert moves == []
-
-    def test_returns_san_not_uci(self):
-        moves = get_legal_san_moves(START_FEN)
-        # SAN knight move is "Nf3", UCI would be "g1f3"
-        assert "Nf3" in moves
-        assert "g1f3" not in moves
 
 
 # ---------------------------------------------------------------------------

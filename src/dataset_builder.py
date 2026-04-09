@@ -135,7 +135,7 @@ class LichessPuzzleFetcher:
                 "phase": "middlegame",  # Most puzzles are middlegame
                 "source": "lichess_puzzles",
             }
-        except (KeyError, IndexError):
+        except (KeyError, IndexError, AttributeError):
             return None
 
     def fetch_from_csv(

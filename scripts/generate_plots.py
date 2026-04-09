@@ -367,7 +367,7 @@ def plot_correction_delta(df, output_dir):
     plt.close()
 
 
-def main():
+def main():  # pragma: no cover
     parser = argparse.ArgumentParser(
         description="Generate visualization plots from benchmark results"
     )
@@ -480,5 +480,5 @@ def main():
         print(f"Metrics saved to {metrics_dir}")
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     main()

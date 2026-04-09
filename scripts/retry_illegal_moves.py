@@ -59,13 +59,13 @@ SYSTEM_PROMPT = (
 
 def build_retry_prompt(fen: str, illegal_move: str | None) -> str:
     if illegal_move:
-        problem = f'Your previous move "{illegal_move}" was illegal in this position. Think carefully about the piece locations and movement rules before answering.'
+        problem = f'Your previous move "{illegal_move}" is not legal in this position.'
     else:
         problem = "You did not provide a move for this position."
     return (
         f"{problem}\n\n"
         f"Position (FEN): {fen}\n\n"
-        "What is the best legal move? Respond with the SAN move only."
+        "Output a single legal move in SAN notation. Respond with the move only."
     )
 
 
@@ -264,5 +264,5 @@ def main() -> None:
         print(f"  Output         : {output_path}")
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     main()

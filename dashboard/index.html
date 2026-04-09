@@ -4,8 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Chess LLM Benchmark</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <script src="/tailwind.min.js"></script>
+  <script src="/chart.umd.min.js"></script>
   <style>
     .bar-fill { transition: width 0.4s ease; }
     .card { @apply bg-gray-900 rounded-xl p-5 shadow-lg; }
@@ -29,18 +29,26 @@
       <h2 class="text-base font-semibold text-white">Run Progress</h2>
       <span id="overall-badge" class="text-xs text-gray-400"></span>
     </div>
-    <!-- Overall bar -->
-    <div class="mb-4">
+    <!-- Pipeline bar -->
+    <div class="mb-3">
       <div class="flex justify-between text-xs text-gray-400 mb-1">
-        <span>Overall</span>
-        <span id="overall-label">—</span>
+        <span>Pipeline <span class="text-gray-600">(tiers complete)</span></span>
+        <span id="pipeline-label">—</span>
       </div>
       <div class="w-full bg-gray-800 rounded-full h-3">
-        <div id="overall-bar" class="bar-fill bg-indigo-500 h-3 rounded-full" style="width:0%"></div>
+        <div id="pipeline-bar" class="bar-fill bg-indigo-500 h-3 rounded-full" style="width:0%"></div>
       </div>
     </div>
-    <!-- Per-model table -->
-    <div id="model-progress" class="space-y-1.5"></div>
+    <!-- Current tier bar -->
+    <div class="mb-4">
+      <div class="flex justify-between text-xs text-gray-400 mb-1">
+        <span>Current tier <span class="text-gray-600">(jobs)</span></span>
+        <span id="overall-label">—</span>
+      </div>
+      <div class="w-full bg-gray-800 rounded-full h-2">
+        <div id="overall-bar" class="bar-fill bg-emerald-500 h-2 rounded-full" style="width:0%"></div>
+      </div>
+    </div>
   </section>
 
   <!-- Metrics grid -->
@@ -73,9 +81,15 @@
   </div>
 
   <!-- Explanation Score (full width) -->
-  <div class="bg-gray-900 rounded-xl p-5 shadow-lg">
+  <div class="bg-gray-900 rounded-xl p-5 shadow-lg mb-6">
     <h2 class="text-base font-semibold text-white mb-3">Explanation Score (T3)</h2>
     <div style="position:relative;height:200px"><canvas id="chart-t3"></canvas></div>
+  </div>
+
+  <!-- MAE (full width) -->
+  <div class="bg-gray-900 rounded-xl p-5 shadow-lg">
+    <h2 class="text-base font-semibold text-white mb-1">Eval MAE <span class="text-gray-500 font-normal text-xs">(mean absolute error vs Stockfish, centipawns — lower is better)</span></h2>
+    <div style="position:relative;height:220px"><canvas id="chart-mae"></canvas></div>
   </div>
 
   <script>
@@ -111,6 +125,10 @@
   }
 
   // ── Progress ──────────────────────────────────────────────────────────────
+  const TIER_COLORS = { easy: "bg-emerald-500", medium: "bg-amber-400", hard: "bg-rose-400", extreme: "bg-violet-400" };
+  const TIER_LABELS = ["E", "M", "H", "X"];
+  const TIERS = ["easy", "medium", "hard", "extreme"];
+
   async function loadProgress() {
     let data;
     try {
@@ -118,29 +136,61 @@
       data = await r.json();
     } catch { return; }
 
+    // Pipeline bar
+    const p = data.pipeline;
+    document.getElementById("pipeline-label").textContent =
+      `${p.done_tiers} / ${p.total_tiers} tiers (${p.pipeline_pct}%)`;
+    document.getElementById("pipeline-bar").style.width = p.pipeline_pct + "%";
+
+    // Current tier bar
     document.getElementById("overall-label").textContent =
-      `${data.done.toLocaleString()} / ${data.total.toLocaleString()} (${data.overall_pct}%)`;
-    document.getElementById("overall-bar").style.width = data.overall_pct + "%";
+      data.total ? `${data.done.toLocaleString()} / ${data.total.toLocaleString()} (${data.overall_pct}%)` : "idle";
+    document.getElementById("overall-bar").style.width = (data.overall_pct || 0) + "%";
     document.getElementById("last-updated").textContent =
       "Updated " + new Date().toLocaleTimeString();
 
+    // Per-model rows — show tier dots + active job bar
     const container = document.getElementById("model-progress");
     container.innerHTML = "";
-    for (const m of data.models) {
-      const running = m.running
-        ? `<span class="text-emerald-400 ml-2">● RUNNING</span>`
-        : (m.pending === 0 && m.done > 0 ? `<span class="text-gray-500 ml-2">✓</span>` : "");
-      const pct = m.pct;
-      const barColor = m.running ? "bg-emerald-500" : (m.pct === 100 ? "bg-gray-500" : "bg-indigo-500");
+    const activeModels = new Set((data.models || []).filter(m => m.running).map(m => m.model));
+
+    for (const [model, size] of Object.entries(p.model_tiers ? Object.fromEntries(
+      Object.keys(p.model_tiers).map(m => [m, p.model_tiers[m]])
+    ) : {})) {
+      const tiers = p.model_tiers[model];
+      const allDone = TIERS.every(t => tiers[t].complete);
+      const isRunning = activeModels.has(model);
+      const activeJob = (data.models || []).find(m => m.model === model);
+
+      // Tier dots
+      const dots = TIERS.map((t, i) => {
+        const complete = tiers[t].complete;
+        const color = complete ? TIER_COLORS[t] : "bg-gray-700";
+        const label = TIER_LABELS[i];
+        return `<span class="inline-flex items-center justify-center w-5 h-5 rounded text-xs font-bold ${color} ${complete ? "text-gray-900" : "text-gray-600"}">${label}</span>`;
+      }).join("");
+
+      // Active progress bar (only shown when this model is running current tier)
+      const activeBar = isRunning && activeJob ? `
+        <div class="flex-1 bg-gray-800 rounded-full h-1.5">
+          <div class="bar-fill bg-emerald-500 h-1.5 rounded-full" style="width:${activeJob.pct}%"></div>
+        </div>
+        <span class="text-emerald-400 text-xs">● ${activeJob.pct}%</span>
+      ` : `<div class="flex-1"></div>`;
+
+      const status = allDone
+        ? `<span class="text-gray-500 text-xs">✓ done</span>`
+        : isRunning
+          ? ""
+          : `<span class="text-gray-600 text-xs">queued</span>`;
+
       container.insertAdjacentHTML("beforeend", `
         <div class="flex items-center gap-2">
-          <span class="text-gray-400 w-36 truncate">${m.model}</span>
-          <span class="text-gray-600 w-8 text-right">${m.size}</span>
-          <div class="flex-1 bg-gray-800 rounded-full h-2">
-            <div class="bar-fill ${barColor} h-2 rounded-full" style="width:${pct}%"></div>
-          </div>
-          <span class="text-gray-400 w-24 text-right text-xs">${m.done}/${m.total}</span>
-          ${running}
+          <span class="text-gray-400 w-36 truncate text-xs">${model}</span>
+          <span class="text-gray-600 w-8 text-right text-xs">${size}</span>
+          <div class="flex gap-1">${dots}</div>
+          ${activeBar}
+          ${status}
         </div>
       `);
     }
@@ -237,6 +287,29 @@
         x: { ticks: { color: "#9ca3af", font: { family: "monospace", size: 10 } }, grid: { color: "rgba(255,255,255,0.05)" } },
       },
       plugins: { legend: { display: false } },
+    });
+
+    // MAE — grouped by difficulty
+    const maeModels = [...new Set(data.by_difficulty.map(r => r.model))];
+    const maeLabels = maeModels.map(m => m.replace(/:(\w+)$/, "\n$1"));
+    const maeDatasets = DIFFICULTIES.map(diff => ({
+      label: diff,
+      data: maeModels.map(m => {
+        const row = data.by_difficulty.find(r => r.model === m && r.difficulty === diff);
+        return row?.t1_mae !== null && row?.t1_mae !== undefined ? +row.t1_mae.toFixed(0) : null;
+      }),
+      backgroundColor: DIFF_COLORS[diff],
+      borderRadius: 3,
+    }));
+    makeChart("chart-mae", "bar", { labels: maeLabels, datasets: maeDatasets }, {
+      plugins: { legend: { labels: { color: "#9ca3af", font: { family: "monospace", size: 11 } } } },
+      scales: {
+        y: {
+          ticks: { color: "#9ca3af", callback: v => v + " cp" },
+          grid: { color: "rgba(255,255,255,0.07)" },
+        },
+        x: { ticks: { color: "#9ca3af", font: { family: "monospace", size: 10 } }, grid: { color: "rgba(255,255,255,0.05)" } },
+      },
     });
 
     // Explanation Score

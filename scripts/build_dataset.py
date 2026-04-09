@@ -12,7 +12,7 @@ from src.dataset_builder import build_dataset
 from src.utils import load_config, setup_logging
 
 
-def main():
+def main():  # pragma: no cover
     parser = argparse.ArgumentParser(
         description="Build chess position datasets from multiple sources"
     )
@@ -72,5 +72,5 @@ def main():
     print()
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     main()

@@ -129,3 +129,86 @@ class TestShouldTriggerCorrection:
 
     def test_none_cpl(self):
         assert should_trigger_correction(None, threshold=50) is False
+
+
+class TestScoreT2WithEngine:
+    """Test score_t2 with a mocked engine for CPL calculation."""
+
+    def _make_engine(self, eval_after: int):
+        from unittest.mock import MagicMock
+        engine = MagicMock()
+        engine.evaluate_after_move.return_value = eval_after
+        return engine
+
+    def test_cpl_for_white_best_move(self):
+        # White to move, played the best move => CPL = 0
+        fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+        engine = self._make_engine(50)
+        result = score_t2("e4", fen, "e4", 50, engine=engine)
+        assert result["t2_legal"] is True
+        assert result["t2_cpl"] == 0  # best move path (is_best=True) → cpl=0 before engine
+
+    def test_cpl_white_non_best_move(self):
+        fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+        engine = self._make_engine(30)  # eval after move is 30, stockfish was 50
+        result = score_t2("d4", fen, "e4", 50, engine=engine)
+        assert result["t2_legal"] is True
+        # CPL = 50 - 30 = 20 (white's perspective)
+        assert result["t2_cpl"] == 20
+
+    def test_cpl_black_non_best_move(self):
+        # Black to move
+        fen = "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1"
+        engine = self._make_engine(-20)  # eval after move from white's perspective
+        result = score_t2("e5", fen, "e5", -30, engine=engine)
+        # Black's CPL = eval_after - stockfish_eval_before = -20 - (-30) = 10
+        assert result["t2_legal"] is True
+        assert result["t2_cpl"] == 10
+
+    def test_cpl_floored_at_zero(self):
+        # If the model's move is actually better than the best (can happen with pre-computed evals)
+        fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+        engine = self._make_engine(100)  # eval after is HIGHER than stockfish_eval
+        result = score_t2("d4", fen, "e4", 50, engine=engine)
+        # CPL = max(0, 50 - 100) = 0
+        assert result["t2_cpl"] == 0
+
+    def test_cpl_engine_exception(self):
+        from unittest.mock import MagicMock
+        fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+        engine = MagicMock()
+        engine.evaluate_after_move.side_effect = Exception("engine error")
+        result = score_t2("d4", fen, "e4", 50, engine=engine)
+        assert result["t2_cpl"] is None
+
+
+class TestScoreAll:
+    FEN = "r1bqkbnr/pppp1ppp/2n5/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R b KQkq - 3 3"
+
+    def test_combines_all_scores(self):
+        parsed = {
+            "eval": 50,
+            "move": "Nf6",
+            "explanation": "Equal — Both sides have developed normally.",
+            "side_claimed": "Equal",
+            "parse_errors": [],
+        }
+        position = {
+            "fen": self.FEN,
+            "stockfish_eval": 50,
+            "stockfish_best_move": "Nf6",
+            "theme": "pin",
+        }
+        result = score_all(parsed, position)
+        assert "t1_absolute_error" in result
+        assert "t2_legal" in result
+        assert "t3_score" in result
+
+    def test_all_none_response(self):
+        parsed = {"eval": None, "move": None, "explanation": None,
+                  "side_claimed": None, "parse_errors": []}
+        position = {"fen": self.FEN, "stockfish_eval": 0, "stockfish_best_move": "e4", "theme": "pin"}
+        result = score_all(parsed, position)
+        assert result["t1_absolute_error"] is None
+        assert result["t2_legal"] is False
+        assert result["t3_score"] is None

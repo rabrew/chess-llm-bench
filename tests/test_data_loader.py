@@ -86,3 +86,77 @@ class TestDataLoader:
         stats = loader.get_stats()
         assert stats["total"] == 2
         assert stats["by_difficulty"]["easy"] == 2
+
+    def test_cache_hit(self, temp_data_dir):
+        loader = DataLoader(temp_data_dir)
+        p1 = loader.load_tier("easy")
+        p2 = loader.load_tier("easy")  # Should hit cache (line 34)
+        assert p1 is p2
+
+    def test_filter_by_phase(self, temp_data_dir):
+        loader = DataLoader(temp_data_dir)
+        positions = loader.filter(phase="opening")
+        assert len(positions) == 2
+
+    def test_filter_by_multiple_phases(self, temp_data_dir):
+        loader = DataLoader(temp_data_dir)
+        positions = loader.filter(phase=["opening", "endgame"])
+        assert len(positions) == 2
+
+    def test_filter_phase_no_match(self, temp_data_dir):
+        loader = DataLoader(temp_data_dir)
+        positions = loader.filter(phase="endgame")
+        assert len(positions) == 0
+
+    def test_filter_with_explicit_positions(self, temp_data_dir):
+        loader = DataLoader(temp_data_dir)
+        all_pos = loader.load_tier("easy")
+        filtered = loader.filter(positions=all_pos, source="lichess_puzzles")
+        assert len(filtered) == 1
+
+    def test_sample_with_filter_kwargs(self, temp_data_dir):
+        loader = DataLoader(temp_data_dir)
+        # filter_kwargs path (line 131)
+        result = loader.sample(count=10, seed=42, source="lichess_puzzles")
+        assert len(result) == 1
+
+    def test_sample_returns_all_when_small(self, temp_data_dir):
+        loader = DataLoader(temp_data_dir)
+        result = loader.sample(count=100, seed=42)  # More than available → returns all
+        assert len(result) == 2
+
+    def test_get_similar_same_theme_difficulty(self, temp_data_dir):
+        loader = DataLoader(temp_data_dir)
+        pos = {"id": 1, "theme": "tactics", "difficulty": "easy", "fen": "x"}
+        result = loader.get_similar(pos, seed=42)
+        assert result is not None
+        assert result["id"] != 1
+
+    def test_get_similar_fallback_to_difficulty_only(self, temp_data_dir):
+        """Theme doesn't match anything, falls back to difficulty-only."""
+        loader = DataLoader(temp_data_dir)
+        pos = {"id": 1, "theme": "rare_theme_xyz", "difficulty": "easy", "fen": "x"}
+        result = loader.get_similar(pos, seed=42)
+        # Falls back to same difficulty — should find pos id=2
+        assert result is not None
+
+    def test_get_similar_returns_none_when_no_candidates(self, temp_data_dir):
+        loader = DataLoader(temp_data_dir)
+        # Use a difficulty that has no other positions
+        pos = {"id": 1, "theme": "opening", "difficulty": "extreme", "fen": "x"}
+        result = loader.get_similar(pos, seed=42)
+        assert result is None
+
+    def test_get_similar_excludes_ids(self, temp_data_dir):
+        loader = DataLoader(temp_data_dir)
+        pos = {"id": 1, "theme": "tactics", "difficulty": "easy", "fen": "x"}
+        # Exclude the only other candidate
+        result = loader.get_similar(pos, exclude_ids={2}, seed=42)
+        assert result is None
+
+    def test_clear_cache(self, temp_data_dir):
+        loader = DataLoader(temp_data_dir)
+        loader.load_tier("easy")
+        assert "easy" in loader._cache
+        loader.clear_cache()
+        assert loader._cache == {}

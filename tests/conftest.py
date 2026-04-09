@@ -55,4 +55,5 @@ def sample_job():
         "source": "lichess_puzzles",
         "theme": "pin",
         "trial": 1,
+        "hash": "abc123def456",
     }

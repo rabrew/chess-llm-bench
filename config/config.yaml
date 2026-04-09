@@ -13,8 +13,8 @@ lc0:
 
 ollama:
   base_url: http://localhost:11434
-  timeout: 90
-  max_retries: 2
+  timeout: 600
+  max_retries: 3
 
 models:
   # Small (3-7B) - fast
@@ -30,14 +30,18 @@ models:
   - qwen2.5:14b
   - phi4:14b
   - solar:10.7b
+  - gemma4:e4b  # gemma4 CoT makes it slow despite size — run after non-CoT mediums
 
   # Large (30B+) - slow but interesting
   - qwen2.5:32b
   - codellama:34b
   - yi:34b
   - command-r:35b
-  - mixtral:8x7b
+  - gemma4:26b
+  - gemma4:31b
   - llama3.3:70b
+  - gemma4:e2b
+  - mixtral:8x7b
   - qwen2.5:72b
 
   # Reasoning models (slow - run last)
@@ -67,7 +71,7 @@ evaluation:
     max: 2000
 
 workers:
-  count: 6
+  count: 8
 
 correction_loop:
   enabled: true
@@ -76,7 +80,7 @@ correction_loop:
 
 paths:
   data_dir: data
-  jobs_db: /mnt/shared/chess-llm-bench/jobs/jobs.db
+  jobs_db: jobs/db/jobs.db
   results_file: results/evaluations.jsonl
   logs_dir: results/logs
   plots_dir: results/plots

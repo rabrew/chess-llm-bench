@@ -217,7 +217,7 @@ def calculate_learning_deltas(df: pd.DataFrame) -> pd.DataFrame:
         cpl_corr = corr_row.get("t2_cpl")
         cpl_ctrl = ctrl_row.get("t2_cpl")
 
-        if cpl_1 is not None and cpl_corr is not None and cpl_ctrl is not None:
+        if pd.notna(cpl_1) and pd.notna(cpl_corr) and pd.notna(cpl_ctrl):
             delta_correction = cpl_1 - cpl_corr
             delta_control = cpl_1 - cpl_ctrl
             net_effect = delta_correction - delta_control
@@ -239,7 +239,7 @@ def calculate_learning_deltas(df: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(results)
 
 
-def test_hypotheses(df: pd.DataFrame) -> dict[str, Any]:
+def compute_hypothesis_tests(df: pd.DataFrame) -> dict[str, Any]:
     """Test the pre-registered hypotheses.
 
     Args:
@@ -384,7 +384,7 @@ def generate_summary(df: pd.DataFrame) -> dict[str, Any]:
         "by_difficulty": aggregate_by_difficulty(df).to_dict(orient="records"),
         "by_phase": aggregate_by_phase(df).to_dict(orient="records"),
         "by_source": aggregate_by_source(df).to_dict(orient="records"),
-        "hypothesis_tests": test_hypotheses(df),
+        "hypothesis_tests": compute_hypothesis_tests(df),
     }
 
     return summary

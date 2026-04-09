@@ -8,10 +8,24 @@ from pathlib import Path
 from flask import Flask, jsonify, send_from_directory
 
 BASE_DIR = Path(__file__).parent.parent
-DB_PATH = "/mnt/shared/chess-llm-bench/jobs/jobs.db"
+DB_PATH = str(BASE_DIR / "jobs" / "db" / "jobs.db")
 EVALUATIONS_PATH = str(BASE_DIR / "results" / "evaluations.jsonl")
 
-app = Flask(__name__, static_folder=str(Path(__file__).parent))
+TIERS = ["easy", "medium", "hard", "extreme"]
+JOBS_PER_TIER = 5900
+DIRECTION_THRESHOLD = 150  # centipawns — only call it White/Black if advantage > 1.5 pawns
+
+
+def _direction(eval_cp, threshold=DIRECTION_THRESHOLD):
+    if eval_cp is None:
+        return None
+    if eval_cp > threshold:
+        return "White"
+    if eval_cp < -threshold:
+        return "Black"
+    return "Equal"
+
+app = Flask(__name__, static_folder=str(Path(__file__).parent), static_url_path="")
 
 MODEL_ORDER = [
     ("llama3.2:3b",    "3B"),
@@ -73,12 +87,24 @@ def _compute_metrics():
                 if not model:
                     continue
                 a = acc[model][diff]
-                v = r.get("t1_direction_correct")
-                if v is not None:
-                    a["t1_direction_correct"].append(float(v))
-                v = r.get("t2_legal")
-                if v is not None:
-                    a["t2_legal"].append(float(v))
+                fmt = r.get("prompt_format", "")
+                # Only score t1 direction on formats that actually request an eval.
+                # Recompute from raw evals using current threshold (stored t1_direction_correct
+                # used the old 50cp threshold).
+                if fmt not in ("move_only", "explanation_only"):
+                    sf = r.get("t1_stockfish_eval")
+                    me = r.get("t1_model_eval")
+                    if sf is not None and me is not None:
+                        v = float(_direction(me) == _direction(sf))
+                        a["t1_direction_correct"].append(v)
+                    ae = r.get("t1_absolute_error")
+                    if ae is not None:
+                        a["t1_absolute_error"].append(float(ae))
+                # Only score t2_legal on formats that actually request a move
+                if fmt not in ("eval_only", "explanation_only"):
+                    v = r.get("t2_legal")
+                    if v is not None:
+                        a["t2_legal"].append(float(v))
                 v = r.get("t2_cpl")
                 if v is not None:
                     a["t2_cpl"].append(float(v))
@@ -98,13 +124,14 @@ def _compute_metrics():
         if model not in acc:
             continue
         # Flatten all difficulties for per-model aggregates
-        all_t1, all_legal, all_cpl, all_t3 = [], [], [], []
+        all_t1, all_legal, all_cpl, all_t3, all_mae = [], [], [], [], []
         for diff in acc[model]:
             a = acc[model][diff]
             all_t1    += a["t1_direction_correct"]
             all_legal += a["t2_legal"]
             all_cpl   += a["t2_cpl"]
             all_t3    += a["t3_score"]
+            all_mae   += a["t1_absolute_error"]
 
         by_model.append({
             "model": model,
@@ -113,6 +140,7 @@ def _compute_metrics():
             "t2_legal_mean":             _null(_mean(all_legal)),
             "t2_cpl_mean":               _null(_mean(all_cpl)),
             "t3_score_mean":             _null(_mean(all_t3)),
+            "t1_mae_mean":               _null(_mean(all_mae)),
         })
 
         for diff in DIFFICULTIES:
@@ -129,6 +157,7 @@ def _compute_metrics():
                 "t2_cpl":     _null(_mean(a["t2_cpl"])),
                 "t3_score":   _null(_mean(a["t3_score"])),
                 "t1_direction_correct": _null(_mean(a["t1_direction_correct"])),
+                "t1_mae":     _null(_mean(a["t1_absolute_error"])),
             })
             hallucination.append({
                 "model":             model,
@@ -142,6 +171,47 @@ def _compute_metrics():
 @app.route("/")
 def index():
     return send_from_directory(str(Path(__file__).parent), "index.html")
+
+
+def _compute_pipeline_progress():
+    """Count completed tiers from evaluations.jsonl for full pipeline view."""
+    counts = defaultdict(lambda: defaultdict(int))
+    try:
+        with open(EVALUATIONS_PATH) as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    r = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                model = r.get("model")
+                diff = r.get("difficulty")
+                if model and diff:
+                    counts[model][diff] += 1
+    except FileNotFoundError:
+        pass
+
+    total_tiers = len(MODEL_ORDER) * len(TIERS)
+    done_tiers = 0
+    model_tiers = {}
+    for model, _ in MODEL_ORDER:
+        tier_status = {}
+        for tier in TIERS:
+            n = counts[model][tier]
+            complete = n >= JOBS_PER_TIER
+            if complete:
+                done_tiers += 1
+            tier_status[tier] = {"count": n, "complete": complete}
+        model_tiers[model] = tier_status
+
+    return {
+        "total_tiers": total_tiers,
+        "done_tiers": done_tiers,
+        "pipeline_pct": round(100 * done_tiers / total_tiers, 1) if total_tiers else 0,
+        "model_tiers": model_tiers,
+    }
 
 
 @app.route("/api/progress")
@@ -188,11 +258,13 @@ def api_progress():
         })
 
     overall_pct = round(100 * total_done / total_jobs, 1) if total_jobs else 0
+    pipeline = _compute_pipeline_progress()
     return jsonify({
         "total":       total_jobs,
         "done":        total_done,
         "overall_pct": overall_pct,
         "models":      model_list,
+        "pipeline":    pipeline,
     })
 
 

@@ -2,8 +2,11 @@
 
 import json
 import logging
+import re
 from pathlib import Path
 from typing import Any
+
+_JOB_ID_RE = re.compile(r'"job_id"\s*:\s*"([^"]+)"')
 
 from filelock import FileLock
 
@@ -26,6 +29,7 @@ class ResultWriter:
 
         # Ensure directory exists
         self.results_file.parent.mkdir(parents=True, exist_ok=True)
+        self.lock = FileLock(self.lock_file)
 
     def write_result(self, result: dict[str, Any]) -> None:
         """Write a single result record to the JSONL file.
@@ -33,9 +37,7 @@ class ResultWriter:
         Args:
             result: Result dictionary to write
         """
-        lock = FileLock(self.lock_file)
-
-        with lock:
+        with self.lock:
             with open(self.results_file, "a") as f:
                 f.write(json.dumps(result) + "\n")
 
@@ -45,9 +47,7 @@ class ResultWriter:
         Args:
             results: List of result dictionaries
         """
-        lock = FileLock(self.lock_file)
-
-        with lock:
+        with self.lock:
             with open(self.results_file, "a") as f:
                 for result in results:
                     f.write(json.dumps(result) + "\n")
@@ -82,7 +82,7 @@ def build_result_record(
 
         # Position info
         "position_id": job["position_id"],
-        "fen": job["fen"],
+        "fen": job.get("fen"),
 
         # Model info
         "model": job["model"],
@@ -158,11 +158,22 @@ def get_completed_job_ids(
 ) -> set[str]:
     """Get set of job IDs that have already been completed.
 
+    Uses regex extraction instead of full JSON parsing to avoid loading
+    all result records into memory (saves ~300MB per worker process).
+
     Args:
         results_file: Path to the JSONL results file
 
     Returns:
         Set of completed job IDs
     """
-    results = load_results(results_file)
-    return {r["job_id"] for r in results if "job_id" in r}
+    job_ids: set[str] = set()
+    results_path = Path(results_file)
+    if not results_path.exists():
+        return job_ids
+    with open(results_path, "r") as f:
+        for line in f:
+            m = _JOB_ID_RE.search(line)
+            if m:
+                job_ids.add(m.group(1))
+    return job_ids
