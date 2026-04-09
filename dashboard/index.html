@@ -3,343 +3,446 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Chess LLM Benchmark</title>
+  <title>CHECKM-AI-TE</title>
   <script src="/tailwind.min.js"></script>
   <script src="/chart.umd.min.js"></script>
   <style>
-    .bar-fill { transition: width 0.4s ease; }
-    .card { @apply bg-gray-900 rounded-xl p-5 shadow-lg; }
+    .bar-fill { transition: width 0.5s ease; }
+    @keyframes pulse-glow { 0%,100%{opacity:1} 50%{opacity:0.35} }
+    .pulse { animation: pulse-glow 1.6s ease-in-out infinite; }
+    ::-webkit-scrollbar { width:4px; height:4px; }
+    ::-webkit-scrollbar-track { background:#0f172a; }
+    ::-webkit-scrollbar-thumb { background:#374151; border-radius:2px; }
+    .tier-done    { @apply bg-emerald-600 text-gray-900; }
+    .tier-running { @apply bg-sky-500 text-gray-900; }
+    .tier-partial { @apply bg-gray-600 text-gray-300; }
+    .tier-wait    { @apply bg-gray-800 text-gray-600; }
   </style>
 </head>
-<body class="min-h-screen p-6 font-mono text-sm">
-  <div class="max-w-6xl mx-auto">
+<body class="min-h-screen p-4 font-mono text-sm">
+<div class="max-w-screen-xl mx-auto space-y-4">
 
-  <!-- Header -->
-  <div class="flex items-center justify-between mb-6">
-    <h1 class="text-xl font-bold tracking-wide text-white">Chess LLM Benchmark</h1>
-    <div class="flex items-center gap-4">
-      <span id="last-updated" class="text-gray-500 text-xs"></span>
-      <button onclick="loadMetrics()" class="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-xs">↻ Refresh Metrics</button>
-    </div>
-  </div>
-
-  <!-- Run Progress -->
-  <section class="bg-gray-900 rounded-xl p-5 shadow-lg mb-6">
-    <div class="flex items-center justify-between mb-3">
-      <h2 class="text-base font-semibold text-white">Run Progress</h2>
-      <span id="overall-badge" class="text-xs text-gray-400"></span>
-    </div>
-    <!-- Pipeline bar -->
-    <div class="mb-3">
-      <div class="flex justify-between text-xs text-gray-400 mb-1">
-        <span>Pipeline <span class="text-gray-600">(tiers complete)</span></span>
-        <span id="pipeline-label">—</span>
+  <!-- ── Header ──────────────────────────────────────────────────────── -->
+  <header class="bg-gray-900 rounded-xl p-5 shadow-xl border border-gray-800">
+    <div class="flex items-start justify-between mb-4">
+      <div>
+        <h1 class="text-xl font-bold tracking-widest text-white">CHECKM-AI-TE</h1>
+        <p class="text-gray-600 text-xs mt-0.5">Chess LLM Benchmark &nbsp;·&nbsp; 23 models &nbsp;·&nbsp; 552,000 evaluations</p>
       </div>
-      <div class="w-full bg-gray-800 rounded-full h-3">
-        <div id="pipeline-bar" class="bar-fill bg-indigo-500 h-3 rounded-full" style="width:0%"></div>
+      <div class="text-right">
+        <div id="clock" class="text-white text-2xl font-bold tabular-nums"></div>
+        <div id="last-updated" class="text-gray-600 text-xs mt-0.5"></div>
       </div>
     </div>
-    <!-- Current tier bar -->
-    <div class="mb-4">
-      <div class="flex justify-between text-xs text-gray-400 mb-1">
-        <span>Current tier <span class="text-gray-600">(jobs)</span></span>
-        <span id="overall-label">—</span>
+
+    <!-- Overall bar -->
+    <div class="mb-2">
+      <div class="flex justify-between text-xs mb-1">
+        <span class="text-gray-400">Overall &nbsp;<span id="overall-counts" class="text-gray-600"></span></span>
+        <span id="overall-pct" class="text-indigo-400 font-bold tabular-nums"></span>
       </div>
       <div class="w-full bg-gray-800 rounded-full h-2">
-        <div id="overall-bar" class="bar-fill bg-emerald-500 h-2 rounded-full" style="width:0%"></div>
+        <div id="overall-bar" class="bar-fill bg-indigo-500 h-2 rounded-full" style="width:0%"></div>
       </div>
     </div>
-  </section>
 
-  <!-- Metrics grid -->
-  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-
-    <!-- Legal Move % -->
-    <div class="bg-gray-900 rounded-xl p-5 shadow-lg">
-      <h2 class="text-base font-semibold text-white mb-3">Legal Move %</h2>
-      <div style="position:relative;height:220px"><canvas id="chart-legal"></canvas></div>
+    <!-- Pipeline tiers bar -->
+    <div>
+      <div class="flex justify-between text-xs mb-1">
+        <span class="text-gray-500">Tiers complete</span>
+        <span id="pipeline-label" class="text-gray-500 tabular-nums"></span>
+      </div>
+      <div class="w-full bg-gray-800 rounded-full h-1">
+        <div id="pipeline-bar" class="bar-fill bg-gray-500 h-1 rounded-full" style="width:0%"></div>
+      </div>
     </div>
 
-    <!-- Hallucination Rate -->
-    <div class="bg-gray-900 rounded-xl p-5 shadow-lg">
-      <h2 class="text-base font-semibold text-white mb-3">Hallucination Rate</h2>
-      <div style="position:relative;height:220px"><canvas id="chart-halluc"></canvas></div>
+    <!-- Active model status line -->
+    <div id="active-line" class="mt-3 text-xs text-gray-500 min-h-4"></div>
+  </header>
+
+  <!-- ── Middle: Queue + Active Panel ────────────────────────────────── -->
+  <div class="grid grid-cols-1 xl:grid-cols-5 gap-4">
+
+    <!-- Model Queue (3 cols) -->
+    <div class="xl:col-span-3 bg-gray-900 rounded-xl p-4 shadow-xl border border-gray-800">
+      <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-3">Model Queue</h2>
+
+      <!-- Column headers -->
+      <div class="flex items-center gap-2 text-gray-700 text-xs mb-2 px-1">
+        <span class="w-40">Model</span>
+        <span class="w-7 text-right">Sz</span>
+        <span class="flex-1 ml-1">Progress</span>
+        <span class="w-8 text-right">%</span>
+        <span class="w-24 text-right">Done</span>
+        <span class="w-16 text-center">Tiers</span>
+        <span class="w-24 text-right">Status</span>
+      </div>
+
+      <div id="model-queue" class="space-y-1"></div>
     </div>
 
-    <!-- CPL -->
-    <div class="bg-gray-900 rounded-xl p-5 shadow-lg">
-      <h2 class="text-base font-semibold text-white mb-3">Centipawn Loss (CPL)</h2>
-      <div style="position:relative;height:220px"><canvas id="chart-cpl"></canvas></div>
-    </div>
-
-    <!-- Eval Direction Accuracy -->
-    <div class="bg-gray-900 rounded-xl p-5 shadow-lg">
-      <h2 class="text-base font-semibold text-white mb-3">Eval Direction Accuracy</h2>
-      <div style="position:relative;height:220px"><canvas id="chart-eval"></canvas></div>
+    <!-- Active Model Panel (2 cols) -->
+    <div class="xl:col-span-2 bg-gray-900 rounded-xl p-4 shadow-xl border border-gray-800 flex flex-col">
+      <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-3">Active Model</h2>
+      <div id="active-panel" class="flex-1">
+        <p class="text-gray-700 text-xs">Waiting for active model data…</p>
+      </div>
     </div>
 
   </div>
 
-  <!-- Explanation Score (full width) -->
-  <div class="bg-gray-900 rounded-xl p-5 shadow-lg mb-6">
-    <h2 class="text-base font-semibold text-white mb-3">Explanation Score (T3)</h2>
-    <div style="position:relative;height:200px"><canvas id="chart-t3"></canvas></div>
+  <!-- ── Results ──────────────────────────────────────────────────────── -->
+  <div class="bg-gray-900 rounded-xl p-5 shadow-xl border border-gray-800">
+    <div class="flex items-center justify-between mb-5">
+      <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-widest">Results — All Models</h2>
+      <button onclick="loadMetrics()" class="text-xs text-gray-500 hover:text-gray-300 px-2 py-1 rounded bg-gray-800 hover:bg-gray-700 transition-colors">↻ Refresh</button>
+    </div>
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <div>
+        <p class="text-xs text-gray-600 mb-2">Legal Move %</p>
+        <div style="position:relative;height:190px"><canvas id="chart-legal"></canvas></div>
+      </div>
+      <div>
+        <p class="text-xs text-gray-600 mb-2">Hallucination Rate by Difficulty</p>
+        <div style="position:relative;height:190px"><canvas id="chart-halluc"></canvas></div>
+      </div>
+      <div>
+        <p class="text-xs text-gray-600 mb-2">Centipawn Loss (lower = better)</p>
+        <div style="position:relative;height:190px"><canvas id="chart-cpl"></canvas></div>
+      </div>
+      <div>
+        <p class="text-xs text-gray-600 mb-2">Eval Direction Accuracy</p>
+        <div style="position:relative;height:190px"><canvas id="chart-eval"></canvas></div>
+      </div>
+      <div>
+        <p class="text-xs text-gray-600 mb-2">Explanation Score (T3)</p>
+        <div style="position:relative;height:190px"><canvas id="chart-t3"></canvas></div>
+      </div>
+      <div>
+        <p class="text-xs text-gray-600 mb-2">Eval MAE vs Stockfish (lower = better)</p>
+        <div style="position:relative;height:190px"><canvas id="chart-mae"></canvas></div>
+      </div>
+    </div>
   </div>
 
-  <!-- MAE (full width) -->
-  <div class="bg-gray-900 rounded-xl p-5 shadow-lg">
-    <h2 class="text-base font-semibold text-white mb-1">Eval MAE <span class="text-gray-500 font-normal text-xs">(mean absolute error vs Stockfish, centipawns — lower is better)</span></h2>
-    <div style="position:relative;height:220px"><canvas id="chart-mae"></canvas></div>
-  </div>
+</div>
 
-  <script>
-  // ── Palette ──────────────────────────────────────────────────────────────
-  const DIFFICULTIES = ["easy", "medium", "hard", "extreme"];
-  const DIFF_COLORS = {
-    easy:    "rgba(52,211,153,0.85)",   // emerald
-    medium:  "rgba(251,191,36,0.85)",   // amber
-    hard:    "rgba(251,113,133,0.85)",  // rose
-    extreme: "rgba(167,139,250,0.85)",  // violet
-  };
-  const MODEL_COLOR = "rgba(99,179,237,0.85)"; // sky
+<script>
+const TIERS = ["easy", "medium", "hard", "extreme"];
+const TIER_LABELS = ["E", "M", "H", "X"];
+const TIER_COLORS = {
+  easy:    "rgba(52,211,153,0.85)",
+  medium:  "rgba(251,191,36,0.85)",
+  hard:    "rgba(251,113,133,0.85)",
+  extreme: "rgba(167,139,250,0.85)",
+};
+const DIFFICULTIES = ["easy", "medium", "hard", "extreme"];
+const charts = {};
 
-  const charts = {};
+// ── Clock ─────────────────────────────────────────────────────────────────
+function updateClock() {
+  document.getElementById("clock").textContent =
+    new Date().toLocaleTimeString("en-IE", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+}
+setInterval(updateClock, 1000);
+updateClock();
 
-  function makeChart(id, type, data, options = {}) {
-    const ctx = document.getElementById(id).getContext("2d");
-    if (charts[id]) charts[id].destroy();
-    charts[id] = new Chart(ctx, {
-      type,
-      data,
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: { legend: { labels: { color: "#9ca3af", font: { family: "monospace", size: 11 } } } },
-        scales: {
-          x: { ticks: { color: "#9ca3af", font: { family: "monospace", size: 10 } }, grid: { color: "rgba(255,255,255,0.05)" } },
-          y: { ticks: { color: "#9ca3af", font: { family: "monospace", size: 10 } }, grid: { color: "rgba(255,255,255,0.07)" } },
-        },
-        ...options,
-      },
-    });
-  }
-
-  // ── Progress ──────────────────────────────────────────────────────────────
-  const TIER_COLORS = { easy: "bg-emerald-500", medium: "bg-amber-400", hard: "bg-rose-400", extreme: "bg-violet-400" };
-  const TIER_LABELS = ["E", "M", "H", "X"];
-  const TIERS = ["easy", "medium", "hard", "extreme"];
-
-  async function loadProgress() {
-    let data;
-    try {
-      const r = await fetch("/api/progress");
-      data = await r.json();
-    } catch { return; }
-
-    // Pipeline bar
-    const p = data.pipeline;
-    document.getElementById("pipeline-label").textContent =
-      `${p.done_tiers} / ${p.total_tiers} tiers (${p.pipeline_pct}%)`;
-    document.getElementById("pipeline-bar").style.width = p.pipeline_pct + "%";
-
-    // Current tier bar
-    document.getElementById("overall-label").textContent =
-      data.total ? `${data.done.toLocaleString()} / ${data.total.toLocaleString()} (${data.overall_pct}%)` : "idle";
-    document.getElementById("overall-bar").style.width = (data.overall_pct || 0) + "%";
-    document.getElementById("last-updated").textContent =
-      "Updated " + new Date().toLocaleTimeString();
-
-    // Per-model rows — show tier dots + active job bar
-    const container = document.getElementById("model-progress");
-    container.innerHTML = "";
-    const activeModels = new Set((data.models || []).filter(m => m.running).map(m => m.model));
-
-    for (const [model, size] of Object.entries(p.model_tiers ? Object.fromEntries(
-      Object.keys(p.model_tiers).map(m => [m, p.model_tiers[m]])
-    ) : {})) {
-      const tiers = p.model_tiers[model];
-      const allDone = TIERS.every(t => tiers[t].complete);
-      const isRunning = activeModels.has(model);
-      const activeJob = (data.models || []).find(m => m.model === model);
-
-      // Tier dots
-      const dots = TIERS.map((t, i) => {
-        const complete = tiers[t].complete;
-        const color = complete ? TIER_COLORS[t] : "bg-gray-700";
-        const label = TIER_LABELS[i];
-        return `<span class="inline-flex items-center justify-center w-5 h-5 rounded text-xs font-bold ${color} ${complete ? "text-gray-900" : "text-gray-600"}">${label}</span>`;
-      }).join("");
-
-      // Active progress bar (only shown when this model is running current tier)
-      const activeBar = isRunning && activeJob ? `
-        <div class="flex-1 bg-gray-800 rounded-full h-1.5">
-          <div class="bar-fill bg-emerald-500 h-1.5 rounded-full" style="width:${activeJob.pct}%"></div>
-        </div>
-        <span class="text-emerald-400 text-xs">● ${activeJob.pct}%</span>
-      ` : `<div class="flex-1"></div>`;
-
-      const status = allDone
-        ? `<span class="text-gray-500 text-xs">✓ done</span>`
-        : isRunning
-          ? ""
-          : `<span class="text-gray-600 text-xs">queued</span>`;
-
-      container.insertAdjacentHTML("beforeend", `
-        <div class="flex items-center gap-2">
-          <span class="text-gray-400 w-36 truncate text-xs">${model}</span>
-          <span class="text-gray-600 w-8 text-right text-xs">${size}</span>
-          <div class="flex gap-1">${dots}</div>
-          ${activeBar}
-          ${status}
-        </div>
-      `);
-    }
-  }
-
-  // ── Metrics ───────────────────────────────────────────────────────────────
-  async function loadMetrics() {
-    let data;
-    try {
-      const r = await fetch("/api/metrics");
-      data = await r.json();
-    } catch { return; }
-
-    const models = data.by_model.filter(r => r.t2_legal_mean !== null || r.t1_direction_correct_mean !== null);
-    const labels = models.map(r => r.model.replace(/:(\w+)$/, "\n$1"));
-
-    // Legal Move %
-    makeChart("chart-legal", "bar", {
-      labels,
-      datasets: [{
-        label: "Legal Move %",
-        data: models.map(r => r.t2_legal_mean !== null ? +(r.t2_legal_mean * 100).toFixed(1) : null),
-        backgroundColor: MODEL_COLOR,
-        borderRadius: 4,
-      }],
-    }, {
+// ── Helpers ───────────────────────────────────────────────────────────────
+function fmt(n, decimals = 1) {
+  return n !== null && n !== undefined ? n.toFixed(decimals) : "—";
+}
+function fmtEta(secs) {
+  if (!secs) return null;
+  const h = Math.floor(secs / 3600);
+  const m = Math.floor((secs % 3600) / 60);
+  return h > 0 ? `~${h}h ${m}m` : `~${m}m`;
+}
+function makeChart(id, type, data, options = {}) {
+  const ctx = document.getElementById(id).getContext("2d");
+  if (charts[id]) charts[id].destroy();
+  charts[id] = new Chart(ctx, {
+    type, data,
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { labels: { color: "#6b7280", font: { family: "monospace", size: 10 }, boxWidth: 10 } } },
       scales: {
-        y: {
-          min: 0, max: 100,
-          ticks: { color: "#9ca3af", callback: v => v + "%" },
-          grid: { color: "rgba(255,255,255,0.07)" },
-        },
-        x: { ticks: { color: "#9ca3af", font: { family: "monospace", size: 10 } }, grid: { color: "rgba(255,255,255,0.05)" } },
+        x: { ticks: { color: "#6b7280", font: { family: "monospace", size: 9 } }, grid: { color: "rgba(255,255,255,0.04)" } },
+        y: { ticks: { color: "#6b7280", font: { family: "monospace", size: 9 } }, grid: { color: "rgba(255,255,255,0.06)" } },
       },
-      plugins: { legend: { display: false } },
-    });
+      ...options,
+    },
+  });
+}
 
-    // Hallucination Rate — grouped by difficulty
-    const hallucModels = [...new Set(data.hallucination.map(r => r.model))];
-    const hallucLabels = hallucModels.map(m => m.replace(/:(\w+)$/, "\n$1"));
-    const hallucDatasets = DIFFICULTIES.map(diff => ({
+// ── Progress ──────────────────────────────────────────────────────────────
+async function loadProgress() {
+  let data;
+  try {
+    const r = await fetch("/api/progress");
+    data = await r.json();
+  } catch { return; }
+
+  // Header bars
+  document.getElementById("overall-counts").textContent =
+    `${(data.done || 0).toLocaleString()} / ${(data.total || 0).toLocaleString()}`;
+  document.getElementById("overall-pct").textContent = `${data.overall_pct || 0}%`;
+  document.getElementById("overall-bar").style.width = (data.overall_pct || 0) + "%";
+
+  const p = data.pipeline || {};
+  document.getElementById("pipeline-label").textContent =
+    p.done_tiers != null ? `${p.done_tiers} / ${p.total_tiers} (${p.pipeline_pct}%)` : "";
+  document.getElementById("pipeline-bar").style.width = (p.pipeline_pct || 0) + "%";
+
+  document.getElementById("last-updated").textContent =
+    "Updated " + new Date().toLocaleTimeString();
+
+  // Model queue rows
+  const container = document.getElementById("model-queue");
+  container.innerHTML = "";
+  const modelTiers = p.model_tiers || {};
+  const activeSet = new Set((data.models || []).filter(m => m.running).map(m => m.model));
+
+  for (const [model, tiers] of Object.entries(modelTiers)) {
+    const allDone = TIERS.every(t => tiers[t].complete);
+    const isRunning = activeSet.has(model);
+    const jobInfo = (data.models || []).find(m => m.model === model);
+    const totalDone = TIERS.reduce((s, t) => s + (tiers[t].count || 0), 0);
+    const pct = Math.round(100 * totalDone / 24000);
+    const filled = Math.round(16 * totalDone / 24000);
+    const bar = "█".repeat(filled) + "░".repeat(16 - filled);
+
+    // Tier badges
+    const tierHtml = TIERS.map((t, i) => {
+      const n = tiers[t].count || 0;
+      const done = tiers[t].complete;
+      const cls = done ? "bg-emerald-700 text-emerald-100"
+                : isRunning && !done && n > 0 ? "bg-sky-600 text-white pulse"
+                : n > 0 ? "bg-gray-700 text-gray-400"
+                : "bg-gray-800 text-gray-700";
+      return `<span class="inline-flex items-center justify-center w-4 h-4 rounded text-xs font-bold ${cls}">${TIER_LABELS[i]}</span>`;
+    }).join("");
+
+    let statusHtml;
+    if (allDone) {
+      statusHtml = `<span class="text-emerald-700 text-xs">✓ done</span>`;
+    } else if (isRunning) {
+      statusHtml = `<span class="text-sky-400 text-xs pulse">◀ running</span>`;
+    } else if (totalDone > 0) {
+      statusHtml = `<span class="text-gray-600 text-xs">~ queued</span>`;
+    } else {
+      statusHtml = `<span class="text-gray-700 text-xs">· waiting</span>`;
+    }
+
+    const size = jobInfo?.size ?? "";
+    const rowBg = isRunning ? "bg-gray-800/60 rounded-lg" : "";
+
+    container.insertAdjacentHTML("beforeend", `
+      <div class="flex items-center gap-2 px-1 py-0.5 ${rowBg}">
+        <span class="${isRunning ? 'text-white' : 'text-gray-400'} w-40 truncate text-xs">${model}</span>
+        <span class="text-gray-600 w-7 text-right text-xs">${size}</span>
+        <span class="flex-1 text-gray-700 text-xs ml-1 tabular-nums">[${bar}]</span>
+        <span class="${isRunning ? 'text-white' : 'text-gray-500'} w-8 text-right text-xs tabular-nums">${pct}%</span>
+        <span class="${isRunning ? 'text-white' : 'text-gray-600'} w-24 text-right text-xs tabular-nums">${totalDone.toLocaleString()}/24k</span>
+        <div class="w-16 flex justify-center gap-0.5">${tierHtml}</div>
+        <div class="w-24 text-right">${statusHtml}</div>
+      </div>
+    `);
+  }
+}
+
+// ── Active Model Panel ────────────────────────────────────────────────────
+async function loadCurrent() {
+  let d;
+  try {
+    const r = await fetch("/api/current");
+    d = await r.json();
+  } catch { return; }
+
+  const panel = document.getElementById("active-panel");
+  const line = document.getElementById("active-line");
+
+  if (!d.model) {
+    panel.innerHTML = `<p class="text-gray-700 text-xs">No model currently running.</p>`;
+    line.textContent = "";
+    return;
+  }
+
+  const eta = fmtEta(d.eta_secs);
+  const jpm = d.jobs_per_min ? d.jobs_per_min.toFixed(1) : "—";
+
+  // Header status line
+  line.innerHTML = `<span class="text-sky-400 pulse">◀</span> &nbsp;
+    <span class="text-gray-300">${d.model}</span> &nbsp;·&nbsp;
+    ${jpm} jobs/min &nbsp;·&nbsp;
+    ${eta ? `ETA ${eta}` : "computing ETA…"}`;
+
+  // Tier table
+  const tierRows = TIERS.map(tier => {
+    const t = d.tier_data[tier] || {};
+    const n = t.done || 0;
+    const target = 6000;
+    const pct = Math.round(100 * n / target);
+    const filled = Math.round(8 * n / target);
+    const bar = "█".repeat(filled) + "░".repeat(8 - filled);
+    const isDone = t.complete;
+    const rowCls = isDone ? "text-gray-600" : "text-gray-300";
+
+    const tierColor = { easy: "text-emerald-400", medium: "text-amber-400", hard: "text-rose-400", extreme: "text-violet-400" }[tier];
+    const legal = t.legal != null ? t.legal.toFixed(1) + "%" : "—";
+    const dir   = t.direction != null ? t.direction.toFixed(1) + "%" : "—";
+    const t3    = t.t3 != null ? t.t3.toFixed(1) + "%" : "—";
+
+    return `
+      <tr class="${rowCls}">
+        <td class="${tierColor} pr-2 py-0.5">${tier}</td>
+        <td class="pr-3 tabular-nums text-gray-500">[${bar}] ${pct}%</td>
+        <td class="pr-3 tabular-nums">${legal}</td>
+        <td class="pr-3 tabular-nums">${dir}</td>
+        <td class="tabular-nums">${t3}</td>
+      </tr>`;
+  }).join("");
+
+  panel.innerHTML = `
+    <div class="mb-4">
+      <div class="flex items-baseline gap-2 mb-1">
+        <span class="text-white text-base font-bold">${d.model}</span>
+        <span class="text-gray-600 text-xs">${d.size}</span>
+      </div>
+      <div class="text-xs text-gray-500 mb-2">${d.total_done.toLocaleString()} / ${d.total_target.toLocaleString()} &nbsp;(${d.pct}%)</div>
+      <div class="w-full bg-gray-800 rounded-full h-1.5 mb-3">
+        <div class="bar-fill bg-sky-500 h-1.5 rounded-full" style="width:${d.pct}%"></div>
+      </div>
+      <div class="flex gap-6 text-xs">
+        <div>
+          <div class="text-gray-600 mb-0.5">jobs/min</div>
+          <div class="text-white font-bold tabular-nums">${jpm}</div>
+        </div>
+        <div>
+          <div class="text-gray-600 mb-0.5">ETA</div>
+          <div class="text-white font-bold">${eta ?? "—"}</div>
+        </div>
+        <div>
+          <div class="text-gray-600 mb-0.5">remaining</div>
+          <div class="text-white font-bold tabular-nums">${(d.total_target - d.total_done).toLocaleString()}</div>
+        </div>
+      </div>
+    </div>
+    <div class="border-t border-gray-800 pt-3">
+      <p class="text-gray-600 text-xs mb-2">Per-tier breakdown</p>
+      <table class="w-full text-xs">
+        <thead>
+          <tr class="text-gray-700 text-xs">
+            <th class="text-left pr-2 font-normal pb-1">Tier</th>
+            <th class="text-left pr-3 font-normal pb-1">Progress</th>
+            <th class="text-left pr-3 font-normal pb-1">Legal%</th>
+            <th class="text-left pr-3 font-normal pb-1">Dir%</th>
+            <th class="text-left font-normal pb-1">T3%</th>
+          </tr>
+        </thead>
+        <tbody>${tierRows}</tbody>
+      </table>
+    </div>`;
+}
+
+// ── Metrics ───────────────────────────────────────────────────────────────
+async function loadMetrics() {
+  let data;
+  try {
+    const r = await fetch("/api/metrics");
+    data = await r.json();
+  } catch { return; }
+
+  const models = data.by_model.filter(r => r.t2_legal_mean !== null || r.t1_direction_correct_mean !== null);
+  const labels = models.map(r => r.model.replace(/:(\w+)$/, "\n$1"));
+
+  const scaleY01 = {
+    y: {
+      min: 0, max: 100,
+      ticks: { color: "#6b7280", callback: v => v + "%", font: { family: "monospace", size: 9 } },
+      grid: { color: "rgba(255,255,255,0.06)" },
+    },
+    x: { ticks: { color: "#6b7280", font: { family: "monospace", size: 9 } }, grid: { color: "rgba(255,255,255,0.04)" } },
+  };
+
+  // Legal Move %
+  makeChart("chart-legal", "bar", {
+    labels,
+    datasets: [{ label: "Legal Move %", data: models.map(r => r.t2_legal_mean !== null ? +(r.t2_legal_mean * 100).toFixed(1) : null), backgroundColor: "rgba(99,179,237,0.8)", borderRadius: 3 }],
+  }, { scales: scaleY01, plugins: { legend: { display: false } } });
+
+  // Hallucination Rate
+  const hallucModels = [...new Set(data.hallucination.map(r => r.model))];
+  const hallucLabels = hallucModels.map(m => m.replace(/:(\w+)$/, "\n$1"));
+  makeChart("chart-halluc", "bar", {
+    labels: hallucLabels,
+    datasets: DIFFICULTIES.map(diff => ({
       label: diff,
       data: hallucModels.map(m => {
         const row = data.hallucination.find(r => r.model === m && r.difficulty === diff);
         return row ? +(row.hallucination_rate * 100).toFixed(1) : null;
       }),
-      backgroundColor: DIFF_COLORS[diff],
-      borderRadius: 3,
-    }));
-    makeChart("chart-halluc", "bar", { labels: hallucLabels, datasets: hallucDatasets }, {
-      scales: {
-        y: {
-          min: 0, max: 100,
-          ticks: { color: "#9ca3af", callback: v => v + "%" },
-          grid: { color: "rgba(255,255,255,0.07)" },
-        },
-        x: { ticks: { color: "#9ca3af", font: { family: "monospace", size: 10 } }, grid: { color: "rgba(255,255,255,0.05)" } },
-      },
-      plugins: { legend: { labels: { color: "#9ca3af", font: { family: "monospace", size: 11 } } } },
-    });
+      backgroundColor: TIER_COLORS[diff],
+      borderRadius: 2,
+    })),
+  }, { scales: scaleY01 });
 
-    // CPL — grouped by difficulty
-    const diffModels = [...new Set(data.by_difficulty.map(r => r.model))];
-    const diffLabels = diffModels.map(m => m.replace(/:(\w+)$/, "\n$1"));
-    const cplDatasets = DIFFICULTIES.map(diff => ({
+  // CPL
+  const diffModels = [...new Set(data.by_difficulty.map(r => r.model))];
+  const diffLabels = diffModels.map(m => m.replace(/:(\w+)$/, "\n$1"));
+  makeChart("chart-cpl", "bar", {
+    labels: diffLabels,
+    datasets: DIFFICULTIES.map(diff => ({
       label: diff,
       data: diffModels.map(m => {
         const row = data.by_difficulty.find(r => r.model === m && r.difficulty === diff);
-        return row?.t2_cpl !== null && row?.t2_cpl !== undefined ? +row.t2_cpl.toFixed(0) : null;
+        return row?.t2_cpl != null ? +row.t2_cpl.toFixed(0) : null;
       }),
-      backgroundColor: DIFF_COLORS[diff],
-      borderRadius: 3,
-    }));
-    makeChart("chart-cpl", "bar", { labels: diffLabels, datasets: cplDatasets }, {
-      plugins: { legend: { labels: { color: "#9ca3af", font: { family: "monospace", size: 11 } } } },
-    });
+      backgroundColor: TIER_COLORS[diff],
+      borderRadius: 2,
+    })),
+  }, {});
 
-    // Eval Direction Accuracy
-    makeChart("chart-eval", "bar", {
-      labels,
-      datasets: [{
-        label: "Direction Accuracy",
-        data: models.map(r => r.t1_direction_correct_mean !== null ? +(r.t1_direction_correct_mean * 100).toFixed(1) : null),
-        backgroundColor: "rgba(251,191,36,0.85)",
-        borderRadius: 4,
-      }],
-    }, {
-      scales: {
-        y: {
-          min: 0, max: 100,
-          ticks: { color: "#9ca3af", callback: v => v + "%" },
-          grid: { color: "rgba(255,255,255,0.07)" },
-        },
-        x: { ticks: { color: "#9ca3af", font: { family: "monospace", size: 10 } }, grid: { color: "rgba(255,255,255,0.05)" } },
-      },
-      plugins: { legend: { display: false } },
-    });
+  // Eval Direction Accuracy
+  makeChart("chart-eval", "bar", {
+    labels,
+    datasets: [{ label: "Direction Accuracy", data: models.map(r => r.t1_direction_correct_mean !== null ? +(r.t1_direction_correct_mean * 100).toFixed(1) : null), backgroundColor: "rgba(251,191,36,0.8)", borderRadius: 3 }],
+  }, { scales: scaleY01, plugins: { legend: { display: false } } });
 
-    // MAE — grouped by difficulty
-    const maeModels = [...new Set(data.by_difficulty.map(r => r.model))];
-    const maeLabels = maeModels.map(m => m.replace(/:(\w+)$/, "\n$1"));
-    const maeDatasets = DIFFICULTIES.map(diff => ({
+  // T3
+  makeChart("chart-t3", "bar", {
+    labels,
+    datasets: [{ label: "Explanation Score", data: models.map(r => r.t3_score_mean !== null ? +(r.t3_score_mean * 100).toFixed(1) : null), backgroundColor: "rgba(167,139,250,0.8)", borderRadius: 3 }],
+  }, { scales: scaleY01, plugins: { legend: { display: false } } });
+
+  // MAE
+  makeChart("chart-mae", "bar", {
+    labels: diffLabels,
+    datasets: DIFFICULTIES.map(diff => ({
       label: diff,
-      data: maeModels.map(m => {
+      data: diffModels.map(m => {
         const row = data.by_difficulty.find(r => r.model === m && r.difficulty === diff);
-        return row?.t1_mae !== null && row?.t1_mae !== undefined ? +row.t1_mae.toFixed(0) : null;
+        return row?.t1_mae != null ? +row.t1_mae.toFixed(0) : null;
       }),
-      backgroundColor: DIFF_COLORS[diff],
-      borderRadius: 3,
-    }));
-    makeChart("chart-mae", "bar", { labels: maeLabels, datasets: maeDatasets }, {
-      plugins: { legend: { labels: { color: "#9ca3af", font: { family: "monospace", size: 11 } } } },
-      scales: {
-        y: {
-          ticks: { color: "#9ca3af", callback: v => v + " cp" },
-          grid: { color: "rgba(255,255,255,0.07)" },
-        },
-        x: { ticks: { color: "#9ca3af", font: { family: "monospace", size: 10 } }, grid: { color: "rgba(255,255,255,0.05)" } },
-      },
-    });
+      backgroundColor: TIER_COLORS[diff],
+      borderRadius: 2,
+    })),
+  }, {
+    scales: {
+      y: { ticks: { color: "#6b7280", callback: v => v + " cp", font: { family: "monospace", size: 9 } }, grid: { color: "rgba(255,255,255,0.06)" } },
+      x: { ticks: { color: "#6b7280", font: { family: "monospace", size: 9 } }, grid: { color: "rgba(255,255,255,0.04)" } },
+    },
+  });
+}
 
-    // Explanation Score
-    makeChart("chart-t3", "bar", {
-      labels,
-      datasets: [{
-        label: "Explanation Score",
-        data: models.map(r => r.t3_score_mean !== null ? +(r.t3_score_mean * 100).toFixed(1) : null),
-        backgroundColor: "rgba(167,139,250,0.85)",
-        borderRadius: 4,
-      }],
-    }, {
-      scales: {
-        y: {
-          min: 0, max: 100,
-          ticks: { color: "#9ca3af", callback: v => v + "%" },
-          grid: { color: "rgba(255,255,255,0.07)" },
-        },
-        x: { ticks: { color: "#9ca3af", font: { family: "monospace", size: 10 } }, grid: { color: "rgba(255,255,255,0.05)" } },
-      },
-      plugins: { legend: { display: false } },
-    });
-  }
-
-  // ── Init ──────────────────────────────────────────────────────────────────
-  loadProgress();
-  loadMetrics();
-  setInterval(loadProgress, 5000);
-  </script>
-
-  </div> <!-- max-w-6xl -->
+// ── Init ──────────────────────────────────────────────────────────────────
+loadProgress();
+loadCurrent();
+loadMetrics();
+setInterval(loadProgress, 5000);
+setInterval(loadCurrent, 5000);
+setInterval(loadMetrics, 60000);
+</script>
 </body>
 </html>

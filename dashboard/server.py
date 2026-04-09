@@ -28,25 +28,29 @@ def _direction(eval_cp, threshold=DIRECTION_THRESHOLD):
 app = Flask(__name__, static_folder=str(Path(__file__).parent), static_url_path="")
 
 MODEL_ORDER = [
-    ("llama3.2:3b",    "3B"),
-    ("gemma3:4b",      "4B"),
-    ("qwen2.5:7b",     "7B"),
-    ("mistral:7b",     "7B"),
-    ("deepseek-r1:7b", "7B"),
-    ("wizardlm2:7b",   "7B"),
-    ("llama3.1:8b",    "8B"),
-    ("gemma3:12b",     "12B"),
-    ("qwen2.5:14b",    "14B"),
-    ("phi4:14b",       "14B"),
-    ("deepseek-r1:14b","14B"),
-    ("solar:10.7b",    "11B"),
-    ("qwen2.5:32b",    "32B"),
-    ("codellama:34b",  "34B"),
-    ("yi:34b",         "34B"),
-    ("command-r:35b",  "35B"),
-    ("mixtral:8x7b",   "47B"),
-    ("llama3.3:70b",   "70B"),
-    ("qwen2.5:72b",    "72B"),
+    ("llama3.2:3b",      "3B"),
+    ("gemma3:4b",        "4B"),
+    ("qwen2.5:7b",       "7B"),
+    ("mistral:7b",       "7B"),
+    ("wizardlm2:7b",     "7B"),
+    ("llama3.1:8b",      "8B"),
+    ("gemma3:12b",       "12B"),
+    ("qwen2.5:14b",      "14B"),
+    ("phi4:14b",         "14B"),
+    ("solar:10.7b",      "11B"),
+    ("gemma4:e4b",       "4B"),
+    ("qwen2.5:32b",      "32B"),
+    ("codellama:34b",    "34B"),
+    ("yi:34b",           "34B"),
+    ("command-r:35b",    "35B"),
+    ("gemma4:26b",       "26B"),
+    ("gemma4:31b",       "31B"),
+    ("llama3.3:70b",     "70B"),
+    ("gemma4:e2b",       "2B"),
+    ("mixtral:8x7b",     "47B"),
+    ("qwen2.5:72b",      "72B"),
+    ("deepseek-r1:7b",   "7B"),
+    ("deepseek-r1:14b",  "14B"),
 ]
 
 MODEL_SIZE_MAP = {m: s for m, s in MODEL_ORDER}
@@ -275,6 +279,144 @@ def api_metrics():
         "by_model":      by_model,
         "by_difficulty": by_difficulty,
         "hallucination": hallucination,
+    })
+
+
+@app.route("/api/current")
+def api_current():
+    """Per-tier metrics + ETA for the currently active model."""
+    from datetime import datetime, timezone, timedelta
+
+    TOTAL_PER_MODEL = JOBS_PER_TIER * len(TIERS)
+
+    counts = defaultdict(lambda: defaultdict(int))
+    tier_acc = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
+    last_ts = {}
+
+    try:
+        with open(EVALUATIONS_PATH, "rb") as f:
+            for raw in f:
+                line = raw.strip()
+                if not line:
+                    continue
+                try:
+                    r = json.loads(line)
+                    m = r.get("model")
+                    tier = r.get("difficulty")
+                    if not m or not tier:
+                        continue
+                    counts[m][tier] += 1
+                    ts = r.get("timestamp")
+                    if ts and (m not in last_ts or ts > last_ts[m]):
+                        last_ts[m] = ts
+                    fmt = r.get("prompt_format", "")
+                    if fmt not in ("eval_only", "explanation_only"):
+                        v = r.get("t2_legal")
+                        if v is not None:
+                            tier_acc[m][tier]["legal"].append(float(v))
+                    if fmt not in ("move_only", "explanation_only"):
+                        sf = r.get("t1_stockfish_eval")
+                        me = r.get("t1_model_eval")
+                        if sf is not None and me is not None:
+                            tier_acc[m][tier]["direction"].append(
+                                float(_direction(me) == _direction(sf))
+                            )
+                    v = r.get("t3_score")
+                    if v is not None:
+                        tier_acc[m][tier]["t3"].append(float(v))
+                except Exception:
+                    continue
+    except FileNotFoundError:
+        pass
+
+    # Find active model via DB, fallback to most-recently-updated incomplete
+    active_model = None
+    try:
+        conn = sqlite3.connect(DB_PATH, timeout=5)
+        cur = conn.cursor()
+        cur.execute("SELECT model FROM jobs WHERE status='in_progress' LIMIT 1")
+        row = cur.fetchone()
+        conn.close()
+        if row:
+            active_model = row[0]
+    except Exception:
+        pass
+
+    if not active_model:
+        candidates = [
+            (ts, m) for m, ts in last_ts.items()
+            if sum(counts[m].values()) < TOTAL_PER_MODEL
+        ]
+        if candidates:
+            active_model = max(candidates)[1]
+
+    if not active_model:
+        return jsonify({"model": None})
+
+    active_size = next((s for m, s in MODEL_ORDER if m == active_model), "?")
+    total_done = sum(counts[active_model].values())
+    remaining = TOTAL_PER_MODEL - total_done
+
+    tier_data = {}
+    for tier in TIERS:
+        n = counts[active_model].get(tier, 0)
+        a = tier_acc[active_model][tier]
+        legal = _mean(a.get("legal", []))
+        direction = _mean(a.get("direction", []))
+        t3 = _mean(a.get("t3", []))
+        tier_data[tier] = {
+            "done": n,
+            "complete": n >= JOBS_PER_TIER,
+            "legal": _null(legal * 100) if legal is not None else None,
+            "direction": _null(direction * 100) if direction is not None else None,
+            "t3": _null(t3 * 100) if t3 is not None else None,
+        }
+
+    # Throughput from last ~600 entries for this model
+    recent_ts_list = []
+    try:
+        with open(EVALUATIONS_PATH, "rb") as f:
+            f.seek(0, 2)
+            size = f.tell()
+            f.seek(max(0, size - 400_000))
+            tail = f.read().split(b"\n")
+        for raw in tail[-700:]:
+            raw = raw.strip()
+            if not raw:
+                continue
+            try:
+                r = json.loads(raw)
+                if r.get("model") == active_model:
+                    ts = r.get("timestamp")
+                    if ts:
+                        recent_ts_list.append(
+                            datetime.fromisoformat(ts.replace("Z", "+00:00"))
+                        )
+            except Exception:
+                continue
+    except Exception:
+        pass
+
+    jobs_per_min = None
+    eta_secs = None
+    if len(recent_ts_list) >= 10:
+        recent_ts_list.sort()
+        span = (recent_ts_list[-1] - recent_ts_list[0]).total_seconds()
+        if span > 0:
+            rate = len(recent_ts_list) / span
+            jobs_per_min = _null(rate * 60)
+            if remaining > 0:
+                eta_secs = int(remaining / rate)
+
+    return jsonify({
+        "model": active_model,
+        "size": active_size,
+        "total_done": total_done,
+        "total_target": TOTAL_PER_MODEL,
+        "pct": round(100 * total_done / TOTAL_PER_MODEL, 1) if TOTAL_PER_MODEL else 0,
+        "jobs_per_min": jobs_per_min,
+        "eta_secs": eta_secs,
+        "tier_data": tier_data,
     })
 
 
