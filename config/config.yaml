@@ -71,7 +71,7 @@ evaluation:
     max: 2000
 
 workers:
-  count: 8
+  count: 1
 
 correction_loop:
   enabled: true
