@@ -40,13 +40,15 @@ models:
   - gemma4:26b
   - gemma4:31b
   - llama3.3:70b
-  - gemma4:e2b
-  - mixtral:8x7b
-  - qwen2.5:72b
+  # - qwen2.5:72b  # POSTPONED: OOMs with 32GB RAM + 16GB VRAM — needs hardware upgrade
 
   # Reasoning models (slow - run last)
   - deepseek-r1:7b
   - deepseek-r1:14b
+
+  # Redo - queue ran dry on first pass
+  - gemma4:e2b
+  - mixtral:8x7b
 
 dataset:
   lichess_source: local  # "api" or "local"
