@@ -1934,12 +1934,46 @@
   "hypothesis_tests": {
     "H1": {
       "description": "T1 error increases with difficulty",
+      "primary_metric": "relative_error",
+      "primary_supported": false,
+      "metrics": {
+        "absolute_error": {
+          "supported": false,
+          "values": {
+            "easy": 1722.2972762093914,
+            "medium": 740.4035802802673,
+            "hard": 436.1372146011463,
+            "extreme": 310.5541280959253
+          },
+          "expect": "increasing"
+        },
+        "relative_error": {
+          "supported": false,
+          "values": {
+            "easy": 1.3628646692558837,
+            "medium": 1.3736142854026387,
+            "hard": 1.3725319572970827,
+            "extreme": 1.4152364774561108
+          },
+          "expect": "increasing"
+        },
+        "direction_accuracy": {
+          "supported": false,
+          "values": {
+            "easy": 0.39751501394996924,
+            "medium": 0.45742544019357945,
+            "hard": 0.4938574650004698,
+            "extreme": 0.5012143183978036
+          },
+          "expect": "decreasing"
+        }
+      },
       "supported": false,
       "values": {
-        "easy": 1722.2972762093914,
-        "medium": 740.4035802802673,
-        "hard": 436.1372146011463,
-        "extreme": 310.5541280959253
+        "easy": 1.3628646692558837,
+        "medium": 1.3736142854026387,
+        "hard": 1.3725319572970827,
+        "extreme": 1.4152364774561108
       }
     },
     "H2": {

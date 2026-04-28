@@ -14,6 +14,28 @@ from .result_writer import load_results
 logger = logging.getLogger("chess_llm_bench")
 
 
+# Floor (in centipawns) for the relative-error denominator. ~1 pawn — small
+# enough that near-zero positions are penalised meaningfully but large enough
+# to avoid divide-by-zero blow-up.
+RELATIVE_ERROR_FLOOR_CP = 100
+
+
+def compute_relative_error(
+    model_eval: float, stockfish_eval: float, floor: int = RELATIVE_ERROR_FLOOR_CP
+) -> float:
+    """Position-magnitude-invariant alternative to absolute error.
+
+    relative_error = |model - truth| / max(|truth|, floor)
+
+    The floor prevents division blow-up on near-zero positions and makes a
+    "100 cp miss on an equal position" register as 1.0 — comparable to a
+    "1000 cp miss on a +1000 cp position."
+    """
+    if floor <= 0:
+        raise ValueError(f"floor must be positive, got {floor}")
+    return abs(model_eval - stockfish_eval) / max(abs(stockfish_eval), floor)
+
+
 def load_results_df(results_file: str = "results/evaluations.jsonl") -> pd.DataFrame:
     """Load results into a pandas DataFrame.
 
@@ -21,12 +43,25 @@ def load_results_df(results_file: str = "results/evaluations.jsonl") -> pd.DataF
         results_file: Path to JSONL results file
 
     Returns:
-        DataFrame with all results
+        DataFrame with all results, including the derived
+        ``t1_relative_error`` column for hypothesis-test calibration.
     """
     results = load_results(results_file)
     if not results:
         return pd.DataFrame()
-    return pd.DataFrame(results)
+    df = pd.DataFrame(results)
+
+    # Derived: position-magnitude-invariant T1 error. NaN where either input
+    # is missing (model failed to produce a parseable number).
+    if "t1_model_eval" in df.columns and "t1_stockfish_eval" in df.columns:
+        valid = df["t1_model_eval"].notna() & df["t1_stockfish_eval"].notna()
+        df["t1_relative_error"] = np.where(
+            valid,
+            np.abs(df["t1_model_eval"] - df["t1_stockfish_eval"])
+            / np.maximum(np.abs(df["t1_stockfish_eval"]), RELATIVE_ERROR_FLOOR_CP),
+            np.nan,
+        )
+    return df
 
 
 def aggregate_by_model(df: pd.DataFrame) -> pd.DataFrame:
@@ -253,22 +288,61 @@ def compute_hypothesis_tests(df: pd.DataFrame) -> dict[str, Any]:
     if df.empty:
         return {"error": "No data available"}
 
-    # H1: T1 error increases with difficulty
+    # H1: T1 error increases with difficulty.
+    #
+    # Reported under three metrics. Absolute error is kept for transparency
+    # because it surfaces a well-known artefact (Lichess "easy" puzzles tend
+    # to have decisive evals, inflating absolute errors when the model guesses
+    # near zero). Relative error is the primary metric — invariant to position
+    # magnitude. Direction accuracy is a sanity-check on the qualitative call.
     difficulty_order = ["easy", "medium", "hard", "extreme"]
-    h1_data = df.groupby("difficulty")["t1_absolute_error"].mean()
 
-    h1_values = [h1_data.get(d) for d in difficulty_order if d in h1_data]
-    # Require at least 2 tiers: all() on an empty/singleton range returns True
-    # (vacuous truth), which would falsely mark the hypothesis as supported.
-    h1_increasing = len(h1_values) >= 2 and all(
-        h1_values[i] <= h1_values[i + 1]
-        for i in range(len(h1_values) - 1)
-        if h1_values[i] is not None and h1_values[i + 1] is not None
-    )
+    def _trend_supported(values: list[float], expect: str) -> bool:
+        """Weakly monotonic in `expect` direction AND strict overall.
+
+        A flat series ([1, 1, 1, 1]) is not evidence of an increase or
+        decrease, so we require the endpoints to differ in the predicted
+        direction in addition to weak monotonicity at each step.
+        """
+        cleaned = [v for v in values if v is not None and not pd.isna(v)]
+        if len(cleaned) < 2:
+            return False
+        if expect == "increasing":
+            weak = all(cleaned[i] <= cleaned[i + 1] for i in range(len(cleaned) - 1))
+            return weak and cleaned[0] < cleaned[-1]
+        weak = all(cleaned[i] >= cleaned[i + 1] for i in range(len(cleaned) - 1))
+        return weak and cleaned[0] > cleaned[-1]
+
+    def _h1_metric(column: str, expect: str) -> dict[str, Any]:
+        data = df.groupby("difficulty")[column].mean()
+        values_dict = {d: (None if d not in data.index else float(data.loc[d]))
+                       for d in difficulty_order}
+        ordered = [values_dict[d] for d in difficulty_order]
+        return {
+            "supported": _trend_supported(ordered, expect),
+            "values": values_dict,
+            "expect": expect,
+        }
+
+    h1_metrics = {
+        "absolute_error": _h1_metric("t1_absolute_error", "increasing"),
+    }
+    if "t1_relative_error" in df.columns:
+        h1_metrics["relative_error"] = _h1_metric("t1_relative_error", "increasing")
+    if "t1_direction_correct" in df.columns:
+        h1_metrics["direction_accuracy"] = _h1_metric("t1_direction_correct", "decreasing")
+
+    primary_metric = "relative_error" if "relative_error" in h1_metrics else "absolute_error"
+    primary = h1_metrics[primary_metric]
     results["H1"] = {
         "description": "T1 error increases with difficulty",
-        "supported": h1_increasing,
-        "values": {d: h1_data.get(d) for d in difficulty_order},
+        "primary_metric": primary_metric,
+        "primary_supported": primary["supported"],
+        "metrics": h1_metrics,
+        # Backwards-compat surface (existing dashboard/test consumers expect
+        # `supported` and `values` at the top level). Mirrors the primary.
+        "supported": primary["supported"],
+        "values": primary["values"],
     }
 
     # H2: T2 CPL increases with difficulty
