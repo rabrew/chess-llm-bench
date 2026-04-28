@@ -244,7 +244,9 @@ class TestLc0Engine:
 
     @patch("subprocess.Popen")
     def test_evaluate_retries_on_exception(self, mock_popen):
-        mock_popen.return_value = _make_mock_process(LC0_INIT_LINES)
+        proc1 = _make_mock_process(LC0_INIT_LINES)
+        proc2 = _make_mock_process(LC0_INIT_LINES)
+        mock_popen.side_effect = [proc1, proc2]
         engine = Lc0Engine(path="/fake/lc0", weights="/fake/w.pb")
         with patch.object(engine, "_evaluate_internal",
                           side_effect=[Exception("fail"),

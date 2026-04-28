@@ -3,7 +3,7 @@
 import hashlib
 import logging
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -118,7 +118,7 @@ def ensure_project_dirs(config: dict[str, Any]) -> None:
 
     # Ensure data and jobs directories
     ensure_dir(paths.get("data_dir", "data"))
-    ensure_dir(Path(paths.get("jobs_db", "jobs/jobs.db")).parent)
+    ensure_dir(Path(paths.get("jobs_db", "jobs/db/jobs.db")).parent)
 
     # Ensure results directories
     ensure_dir(Path(paths.get("results_file", "results/evaluations.jsonl")).parent)
@@ -129,12 +129,12 @@ def ensure_project_dirs(config: dict[str, Any]) -> None:
 
 def get_timestamp() -> str:
     """Get current timestamp in ISO format."""
-    return datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def get_run_id() -> str:
     """Generate a unique run ID based on current timestamp."""
-    return datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+    return datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
 
 
 def parse_model_info(model_tag: str) -> dict[str, Any]:

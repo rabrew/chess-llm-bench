@@ -62,7 +62,7 @@ class Worker:
 
         # Initialize components — resolve paths to absolute to survive multiprocessing cwd changes
         paths = config.get("paths", {})
-        self.job_queue = JobQueue(os.path.abspath(paths.get("jobs_db", "jobs/jobs.db")))
+        self.job_queue = JobQueue(os.path.abspath(paths.get("jobs_db", "jobs/db/jobs.db")))
         self.result_writer = ResultWriter(
             os.path.abspath(paths.get("results_file", "results/evaluations.jsonl"))
         )
@@ -95,10 +95,11 @@ class Worker:
         )
         self.cpl_threshold = eval_config.get("cpl_threshold", 50)
 
-        # Track completed jobs (for duplicate detection)
-        self.completed_jobs = get_completed_job_ids(
-            paths.get("results_file", "results/evaluations.jsonl")
-        )
+        # Load completed job IDs from the DB (status='done') rather than
+        # scanning the JSONL results file.  The DB query is O(done_jobs) and
+        # cross-process accurate via WAL; the JSONL scan was O(file size) and
+        # only reflected jobs completed before this worker started.
+        self.completed_jobs = set(self.job_queue.get_done_job_ids())
 
     def process_job(self, job: dict[str, Any]) -> dict[str, Any] | None:
         """Process a single benchmark job.
@@ -213,10 +214,12 @@ class Worker:
                 else:
                     move_prompt = build_move_prompt(fen)
                     move_result = self.llm_client.chat(job["model"], move_prompt, system_prompt=MOVE_SYSTEM_PROMPT, temperature=0)
+                    extracted = None
                     if move_result["success"] and move_result["response"].strip():
                         extracted = extract_move_from_text(fen, move_result["response"])
-                        if extracted:
-                            parsed["move"] = extracted
+                    # Explicitly null out the move if both rescue attempts failed;
+                    # the original illegal value must not reach the scorer.
+                    parsed["move"] = extracted
                     llm_result["inference_ms"] += move_result.get("inference_ms", 0)
 
             if (

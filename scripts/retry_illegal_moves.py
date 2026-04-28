@@ -17,6 +17,7 @@ import argparse
 import json
 import logging
 import re
+import subprocess
 import sys
 import time
 from pathlib import Path
@@ -32,7 +33,7 @@ logging.basicConfig(
 logger = logging.getLogger("retry_illegal_moves")
 
 OLLAMA_URL = "http://localhost:11434"
-OLLAMA_TIMEOUT = 180
+OLLAMA_TIMEOUT = 3600
 
 
 # ---------------------------------------------------------------------------
@@ -57,16 +58,26 @@ SYSTEM_PROMPT = (
 )
 
 
-def build_retry_prompt(fen: str, illegal_move: str | None) -> str:
+def build_retry_prompt(fen: str, illegal_move: str | None, legal_moves: list[str] | None = None) -> str:
     if illegal_move:
         problem = f'Your previous move "{illegal_move}" is not legal in this position.'
     else:
         problem = "You did not provide a move for this position."
+    legal_str = ", ".join(legal_moves if legal_moves is not None else legal_moves_san(fen))
     return (
         f"{problem}\n\n"
         f"Position (FEN): {fen}\n\n"
-        "Output a single legal move in SAN notation. Respond with the move only."
+        f"The complete list of legal moves in SAN notation is:\n{legal_str}\n\n"
+        "Pick the best move from the list above. Output only the move — no explanation, no move numbers."
     )
+
+
+def legal_moves_san(fen: str) -> list[str]:
+    try:
+        board = chess.Board(fen)
+        return [board.san(m) for m in board.legal_moves]
+    except Exception:
+        return []
 
 
 def parse_move(response_text: str) -> str | None:
@@ -82,6 +93,23 @@ def parse_move(response_text: str) -> str | None:
 # ---------------------------------------------------------------------------
 # Ollama
 # ---------------------------------------------------------------------------
+
+def restart_ollama() -> None:
+    logger.warning("  Restarting Ollama...")
+    subprocess.call(["pkill", "-f", "ollama serve"], stderr=subprocess.DEVNULL)
+    time.sleep(5)
+    subprocess.Popen(
+        ["ollama", "serve"],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    for _ in range(60):
+        if ollama_available():
+            logger.info("  Ollama back up.")
+            return
+        time.sleep(2)
+    logger.error("  Ollama did not come back up after restart.")
+
 
 def ollama_available() -> bool:
     try:
@@ -102,17 +130,23 @@ def ollama_models() -> set[str]:
 
 def chat(model: str, prompt: str) -> tuple[str, int]:
     """Returns (response_text, inference_ms). Raises on failure."""
+    model_lower = model.lower()
     start = time.time()
+    payload: dict = {
+        "model": model,
+        "messages": [
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": prompt},
+        ],
+        "stream": False,
+    }
+    # Gemma4 and DeepSeek-R1 have built-in thinking/CoT that burns the token
+    # budget and returns blank content unless explicitly disabled.
+    if "gemma4" in model_lower or "deepseek-r1" in model_lower:
+        payload["think"] = False
     r = requests.post(
         f"{OLLAMA_URL}/api/chat",
-        json={
-            "model": model,
-            "messages": [
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": prompt},
-            ],
-            "stream": False,
-        },
+        json=payload,
         timeout=OLLAMA_TIMEOUT,
     )
     r.raise_for_status()
@@ -183,11 +217,16 @@ def main() -> None:
     # Load existing retried records so we can skip already-done jobs
     already_retried = {r["job_id"] for r in load_jsonl(output_path)}
 
-    # Load all records and filter to illegal moves
+    # Load all records and filter to illegal moves.
+    # Only retry prompt formats that actually asked for a move — eval_only and
+    # explanation_only never requested T2, so their t2_legal=false is expected,
+    # not an error.
+    MOVE_REQUESTING_FORMATS = {"move_only", "pgn+fen", "fen_only", "cot"}
     all_records = load_jsonl(input_path)
     to_retry = [
         r for r in all_records
-        if str(r.get("t2_legal")) != "True"
+        if not r.get("t2_legal")
+        and r.get("prompt_format") in MOVE_REQUESTING_FORMATS
         and r.get("job_id") not in already_retried
         and (args.model is None or r.get("model") == args.model)
     ]
@@ -216,12 +255,26 @@ def main() -> None:
             stats["skipped"] += 1
             continue
 
-        prompt = build_retry_prompt(fen, original_move)
+        legal_moves = legal_moves_san(fen)
+        if not legal_moves:
+            logger.warning(f"  No legal moves (bad/terminal FEN) — skipping")
+            stats["skipped"] += 1
+            continue
+        prompt = build_retry_prompt(fen, original_move, legal_moves)
 
-        try:
-            response_text, inference_ms = chat(model, prompt)
-        except Exception as e:
-            logger.warning(f"  Ollama call failed: {e} — skipping")
+        response_text = None
+        inference_ms = 0
+        for attempt in range(5):
+            try:
+                response_text, inference_ms = chat(model, prompt)
+                break
+            except (requests.ConnectionError, requests.Timeout) as e:
+                logger.warning(f"  transient error (attempt {attempt+1}/5): {e}")
+                restart_ollama()
+            except Exception as e:
+                logger.warning(f"  Ollama call failed: {e} — skipping")
+                break
+        if response_text is None:
             stats["skipped"] += 1
             continue
 

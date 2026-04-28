@@ -258,7 +258,9 @@ def compute_hypothesis_tests(df: pd.DataFrame) -> dict[str, Any]:
     h1_data = df.groupby("difficulty")["t1_absolute_error"].mean()
 
     h1_values = [h1_data.get(d) for d in difficulty_order if d in h1_data]
-    h1_increasing = all(
+    # Require at least 2 tiers: all() on an empty/singleton range returns True
+    # (vacuous truth), which would falsely mark the hypothesis as supported.
+    h1_increasing = len(h1_values) >= 2 and all(
         h1_values[i] <= h1_values[i + 1]
         for i in range(len(h1_values) - 1)
         if h1_values[i] is not None and h1_values[i + 1] is not None
@@ -272,7 +274,7 @@ def compute_hypothesis_tests(df: pd.DataFrame) -> dict[str, Any]:
     # H2: T2 CPL increases with difficulty
     h2_data = df.groupby("difficulty")["t2_cpl"].mean()
     h2_values = [h2_data.get(d) for d in difficulty_order if d in h2_data]
-    h2_increasing = all(
+    h2_increasing = len(h2_values) >= 2 and all(
         h2_values[i] <= h2_values[i + 1]
         for i in range(len(h2_values) - 1)
         if h2_values[i] is not None and h2_values[i + 1] is not None
@@ -286,7 +288,7 @@ def compute_hypothesis_tests(df: pd.DataFrame) -> dict[str, Any]:
     # H3: T3 score decreases with difficulty
     h3_data = df.groupby("difficulty")["t3_score"].mean()
     h3_values = [h3_data.get(d) for d in difficulty_order if d in h3_data]
-    h3_decreasing = all(
+    h3_decreasing = len(h3_values) >= 2 and all(
         h3_values[i] >= h3_values[i + 1]
         for i in range(len(h3_values) - 1)
         if h3_values[i] is not None and h3_values[i + 1] is not None

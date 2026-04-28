@@ -85,39 +85,66 @@ echo ""
 # Small models (≤14GB) fill in VRAM → high parallelism.
 # Large/offloaded models → lower parallelism (CPU can't batch well).
 CURRENT_OLLAMA_PARALLEL=""
+OLLAMA_BG_PID=""
+
+cleanup_ollama() {
+    if [ -n "$OLLAMA_BG_PID" ] && kill -0 "$OLLAMA_BG_PID" 2>/dev/null; then
+        kill "$OLLAMA_BG_PID" 2>/dev/null || true
+    fi
+}
+trap cleanup_ollama EXIT
+
 restart_ollama_for_model() {
     local model="$1"
     local num_parallel workers
-    if echo "$model" | grep -qiE "70b|72b"; then
+    if echo "$model" | grep -qiE "72b"; then
+        num_parallel=1; workers=1       # ~40GB+ — OOM at workers=2
+    elif echo "$model" | grep -qiE "70b"; then
         num_parallel=1; workers=2       # ~40GB+ — barely fits offloaded
     elif echo "$model" | grep -qiE "mixtral"; then
         num_parallel=2; workers=3       # MoE, large active params
     elif echo "$model" | grep -qiE "32b|34b|35b|26b|31b"; then
         num_parallel=2; workers=4       # ~14-20GB, 2 fits in 16GB VRAM
+    elif echo "$model" | grep -qiE "deepseek-r1:14b"; then
+        num_parallel=2; workers=4       # 14B + long CoT + KV cache — tight on 16GB VRAM
     elif echo "$model" | grep -qiE "deepseek-r1"; then
-        num_parallel=2; workers=4       # long CoT, fewer concurrent is fine
+        num_parallel=4; workers=8       # 7B + CoT fits easily; bumped from 2/4 to speed up
+    elif echo "$model" | grep -qiE "e2b|e3b"; then
+        num_parallel=6; workers=12      # ~2-3B, very small — push parallelism hard
     elif echo "$model" | grep -qiE "12b|13b|14b"; then
         num_parallel=2; workers=4       # ~7-8GB each, 2 fits safely in 16GB
     elif echo "$model" | grep -qiE "7b|8b|9b|10b|11b"; then
         num_parallel=3; workers=6       # ~4-5GB each, 3 fits in 16GB
+    elif echo "$model" | grep -qiE "gemma4"; then
+        num_parallel=2; workers=4       # gemma4 variants — default to medium settings
     else
         num_parallel=12; workers=16     # small (≤6B), fits many in VRAM
     fi
 
+    echo "$workers" > /tmp/bench_workers
     if [ "$num_parallel" = "$CURRENT_OLLAMA_PARALLEL" ]; then
         return  # already correct, no restart needed
     fi
 
     print_info "Restarting Ollama: NUM_PARALLEL=$num_parallel for $model..."
-    tmux send-keys -t ollama-serve C-c 2>/dev/null || true
+    # Stop any running Ollama (our background process or a pre-existing one)
+    if [ -n "$OLLAMA_BG_PID" ] && kill -0 "$OLLAMA_BG_PID" 2>/dev/null; then
+        kill "$OLLAMA_BG_PID" 2>/dev/null || true
+        wait "$OLLAMA_BG_PID" 2>/dev/null || true
+    fi
+    pkill -f "ollama serve" 2>/dev/null || true
     sleep 3
-    tmux send-keys -t ollama-serve "OLLAMA_NUM_PARALLEL=$num_parallel OLLAMA_MODELS=/mnt/shared/ollama_models ollama serve" Enter
-    sleep 3
+
+    # Start Ollama in background, log to file
+    OLLAMA_NUM_PARALLEL=$num_parallel \
+    OLLAMA_MAX_LOADED_MODELS=1 \
+    OLLAMA_MODELS=/mnt/shared/ollama_models \
+        ollama serve >> /tmp/ollama_serve.log 2>&1 &
+    OLLAMA_BG_PID=$!
+
     until curl -sf http://localhost:11434/api/tags >/dev/null 2>&1; do sleep 2; done
     CURRENT_OLLAMA_PARALLEL="$num_parallel"
-    print_info "Ollama ready (NUM_PARALLEL=$num_parallel, workers=$workers)"
-    # Write worker count to temp file so the loop can pick it up
-    echo "$workers" > /tmp/bench_workers
+    print_info "Ollama ready (NUM_PARALLEL=$num_parallel, workers=$workers, PID=$OLLAMA_BG_PID)"
 }
 
 RESULTS_FILE="results/evaluations.jsonl"

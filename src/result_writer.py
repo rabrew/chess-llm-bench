@@ -8,7 +8,7 @@ from typing import Any
 
 _JOB_ID_RE = re.compile(r'"job_id"\s*:\s*"([^"]+)"')
 
-from filelock import FileLock
+from filelock import FileLock, Timeout as FileLockTimeout
 
 from .utils import get_timestamp, parse_model_info
 
@@ -29,7 +29,10 @@ class ResultWriter:
 
         # Ensure directory exists
         self.results_file.parent.mkdir(parents=True, exist_ok=True)
-        self.lock = FileLock(self.lock_file)
+        # 30s timeout: if a worker dies mid-write on a networked/NTFS mount the
+        # OS may not release the fcntl lock automatically; a timeout converts a
+        # silent hang into a hard error that surfaces in the worker log.
+        self.lock = FileLock(self.lock_file, timeout=30)
 
     def write_result(self, result: dict[str, Any]) -> None:
         """Write a single result record to the JSONL file.
@@ -37,9 +40,15 @@ class ResultWriter:
         Args:
             result: Result dictionary to write
         """
-        with self.lock:
-            with open(self.results_file, "a") as f:
-                f.write(json.dumps(result) + "\n")
+        try:
+            with self.lock:
+                with open(self.results_file, "a") as f:
+                    f.write(json.dumps(result) + "\n")
+        except FileLockTimeout:
+            raise RuntimeError(
+                f"Could not acquire result file lock after 30s — a worker may be "
+                f"stuck or dead. Lock file: {self.lock_file}"
+            )
 
     def write_results(self, results: list[dict[str, Any]]) -> None:
         """Write multiple result records to the JSONL file.
@@ -47,10 +56,16 @@ class ResultWriter:
         Args:
             results: List of result dictionaries
         """
-        with self.lock:
-            with open(self.results_file, "a") as f:
-                for result in results:
-                    f.write(json.dumps(result) + "\n")
+        try:
+            with self.lock:
+                with open(self.results_file, "a") as f:
+                    for result in results:
+                        f.write(json.dumps(result) + "\n")
+        except FileLockTimeout:
+            raise RuntimeError(
+                f"Could not acquire result file lock after 30s — a worker may be "
+                f"stuck or dead. Lock file: {self.lock_file}"
+            )
 
 
 def build_result_record(
@@ -95,6 +110,11 @@ def build_result_record(
         "phase": job.get("phase"),
         "source": job.get("source"),
         "theme": job.get("theme"),
+
+        # Ground truth — stored explicitly so results are self-contained and
+        # auditable without reloading the dataset JSON files.
+        "stockfish_eval": job.get("stockfish_eval"),
+        "stockfish_best_move": job.get("stockfish_best_move"),
 
         # Timing
         "inference_ms": inference_ms,

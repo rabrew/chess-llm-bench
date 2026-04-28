@@ -20,6 +20,7 @@ class DataLoader:
         """
         self.data_dir = Path(data_dir)
         self._cache: dict[str, list[dict[str, Any]]] = {}
+        self._id_index: dict[int, dict[str, Any]] | None = None
 
     def load_tier(self, difficulty: str) -> list[dict[str, Any]]:
         """Load positions for a specific difficulty tier.
@@ -145,10 +146,9 @@ class DataLoader:
         Returns:
             Position dictionary or None if not found
         """
-        for pos in self.load_all():
-            if pos.get("id") == position_id:
-                return pos
-        return None
+        if self._id_index is None:
+            self._id_index = {pos["id"]: pos for pos in self.load_all() if "id" in pos}
+        return self._id_index.get(position_id)
 
     def get_similar(
         self,

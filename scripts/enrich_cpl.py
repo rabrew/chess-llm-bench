@@ -191,10 +191,13 @@ def run(results_file: str, data_dir: str, engine: Any, dry_run: bool) -> None:
     logger.info(f"Reading {results_path}...")
     records = []
     with open(results_path) as f:
-        for line in f:
+        for lineno, line in enumerate(f, 1):
             line = line.strip()
             if line:
-                records.append(json.loads(line))
+                try:
+                    records.append(json.loads(line))
+                except json.JSONDecodeError:
+                    logger.warning(f"Skipping malformed JSON on line {lineno}")
 
     to_enrich, passthrough = collect_work(records)
 

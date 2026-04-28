@@ -372,8 +372,10 @@ def api_current():
             "t3": _null(t3 * 100) if t3 is not None else None,
         }
 
-    # Throughput from last ~600 entries for this model
+    # Throughput from jobs completed in the last 10 minutes
     recent_ts_list = []
+    now_utc = datetime.now(timezone.utc)
+    window = timedelta(minutes=10)
     try:
         with open(EVALUATIONS_PATH, "rb") as f:
             f.seek(0, 2)
@@ -389,9 +391,9 @@ def api_current():
                 if r.get("model") == active_model:
                     ts = r.get("timestamp")
                     if ts:
-                        recent_ts_list.append(
-                            datetime.fromisoformat(ts.replace("Z", "+00:00"))
-                        )
+                        dt = datetime.fromisoformat(ts.replace("Z", "+00:00"))
+                        if now_utc - dt <= window:
+                            recent_ts_list.append(dt)
             except Exception:
                 continue
     except Exception:
@@ -399,11 +401,11 @@ def api_current():
 
     jobs_per_min = None
     eta_secs = None
-    if len(recent_ts_list) >= 10:
+    if len(recent_ts_list) >= 2:
         recent_ts_list.sort()
         span = (recent_ts_list[-1] - recent_ts_list[0]).total_seconds()
         if span > 0:
-            rate = len(recent_ts_list) / span
+            rate = (len(recent_ts_list) - 1) / span
             jobs_per_min = _null(rate * 60)
             if remaining > 0:
                 eta_secs = int(remaining / rate)

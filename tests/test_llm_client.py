@@ -132,7 +132,7 @@ class TestOllamaClient:
 
     def test_get_options_small_model(self):
         opts = OllamaClient._get_options("llama3.2:3b")
-        assert opts == {}
+        assert opts == {"num_ctx": 1024, "num_predict": 400}
 
     @patch("src.llm_client.requests.post")
     def test_chat_success(self, mock_post):
@@ -182,9 +182,9 @@ class TestOllamaClient:
         client = OllamaClient(timeout=180, max_retries=1)
         result = client.chat("deepseek-r1:7b", "test")
         assert result["success"] is True
-        # deepseek-r1 should use timeout=600
+        # deepseek-r1 CoT is disabled (think:false), so it uses the default timeout
         call_kwargs = mock_post.call_args[1]
-        assert call_kwargs.get("timeout") == 600
+        assert call_kwargs.get("timeout") == 180
 
     @patch("src.llm_client.requests.post")
     def test_chat_72b_with_options(self, mock_post):

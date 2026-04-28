@@ -76,7 +76,7 @@ class FastLc0Engine:
                     try:
                         idx = parts.index("cp")
                         eval_cp = int(parts[idx + 1])
-                    except:
+                    except (ValueError, IndexError):
                         pass
             elif line.startswith("bestmove"):
                 parts = line.split()
@@ -86,7 +86,7 @@ class FastLc0Engine:
                         board = chess.Board(fen)
                         move = chess.Move.from_uci(best_move_uci)
                         best_move = board.san(move)
-                    except:
+                    except (ValueError, chess.InvalidMoveError):
                         best_move = best_move_uci
                 break
 
@@ -101,7 +101,7 @@ class FastLc0Engine:
         try:
             self._send("quit")
             self.process.wait(timeout=2)
-        except:
+        except Exception:
             self.process.kill()
 
 

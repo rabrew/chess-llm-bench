@@ -93,9 +93,8 @@ class OllamaClient:
         if "70b" in model_lower:
             return {"num_gpu": 26, "num_ctx": 512, "num_predict": 400}
         if "deepseek-r1" in model_lower:
-            # DeepSeek-R1 generates long CoT chains before answering — needs
-            # much higher token budget or responses get cut off mid-think.
-            return {"num_ctx": 8192, "num_predict": 3000}
+            # CoT disabled via think:false — no long reasoning chains, normal budget.
+            return {"num_ctx": 1024, "num_predict": 400}
         if "gemma4" in model_lower:
             # Gemma4 has built-in thinking/CoT disabled via think:false payload flag.
             # Without disabling it, thinking tokens consume num_predict budget and
@@ -119,11 +118,8 @@ class OllamaClient:
         start_time = time.time()
         last_error = None
         options = self._get_options(model)
-        # Reasoning models (deepseek-r1) run long CoT before answering — extend timeout
-        # Large offloaded models (70B+) also need more time
-        if "deepseek-r1" in model.lower():
-            timeout = 600
-        elif options.get("num_gpu") is not None:
+        # Large offloaded models (70B+) need more time
+        if options.get("num_gpu") is not None:
             timeout = 600
         else:
             timeout = self.timeout
@@ -143,7 +139,7 @@ class OllamaClient:
                     "messages": messages,
                     "stream": False,
                 }
-                if "gemma4" in model.lower():
+                if "gemma4" in model.lower() or "deepseek-r1" in model.lower():
                     payload["think"] = False
                 if merged_options:
                     payload["options"] = merged_options
@@ -492,8 +488,10 @@ def parse_response(response_text: str) -> dict[str, Any]:
             elif "equal" in explanation_lower or "draw" in explanation_lower:
                 result["side_claimed"] = "Equal"
 
-        # Fallback: plain unlabeled explanation after eval and move are known
-        elif result["explanation"] is None and result["eval"] is not None and result["move"] is not None:
+        # Fallback: plain unlabeled explanation after eval and move are known.
+        # Guard on non-empty line: blank separator lines between numbered items
+        # must not set explanation to '' — that would block subsequent handlers.
+        elif result["explanation"] is None and result["eval"] is not None and result["move"] is not None and line:
             result["explanation"] = line
             explanation_lower = line.lower()
             if "white" in explanation_lower and "black" not in explanation_lower:

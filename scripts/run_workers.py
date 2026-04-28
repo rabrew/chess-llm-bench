@@ -121,7 +121,7 @@ def main():  # pragma: no cover
 
     # Get paths
     paths = config.get("paths", {})
-    db_path = paths.get("jobs_db", "jobs/jobs.db")
+    db_path = paths.get("jobs_db", "jobs/db/jobs.db")
     log_dir = paths.get("logs_dir", "results/logs")
 
     # Initialize job queue
@@ -216,6 +216,11 @@ def main():  # pragma: no cover
         del loader
         gc.collect()
         logger.info(f"Pre-loaded {len(_worker_module._SHARED_POSITIONS)} positions ({len(_worker_module._SHARED_POSITIONS) * 100 // max(len(needed_ids), 1)}% of needed)")
+
+    # Close the parent's SQLite connection before forking.  Each worker process
+    # must open its own connection; sharing the parent's across a fork()
+    # boundary is undefined behaviour and can silently corrupt the database.
+    job_queue.close()
 
     # Run workers in parallel
     worker_args = [

@@ -210,6 +210,7 @@ def generate_endgame_position(
     # Place white pieces
     occupied = {white_king_sq, black_king_sq}
     for piece_type in config["white"]:
+        placed = False
         for _ in range(100):  # Max attempts
             sq = rng.randint(0, 63)
             if sq in occupied:
@@ -221,10 +222,14 @@ def generate_endgame_position(
                     continue
             board.set_piece_at(sq, chess.Piece(piece_type, chess.WHITE))
             occupied.add(sq)
+            placed = True
             break
+        if not placed:
+            logger.warning(f"Could not place white {chess.piece_name(piece_type)} after 100 attempts — position may be incomplete")
 
     # Place black pieces
     for piece_type in config["black"]:
+        placed = False
         for _ in range(100):
             sq = rng.randint(0, 63)
             if sq in occupied:
@@ -235,7 +240,10 @@ def generate_endgame_position(
                     continue
             board.set_piece_at(sq, chess.Piece(piece_type, chess.BLACK))
             occupied.add(sq)
+            placed = True
             break
+        if not placed:
+            logger.warning(f"Could not place black {chess.piece_name(piece_type)} after 100 attempts — position may be incomplete")
 
     # Set turn randomly
     board.turn = rng.choice([chess.WHITE, chess.BLACK])

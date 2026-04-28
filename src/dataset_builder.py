@@ -1,5 +1,6 @@
 """Build chess position datasets from multiple sources."""
 
+import hashlib
 import json
 import logging
 import random
@@ -25,6 +26,17 @@ DIFFICULTY_TIERS = {
     "hard": (1800, 2400),
     "extreme": (2400, 4000),
 }
+
+
+def _fen_to_id(fen: str) -> int:
+    """Compute a stable integer ID from a FEN string.
+
+    Uses the first 8 hex chars of SHA-256 (32 bits). For ≤4000 positions the
+    birthday-collision probability is <0.0002%, which is acceptable.  IDs are
+    stable across dataset rebuilds with different max_positions_per_tier values,
+    preventing job-deduplication failures in the job queue.
+    """
+    return int(hashlib.sha256(fen.encode()).hexdigest()[:8], 16)
 
 
 def rating_to_difficulty(rating: int) -> str:
@@ -313,6 +325,8 @@ class PGNPositionSampler:
                 positions = self._extract_positions_from_game(game, rng)
                 for pos in positions:
                     phase = pos["phase"]
+                    if phase not in positions_by_phase:
+                        continue
                     if len(positions_by_phase[phase]) < count_per_phase * 2:
                         positions_by_phase[phase].append(pos)
 
@@ -451,22 +465,44 @@ def build_dataset(
         tier = "medium"
         all_positions[tier].append(pos)
 
-    # Assign unique IDs and ensure we don't exceed max_per_tier
-    rng = random.Random(seed)
-    position_id = 0
-    final_dataset: dict[str, list[dict[str, Any]]] = {}
+    # Deduplicate positions by FEN across all tiers before ID assignment.
+    # Positions from different sources (Lichess, PGN, generated) can share the
+    # same FEN; keeping duplicates would inflate statistics and produce multiple
+    # jobs for the same board position.
+    seen_fens: set[str] = set()
+    deduped: dict[str, list[dict[str, Any]]] = {tier: [] for tier in all_positions}
+    for tier, positions in all_positions.items():
+        for pos in positions:
+            fen = pos["fen"]
+            if fen not in seen_fens:
+                seen_fens.add(fen)
+                deduped[tier].append(pos)
+    all_positions = deduped
 
-    # max_per_tier <= 0 means unlimited
+    # Sample and assign stable FEN-hash IDs.
+    # Sequential counters shift when max_positions_per_tier changes, breaking
+    # job-queue deduplication on rebuild.  Hash-based IDs are invariant.
+    rng = random.Random(seed)
+    final_dataset: dict[str, list[dict[str, Any]]] = {}
     unlimited = max_per_tier <= 0
 
+    assigned_ids: set[int] = set()
     for tier in all_positions:
         positions = all_positions[tier]
         if not unlimited and len(positions) > max_per_tier:
             positions = rng.sample(positions, max_per_tier)
 
         for pos in positions:
-            pos["id"] = position_id
-            position_id += 1
+            pos_id = _fen_to_id(pos["fen"])
+            # Collision guard: rehash with a counter suffix rather than
+            # incrementing, so the resolved ID is still deterministic across
+            # rebuilds with different dataset sizes.
+            counter = 0
+            while pos_id in assigned_ids:
+                counter += 1
+                pos_id = _fen_to_id(f"{pos['fen']}#{counter}")
+            assigned_ids.add(pos_id)
+            pos["id"] = pos_id
 
         final_dataset[tier] = positions
 

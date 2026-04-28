@@ -75,7 +75,8 @@ def worker(worker_config):
     with patch("src.worker.OllamaClient"), \
          patch("src.worker.DataLoader"), \
          patch("src.worker.ResultWriter"), \
-         patch("src.worker.get_completed_job_ids", return_value=set()):
+         patch("src.worker.JobQueue") as mock_jq_cls:
+        mock_jq_cls.return_value.get_done_job_ids.return_value = []
         w = Worker("worker_1", worker_config)
     return w
 
@@ -85,7 +86,8 @@ class TestWorkerInit:
         with patch("src.worker.OllamaClient"), \
              patch("src.worker.DataLoader"), \
              patch("src.worker.ResultWriter"), \
-             patch("src.worker.get_completed_job_ids", return_value=set()):
+             patch("src.worker.JobQueue") as mock_jq_cls:
+            mock_jq_cls.return_value.get_done_job_ids.return_value = []
             w = Worker("w1", worker_config)
         assert w.worker_id == "w1"
         assert w.dry_run is False
@@ -94,7 +96,8 @@ class TestWorkerInit:
         with patch("src.worker.OllamaClient"), \
              patch("src.worker.DataLoader"), \
              patch("src.worker.ResultWriter"), \
-             patch("src.worker.get_completed_job_ids", return_value=set()):
+             patch("src.worker.JobQueue") as mock_jq_cls:
+            mock_jq_cls.return_value.get_done_job_ids.return_value = []
             w = Worker("w1", worker_config, dry_run=True)
         assert w.dry_run is True
 
@@ -111,7 +114,9 @@ class TestProcessJob:
         with patch("src.worker.OllamaClient") as mock_client_cls, \
              patch("src.worker.DataLoader") as mock_loader_cls, \
              patch("src.worker.ResultWriter") as mock_writer_cls, \
-             patch("src.worker.get_completed_job_ids", return_value=completed):
+             patch("src.worker.JobQueue") as mock_jq_cls:
+
+            mock_jq_cls.return_value.get_done_job_ids.return_value = list(completed)
 
             mock_client = MagicMock()
             mock_client.chat.return_value = llm_response
@@ -244,32 +249,28 @@ class TestProcessJob:
 
 
 class TestWorkerRun:
-    def test_run_no_jobs(self, worker_config):
+    def _make_worker(self, worker_config, is_available=True):
+        """Create a Worker with JobQueue and completions mocked."""
         with patch("src.worker.OllamaClient") as mock_client_cls, \
              patch("src.worker.DataLoader"), \
              patch("src.worker.ResultWriter"), \
-             patch("src.worker.get_completed_job_ids", return_value=set()):
+             patch("src.worker.JobQueue") as mock_jq_cls:
+            mock_jq_cls.return_value.get_done_job_ids.return_value = []
             mock_client = MagicMock()
-            mock_client.is_available.return_value = True
+            mock_client.is_available.return_value = is_available
             mock_client_cls.return_value = mock_client
-
             w = Worker("w1", worker_config)
-            w.job_queue = MagicMock()
-            w.job_queue.claim_job.return_value = None
+        w.job_queue = MagicMock()
+        return w
 
-            count = w.run()
+    def test_run_no_jobs(self, worker_config):
+        w = self._make_worker(worker_config)
+        w.job_queue.claim_job.return_value = None
+        count = w.run()
         assert count == 0
 
     def test_run_raises_if_ollama_unavailable(self, worker_config):
-        with patch("src.worker.OllamaClient") as mock_client_cls, \
-             patch("src.worker.DataLoader"), \
-             patch("src.worker.ResultWriter"), \
-             patch("src.worker.get_completed_job_ids", return_value=set()):
-            mock_client = MagicMock()
-            mock_client.is_available.return_value = False
-            mock_client_cls.return_value = mock_client
-
-            w = Worker("w1", worker_config)
+        w = self._make_worker(worker_config, is_available=False)
         with pytest.raises(RuntimeError, match="not available"):
             w.run()
 
@@ -277,7 +278,8 @@ class TestWorkerRun:
         with patch("src.worker.OllamaClient") as mock_client_cls, \
              patch("src.worker.DataLoader") as mock_loader_cls, \
              patch("src.worker.ResultWriter"), \
-             patch("src.worker.get_completed_job_ids", return_value=set()):
+             patch("src.worker.JobQueue") as mock_jq_cls:
+            mock_jq_cls.return_value.get_done_job_ids.return_value = []
             mock_client = MagicMock()
             mock_client.is_available.return_value = True
             mock_client.chat.return_value = LLM_LEGAL_RESPONSE
@@ -289,7 +291,10 @@ class TestWorkerRun:
 
             w = Worker("w1", worker_config)
             w.job_queue = MagicMock()
-            w.job_queue.claim_job.return_value = {**SAMPLE_JOB}
+            # Use distinct job IDs so completed_jobs check doesn't cause infinite loop
+            job1 = {**SAMPLE_JOB, "job_id": "job_001"}
+            job2 = {**SAMPLE_JOB, "job_id": "job_002"}
+            w.job_queue.claim_job.side_effect = [job1, job2]
             w.result_writer = MagicMock()
             w.correction_manager = MagicMock()
 
@@ -297,22 +302,12 @@ class TestWorkerRun:
         assert count == 2
 
     def test_run_handles_process_job_exception(self, worker_config):
-        with patch("src.worker.OllamaClient") as mock_client_cls, \
-             patch("src.worker.DataLoader"), \
-             patch("src.worker.ResultWriter"), \
-             patch("src.worker.get_completed_job_ids", return_value=set()):
-            mock_client = MagicMock()
-            mock_client.is_available.return_value = True
-            mock_client_cls.return_value = mock_client
+        w = self._make_worker(worker_config)
+        w.job_queue.claim_job.side_effect = [{**SAMPLE_JOB}, None]
+        w.job_queue.fail_job = MagicMock()
 
-            w = Worker("w1", worker_config)
-            w.job_queue = MagicMock()
-            # First call returns a job, second returns None
-            w.job_queue.claim_job.side_effect = [{**SAMPLE_JOB}, None]
-            w.job_queue.fail_job = MagicMock()
-
-            with patch.object(w, "process_job", side_effect=RuntimeError("boom")):
-                count = w.run()
+        with patch.object(w, "process_job", side_effect=RuntimeError("boom")):
+            count = w.run()
 
         assert count == 0
         w.job_queue.fail_job.assert_called()

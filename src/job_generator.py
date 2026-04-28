@@ -99,7 +99,10 @@ def generate_correction_jobs(
     Returns:
         Tuple of (correction_job, control_job)
     """
-    # Correction job
+    # Correction job.
+    # parent_job_id is included in the hash so that two different parent jobs
+    # that happen to select the same follow-up position each get their own
+    # correction slot rather than the second insert being silently dropped.
     correction_job_id = f"{parent_job_id}_correction"
     correction_hash = compute_hash(
         follow_up_position["fen"],
@@ -107,6 +110,7 @@ def generate_correction_jobs(
         prompt_format,
         "correction",
         "2",  # trial 2
+        parent_job_id,
     )
 
     correction_job = {
@@ -128,6 +132,7 @@ def generate_correction_jobs(
         prompt_format,
         "control",
         "2",
+        parent_job_id,
     )
 
     control_job = {
@@ -174,7 +179,7 @@ def populate_job_queue(
         "prompt_formats", ["fen_only", "pgn+fen", "cot"]
     )
     data_dir = config.get("paths", {}).get("data_dir", "data")
-    db_path = config.get("paths", {}).get("jobs_db", "jobs/jobs.db")
+    db_path = config.get("paths", {}).get("jobs_db", "jobs/db/jobs.db")
 
     # Initialize components
     if data_loader is None:
@@ -215,16 +220,16 @@ def populate_job_queue(
 
     batch = []
     for pos in positions:
-        for model in models:
-            for prompt_format in prompt_formats:
-                job_id = generate_job_id(pos["id"], model, prompt_format)
-                job_hash = compute_hash(pos["fen"], model, prompt_format, "standard", "1")
+        for m in models:
+            for fmt in prompt_formats:
+                job_id = generate_job_id(pos["id"], m, fmt)
+                job_hash = compute_hash(pos["fen"], m, fmt, "standard", "1")
                 batch.append({
                     "job_id": job_id,
                     "job_type": "standard",
                     "position_id": pos["id"],
-                    "model": model,
-                    "prompt_format": prompt_format,
+                    "model": m,
+                    "prompt_format": fmt,
                     "trial": 1,
                     "hash": job_hash,
                 })

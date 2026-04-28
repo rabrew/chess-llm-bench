@@ -1,5 +1,6 @@
 """Correction loop experiment for secondary analysis."""
 
+import hashlib
 import logging
 from typing import Any
 
@@ -182,7 +183,10 @@ class CorrectionLoopManager:
         }
 
         seed = self.config.get("benchmark", {}).get("random_seed", 42)
-        job_seed = seed + hash(original_job["job_id"])
+        # hash() is PYTHONHASHSEED-randomized across process restarts; use a
+        # deterministic digest so follow-up positions are reproducible.
+        job_id_hash = int(hashlib.sha256(original_job["job_id"].encode()).hexdigest()[:8], 16)
+        job_seed = seed + job_id_hash
 
         follow_up = select_follow_up_position(
             original_position,
