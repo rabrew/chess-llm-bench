@@ -1,203 +1,1934 @@
 {
-  "total_jobs": 355,
-  "models_tested": 2,
-  "positions_tested": 96,
+  "total_jobs": 526662,
+  "models_tested": 22,
+  "positions_tested": 4000,
   "overall_metrics": {
-    "t1_mean_error": 1371.2994350282486,
-    "t1_direction_accuracy": 0.3163841807909605,
-    "t2_legal_rate": 0.11267605633802817,
-    "t2_mean_cpl": 2324.0,
-    "t3_mean_score": 0.43661971830985913
+    "t1_mean_error": 800.7174020429405,
+    "t1_direction_accuracy": 0.46261959788061086,
+    "t2_legal_rate": 0.6463690184596572,
+    "t2_mean_cpl": 4735.026161953833,
+    "t3_mean_score": 0.4088870605140566
   },
   "by_model": [
     {
+      "model": "codellama:34b",
+      "t1_absolute_error_mean": 741.2727272727273,
+      "t1_absolute_error_std": 2483.7368816426006,
+      "t1_absolute_error_median": 60.0,
+      "t1_direction_correct_mean": 0.5026000877138024,
+      "t2_legal_mean": 0.6600416666666666,
+      "t2_cpl_mean": 4702.336531784609,
+      "t2_cpl_std": 5414.263964213055,
+      "t2_cpl_median": 2274.0,
+      "t3_p1_side_correct_mean": 0.2345794977769428,
+      "t3_p2_theme_correct_mean": 0.018348049345607114,
+      "t3_score_mean": 0.25292754712254994,
+      "t3_score_std": 0.4479010303507115,
+      "job_id_count": 24000,
+      "inference_ms_mean": 16517.590625,
+      "inference_ms_median": 17324.0
+    },
+    {
+      "model": "command-r:35b",
+      "t1_absolute_error_mean": 781.559875,
+      "t1_absolute_error_std": 2477.275042716752,
+      "t1_absolute_error_median": 68.0,
+      "t1_direction_correct_mean": 0.4606875,
+      "t2_legal_mean": 0.6614166666666667,
+      "t2_cpl_mean": 4852.029230187728,
+      "t2_cpl_std": 5337.129568895768,
+      "t2_cpl_median": 2514.5,
+      "t3_p1_side_correct_mean": 0.259375,
+      "t3_p2_theme_correct_mean": 0.135375,
+      "t3_score_mean": 0.39475,
+      "t3_score_std": 0.5691596295572474,
+      "job_id_count": 24000,
+      "inference_ms_mean": 12461.343125,
+      "inference_ms_median": 14336.0
+    },
+    {
+      "model": "deepseek-r1:14b",
+      "t1_absolute_error_mean": 738.3299378224633,
+      "t1_absolute_error_std": 2499.1219624240066,
+      "t1_absolute_error_median": 46.0,
+      "t1_direction_correct_mean": 0.5302950125678,
+      "t2_legal_mean": 0.5999749906214831,
+      "t2_cpl_mean": 4839.650687786578,
+      "t2_cpl_std": 5224.312715584312,
+      "t2_cpl_median": 2512.0,
+      "t3_p1_side_correct_mean": 0.2723245364217455,
+      "t3_p2_theme_correct_mean": 0.15739510157584963,
+      "t3_score_mean": 0.4297196379975951,
+      "t3_score_std": 0.5931146951857945,
+      "job_id_count": 23991,
+      "inference_ms_mean": 3933.253761827352,
+      "inference_ms_median": 1688.0
+    },
+    {
+      "model": "deepseek-r1:7b",
+      "t1_absolute_error_mean": 677.0251291852481,
+      "t1_absolute_error_std": 2371.00520981014,
+      "t1_absolute_error_median": 54.0,
+      "t1_direction_correct_mean": 0.5007432575918453,
+      "t2_legal_mean": 0.6048323900740096,
+      "t2_cpl_mean": 4576.854315122724,
+      "t2_cpl_std": 5235.8185233402855,
+      "t2_cpl_median": 2205.0,
+      "t3_p1_side_correct_mean": 0.22210206150726597,
+      "t3_p2_theme_correct_mean": 0.1922271037512673,
+      "t3_score_mean": 0.4143291652585333,
+      "t3_score_std": 0.5877255027005509,
+      "job_id_count": 22970,
+      "inference_ms_mean": 4089.993643883326,
+      "inference_ms_median": 2809.0
+    },
+    {
+      "model": "gemma3:12b",
+      "t1_absolute_error_mean": 744.499,
+      "t1_absolute_error_std": 2484.798091263385,
+      "t1_absolute_error_median": 65.0,
+      "t1_direction_correct_mean": 0.483375,
+      "t2_legal_mean": 0.6634583333333334,
+      "t2_cpl_mean": 4718.813854173209,
+      "t2_cpl_std": 5195.18443685011,
+      "t2_cpl_median": 2333.0,
+      "t3_p1_side_correct_mean": 0.32925,
+      "t3_p2_theme_correct_mean": 0.09275,
+      "t3_score_mean": 0.422,
+      "t3_score_std": 0.5726573984774869,
+      "job_id_count": 24000,
+      "inference_ms_mean": 1805.1411666666668,
+      "inference_ms_median": 1626.5
+    },
+    {
+      "model": "gemma3:4b",
+      "t1_absolute_error_mean": 730.7206001875586,
+      "t1_absolute_error_std": 2494.035095692231,
+      "t1_absolute_error_median": 48.0,
+      "t1_direction_correct_mean": 0.5221631759924976,
+      "t2_legal_mean": 0.6584583333333334,
+      "t2_cpl_mean": 4983.197683984054,
+      "t2_cpl_std": 5348.561012976556,
+      "t2_cpl_median": 2609.0,
+      "t3_p1_side_correct_mean": 0.2819375,
+      "t3_p2_theme_correct_mean": 0.0346875,
+      "t3_score_mean": 0.316625,
+      "t3_score_std": 0.4928374883512524,
+      "job_id_count": 24000,
+      "inference_ms_mean": 1495.6894166666666,
+      "inference_ms_median": 1476.0
+    },
+    {
+      "model": "gemma4:26b",
+      "t1_absolute_error_mean": 851.5712098009188,
+      "t1_absolute_error_std": 2411.948818584939,
+      "t1_absolute_error_median": 142.0,
+      "t1_direction_correct_mean": 0.4374042879019908,
+      "t2_legal_mean": 0.6617083333333333,
+      "t2_cpl_mean": 4140.152194446194,
+      "t2_cpl_std": 5205.111355218381,
+      "t2_cpl_median": 1409.0,
+      "t3_p1_side_correct_mean": 0.37173926708152616,
+      "t3_p2_theme_correct_mean": 0.14155509460054058,
+      "t3_score_mean": 0.5132943616820668,
+      "t3_score_std": 0.5952433953263767,
+      "job_id_count": 24000,
+      "inference_ms_mean": 5097.277291666666,
+      "inference_ms_median": 2602.0
+    },
+    {
+      "model": "gemma4:31b",
+      "t1_absolute_error_mean": 846.5540625,
+      "t1_absolute_error_std": 2426.2261776355062,
+      "t1_absolute_error_median": 159.0,
+      "t1_direction_correct_mean": 0.3878125,
+      "t2_legal_mean": 0.6629166666666667,
+      "t2_cpl_mean": 3930.4978001257073,
+      "t2_cpl_std": 5213.39012391758,
+      "t2_cpl_median": 1231.0,
+      "t3_p1_side_correct_mean": 0.3925,
+      "t3_p2_theme_correct_mean": 0.11425,
+      "t3_score_mean": 0.50675,
+      "t3_score_std": 0.5804959073659814,
+      "job_id_count": 24000,
+      "inference_ms_mean": 10156.311333333333,
+      "inference_ms_median": 11447.0
+    },
+    {
+      "model": "gemma4:e2b",
+      "t1_absolute_error_mean": 774.6015670584313,
+      "t1_absolute_error_std": 2476.4055367780725,
+      "t1_absolute_error_median": 83.0,
+      "t1_direction_correct_mean": 0.45478036175710596,
+      "t2_legal_mean": 0.6618119601051621,
+      "t2_cpl_mean": 5237.96702188032,
+      "t2_cpl_std": 5518.787732743602,
+      "t2_cpl_median": 3154.0,
+      "t3_p1_side_correct_mean": 0.30282570642660667,
+      "t3_p2_theme_correct_mean": 0.06960073351671252,
+      "t3_score_mean": 0.37242643994331914,
+      "t3_score_std": 0.5339428063952827,
+      "job_id_count": 23963,
+      "inference_ms_mean": 2038.5049033927305,
+      "inference_ms_median": 1071.0
+    },
+    {
+      "model": "gemma4:e4b",
+      "t1_absolute_error_mean": 724.9630998933523,
+      "t1_absolute_error_std": 2464.8132626022793,
+      "t1_absolute_error_median": 52.0,
+      "t1_direction_correct_mean": 0.5178812655527906,
+      "t2_legal_mean": 0.6648610358764948,
+      "t2_cpl_mean": 4807.308034595137,
+      "t2_cpl_std": 5404.51349141715,
+      "t2_cpl_median": 2431.0,
+      "t3_p1_side_correct_mean": 0.33881683011705155,
+      "t3_p2_theme_correct_mean": 0.13641252768111356,
+      "t3_score_mean": 0.47522935779816516,
+      "t3_score_std": 0.591402177805902,
+      "job_id_count": 23999,
+      "inference_ms_mean": 4231.116796533189,
+      "inference_ms_median": 3102.0
+    },
+    {
+      "model": "llama3.1:8b",
+      "t1_absolute_error_mean": 863.1296355601102,
+      "t1_absolute_error_std": 2490.544441485671,
+      "t1_absolute_error_median": 70.0,
+      "t1_direction_correct_mean": 0.4535963620060206,
+      "t2_legal_mean": 0.6647078436275735,
+      "t2_cpl_mean": 5194.150981252743,
+      "t2_cpl_std": 5339.829388655812,
+      "t2_cpl_median": 3198.0,
+      "t3_p1_side_correct_mean": 0.23418002153670742,
+      "t3_p2_theme_correct_mean": 0.10115918160511814,
+      "t3_score_mean": 0.3353392031418255,
+      "t3_score_std": 0.5252230561829702,
+      "job_id_count": 23994,
+      "inference_ms_mean": 1318.8750520963574,
+      "inference_ms_median": 1068.0
+    },
+    {
       "model": "llama3.2:3b",
-      "t1_absolute_error_mean": 2568.0,
-      "t1_absolute_error_std": 4087.2534428246986,
-      "t1_absolute_error_median": 350.0,
-      "t1_direction_correct_mean": 0.2777777777777778,
-      "t2_legal_mean": 0.10526315789473684,
-      "t2_cpl_mean": 431.0,
-      "t2_cpl_std": 601.0407640085654,
-      "t2_cpl_median": 431.0,
-      "t3_p1_side_correct_mean": 0.47368421052631576,
-      "t3_p2_theme_correct_mean": 0.10526315789473684,
-      "t3_score_mean": 0.5789473684210527,
-      "t3_score_std": 0.6924826089821247,
-      "job_id_count": 19,
-      "inference_ms_mean": 2129.5263157894738,
-      "inference_ms_median": 636.0
+      "t1_absolute_error_mean": 979.2570175438597,
+      "t1_absolute_error_std": 2476.259055397387,
+      "t1_absolute_error_median": 88.0,
+      "t1_direction_correct_mean": 0.4241854636591479,
+      "t2_legal_mean": 0.656390977443609,
+      "t2_cpl_mean": 4448.137902507318,
+      "t2_cpl_std": 5086.444541783089,
+      "t2_cpl_median": 2033.0,
+      "t3_p1_side_correct_mean": 0.23640350877192984,
+      "t3_p2_theme_correct_mean": 0.12550125313283209,
+      "t3_score_mean": 0.3619047619047619,
+      "t3_score_std": 0.548405003464532,
+      "job_id_count": 23940,
+      "inference_ms_mean": 514.2987050960735,
+      "inference_ms_median": 473.0
+    },
+    {
+      "model": "llama3.3:70b",
+      "t1_absolute_error_mean": 884.698259671967,
+      "t1_absolute_error_std": 2441.1258980766484,
+      "t1_absolute_error_median": 193.0,
+      "t1_direction_correct_mean": 0.34305746838612744,
+      "t2_legal_mean": 0.664454738950795,
+      "t2_cpl_mean": 5050.852144965768,
+      "t2_cpl_std": 5460.9860276641975,
+      "t2_cpl_median": 2783.0,
+      "t3_p1_side_correct_mean": 0.32984784922672344,
+      "t3_p2_theme_correct_mean": 0.20693757435351576,
+      "t3_score_mean": 0.5367854235802392,
+      "t3_score_std": 0.6662608192378645,
+      "job_id_count": 23961,
+      "inference_ms_mean": 24989.41459037603,
+      "inference_ms_median": 27265.0
+    },
+    {
+      "model": "mistral:7b",
+      "t1_absolute_error_mean": 740.1261875,
+      "t1_absolute_error_std": 2486.7165884909627,
+      "t1_absolute_error_median": 57.0,
+      "t1_direction_correct_mean": 0.4801875,
+      "t2_legal_mean": 0.623375,
+      "t2_cpl_mean": 4307.040037430653,
+      "t2_cpl_std": 5010.086845441402,
+      "t2_cpl_median": 1899.0,
+      "t3_p1_side_correct_mean": 0.2925625,
+      "t3_p2_theme_correct_mean": 0.056,
+      "t3_score_mean": 0.3485625,
+      "t3_score_std": 0.5147409479378606,
+      "job_id_count": 24000,
+      "inference_ms_mean": 1043.4707083333333,
+      "inference_ms_median": 969.0
+    },
+    {
+      "model": "mixtral:8x7b",
+      "t1_absolute_error_mean": 748.0431056213763,
+      "t1_absolute_error_std": 2489.3460108053187,
+      "t1_absolute_error_median": 64.0,
+      "t1_direction_correct_mean": 0.471325938996723,
+      "t2_legal_mean": 0.601706256273001,
+      "t2_cpl_mean": 4796.574367528496,
+      "t2_cpl_std": 5212.112416161361,
+      "t2_cpl_median": 2301.0,
+      "t3_p1_side_correct_mean": 0.38483781745033946,
+      "t3_p2_theme_correct_mean": 0.08630877545888861,
+      "t3_score_mean": 0.47114659290922806,
+      "t3_score_std": 0.5695350467655766,
+      "job_id_count": 23912,
+      "inference_ms_mean": 14366.83644195383,
+      "inference_ms_median": 10488.5
+    },
+    {
+      "model": "phi4:14b",
+      "t1_absolute_error_mean": 848.5260582178721,
+      "t1_absolute_error_std": 2468.350991291346,
+      "t1_absolute_error_median": 114.0,
+      "t1_direction_correct_mean": 0.40720732172365576,
+      "t2_legal_mean": 0.634625,
+      "t2_cpl_mean": 4900.5104720635545,
+      "t2_cpl_std": 5272.247040900207,
+      "t2_cpl_median": 2630.0,
+      "t3_p1_side_correct_mean": 0.28525,
+      "t3_p2_theme_correct_mean": 0.1216875,
+      "t3_score_mean": 0.4069375,
+      "t3_score_std": 0.5695258058872078,
+      "job_id_count": 24000,
+      "inference_ms_mean": 5202.359708333333,
+      "inference_ms_median": 5509.5
+    },
+    {
+      "model": "qwen2.5:14b",
+      "t1_absolute_error_mean": 778.3090147536884,
+      "t1_absolute_error_std": 2476.3905179909493,
+      "t1_absolute_error_median": 61.0,
+      "t1_direction_correct_mean": 0.4763690922730683,
+      "t2_legal_mean": 0.665124614486955,
+      "t2_cpl_mean": 4807.706497900871,
+      "t2_cpl_std": 5115.7498374138295,
+      "t2_cpl_median": 2412.0,
+      "t3_p1_side_correct_mean": 0.324143535883971,
+      "t3_p2_theme_correct_mean": 0.09521130282570643,
+      "t3_score_mean": 0.41935483870967744,
+      "t3_score_std": 0.571325203166635,
+      "job_id_count": 23994,
+      "inference_ms_mean": 1554.351129449029,
+      "inference_ms_median": 1427.0
+    },
+    {
+      "model": "qwen2.5:32b",
+      "t1_absolute_error_mean": 793.2070625,
+      "t1_absolute_error_std": 2471.407514910603,
+      "t1_absolute_error_median": 90.0,
+      "t1_direction_correct_mean": 0.40925,
+      "t2_legal_mean": 0.6662916666666666,
+      "t2_cpl_mean": 5102.290100681634,
+      "t2_cpl_std": 5322.495743155774,
+      "t2_cpl_median": 2979.0,
+      "t3_p1_side_correct_mean": 0.265125,
+      "t3_p2_theme_correct_mean": 0.12075,
+      "t3_score_mean": 0.385875,
+      "t3_score_std": 0.5495401341325654,
+      "job_id_count": 24000,
+      "inference_ms_mean": 11631.54825,
+      "inference_ms_median": 12844.0
     },
     {
       "model": "qwen2.5:7b",
-      "t1_absolute_error_mean": 1307.1904761904761,
-      "t1_absolute_error_std": 2977.63635992858,
-      "t1_absolute_error_median": 231.0,
-      "t1_direction_correct_mean": 0.31845238095238093,
-      "t2_legal_mean": 0.1130952380952381,
-      "t2_cpl_mean": 2423.6315789473683,
-      "t2_cpl_std": 3763.793984518114,
-      "t2_cpl_median": 458.0,
-      "t3_p1_side_correct_mean": 0.3541666666666667,
-      "t3_p2_theme_correct_mean": 0.0744047619047619,
-      "t3_score_mean": 0.42857142857142855,
-      "t3_score_std": 0.5579432226121654,
-      "job_id_count": 336,
-      "inference_ms_mean": 730.0595238095239,
-      "inference_ms_median": 639.5
+      "t1_absolute_error_mean": 749.996624156039,
+      "t1_absolute_error_std": 2482.94967399205,
+      "t1_absolute_error_median": 59.0,
+      "t1_direction_correct_mean": 0.489247311827957,
+      "t2_legal_mean": 0.6554972076352421,
+      "t2_cpl_mean": 4692.010618006104,
+      "t2_cpl_std": 5100.027296166755,
+      "t2_cpl_median": 2324.0,
+      "t3_p1_side_correct_mean": 0.2777569392348087,
+      "t3_p2_theme_correct_mean": 0.028507126781695424,
+      "t3_score_mean": 0.30626406601650413,
+      "t3_score_std": 0.4847542724223984,
+      "job_id_count": 23994,
+      "inference_ms_mean": 817.7186796699175,
+      "inference_ms_median": 738.0
+    },
+    {
+      "model": "solar:10.7b",
+      "t1_absolute_error_mean": 917.4392751896671,
+      "t1_absolute_error_std": 2479.5797306670265,
+      "t1_absolute_error_median": 73.0,
+      "t1_direction_correct_mean": 0.481660292181328,
+      "t2_legal_mean": 0.6395799474934367,
+      "t2_cpl_mean": 4462.954326296586,
+      "t2_cpl_std": 5255.658886607515,
+      "t2_cpl_median": 2070.0,
+      "t3_p1_side_correct_mean": 0.3338547206406807,
+      "t3_p2_theme_correct_mean": 0.21610461114934618,
+      "t3_score_mean": 0.5499593317900269,
+      "t3_score_std": 0.6270433983778435,
+      "job_id_count": 23997,
+      "inference_ms_mean": 1876.9387840146685,
+      "inference_ms_median": 1403.0
+    },
+    {
+      "model": "wizardlm2:7b",
+      "t1_absolute_error_mean": 906.7652445517143,
+      "t1_absolute_error_std": 2501.1505349225413,
+      "t1_absolute_error_median": 66.0,
+      "t1_direction_correct_mean": 0.46830411017249945,
+      "t2_legal_mean": 0.6032547465053203,
+      "t2_cpl_mean": 4772.638306702635,
+      "t2_cpl_std": 5223.233046434722,
+      "t2_cpl_median": 2462.0,
+      "t3_p1_side_correct_mean": 0.265556643813255,
+      "t3_p2_theme_correct_mean": 0.13431276526281424,
+      "t3_score_mean": 0.3998694090760692,
+      "t3_score_std": 0.575908282567072,
+      "job_id_count": 23965,
+      "inference_ms_mean": 2921.1921552263716,
+      "inference_ms_median": 2703.0
+    },
+    {
+      "model": "yi:34b",
+      "t1_absolute_error_mean": 777.9154885524835,
+      "t1_absolute_error_std": 2480.225934177842,
+      "t1_absolute_error_median": 59.0,
+      "t1_direction_correct_mean": 0.48742649818591266,
+      "t2_legal_mean": 0.643691101659578,
+      "t2_cpl_mean": 4815.106756494138,
+      "t2_cpl_std": 5302.021512396034,
+      "t2_cpl_median": 2505.0,
+      "t3_p1_side_correct_mean": 0.28716216216216217,
+      "t3_p2_theme_correct_mean": 0.08014264264264265,
+      "t3_score_mean": 0.3673048048048048,
+      "t3_score_std": 0.5412678401136987,
+      "job_id_count": 23982,
+      "inference_ms_mean": 17914.895463264114,
+      "inference_ms_median": 19728.0
     }
   ],
   "by_difficulty": [
     {
+      "model": "codellama:34b",
+      "difficulty": "easy",
+      "t1_absolute_error": 1669.8583604913513,
+      "t2_cpl": 5391.07047571105,
+      "t2_legal": 0.6621666666666667,
+      "t3_score": 0.32256448785374403,
+      "job_id": 6000
+    },
+    {
+      "model": "codellama:34b",
+      "difficulty": "extreme",
+      "t1_absolute_error": 240.5586983729662,
+      "t2_cpl": 4038.592676767677,
+      "t2_legal": 0.66,
+      "t3_score": 0.23067300475356517,
+      "job_id": 6000
+    },
+    {
+      "model": "codellama:34b",
+      "difficulty": "hard",
+      "t1_absolute_error": 368.5303410230692,
+      "t2_cpl": 4436.678896761134,
+      "t2_legal": 0.6586666666666666,
+      "t3_score": 0.22562045625470042,
+      "job_id": 6000
+    },
+    {
+      "model": "codellama:34b",
+      "difficulty": "medium",
+      "t1_absolute_error": 686.8032088242668,
+      "t2_cpl": 4940.446916076845,
+      "t2_legal": 0.6593333333333333,
+      "t3_score": 0.23283208020050125,
+      "job_id": 6000
+    },
+    {
+      "model": "command-r:35b",
+      "difficulty": "easy",
+      "t1_absolute_error": 1713.2525,
+      "t2_cpl": 5416.744303797468,
+      "t2_legal": 0.6583333333333333,
+      "t3_score": 0.398,
+      "job_id": 6000
+    },
+    {
+      "model": "command-r:35b",
+      "difficulty": "extreme",
+      "t1_absolute_error": 280.985,
+      "t2_cpl": 4073.6776630571644,
+      "t2_legal": 0.6618333333333334,
+      "t3_score": 0.35,
+      "job_id": 6000
+    },
+    {
+      "model": "command-r:35b",
+      "difficulty": "hard",
+      "t1_absolute_error": 411.87625,
+      "t2_cpl": 4759.915974842767,
+      "t2_legal": 0.6625,
+      "t3_score": 0.384,
+      "job_id": 6000
+    },
+    {
+      "model": "command-r:35b",
+      "difficulty": "medium",
+      "t1_absolute_error": 720.12575,
+      "t2_cpl": 5160.314731020613,
+      "t2_legal": 0.663,
+      "t3_score": 0.447,
+      "job_id": 6000
+    },
+    {
+      "model": "deepseek-r1:14b",
+      "difficulty": "easy",
+      "t1_absolute_error": 1682.9865754145828,
+      "t2_cpl": 5521.3752061572295,
+      "t2_legal": 0.6070415484732188,
+      "t3_score": 0.4269435300075969,
+      "job_id": 5993
+    },
+    {
+      "model": "deepseek-r1:14b",
+      "difficulty": "extreme",
+      "t1_absolute_error": 226.78289647868678,
+      "t2_cpl": 4416.047062179122,
+      "t2_legal": 0.5844307384564094,
+      "t3_score": 0.4085939486397152,
+      "job_id": 5999
+    },
+    {
+      "model": "deepseek-r1:14b",
+      "difficulty": "hard",
+      "t1_absolute_error": 362.07078711040674,
+      "t2_cpl": 4587.14333612741,
+      "t2_legal": 0.5965994332388731,
+      "t3_score": 0.4284632853898562,
+      "job_id": 5999
+    },
+    {
+      "model": "deepseek-r1:14b",
+      "difficulty": "medium",
+      "t1_absolute_error": 676.5300851970181,
+      "t2_cpl": 4814.797602833016,
+      "t2_legal": 0.6118333333333333,
+      "t3_score": 0.45475227502527804,
+      "job_id": 6000
+    },
+    {
+      "model": "deepseek-r1:7b",
+      "difficulty": "easy",
+      "t1_absolute_error": 1550.3159619796788,
+      "t2_cpl": 5444.031687791861,
+      "t2_legal": 0.6022498995580554,
+      "t3_score": 0.3835103060587133,
+      "job_id": 4978
+    },
+    {
+      "model": "deepseek-r1:7b",
+      "difficulty": "extreme",
+      "t1_absolute_error": 243.31935047361299,
+      "t2_cpl": 3850.3260022271716,
+      "t2_legal": 0.598866288762921,
+      "t3_score": 0.3879668049792531,
+      "job_id": 5998
+    },
+    {
+      "model": "deepseek-r1:7b",
+      "difficulty": "hard",
+      "t1_absolute_error": 389.2602220417005,
+      "t2_cpl": 4241.917355371901,
+      "t2_legal": 0.6055045871559633,
+      "t3_score": 0.4274235355106273,
+      "job_id": 5995
+    },
+    {
+      "model": "deepseek-r1:7b",
+      "difficulty": "medium",
+      "t1_absolute_error": 677.2551518438178,
+      "t2_cpl": 4910.563299754968,
+      "t2_legal": 0.6122687114519086,
+      "t3_score": 0.4529517916988915,
+      "job_id": 5999
+    },
+    {
+      "model": "gemma3:12b",
+      "difficulty": "easy",
+      "t1_absolute_error": 1680.454,
+      "t2_cpl": 5252.336349924585,
+      "t2_legal": 0.663,
+      "t3_score": 0.39125,
+      "job_id": 6000
+    },
+    {
+      "model": "gemma3:12b",
+      "difficulty": "extreme",
+      "t1_absolute_error": 244.17,
+      "t2_cpl": 4212.9323610761885,
+      "t2_legal": 0.6628333333333334,
+      "t3_score": 0.404,
+      "job_id": 6000
+    },
+    {
+      "model": "gemma3:12b",
+      "difficulty": "hard",
+      "t1_absolute_error": 370.73775,
+      "t2_cpl": 4466.922787666082,
+      "t2_legal": 0.6648333333333334,
+      "t3_score": 0.445,
+      "job_id": 6000
+    },
+    {
+      "model": "gemma3:12b",
+      "difficulty": "medium",
+      "t1_absolute_error": 682.63425,
+      "t2_cpl": 4943.5767780849455,
+      "t2_legal": 0.6631666666666667,
+      "t3_score": 0.44775,
+      "job_id": 6000
+    },
+    {
+      "model": "gemma3:4b",
+      "difficulty": "easy",
+      "t1_absolute_error": 1669.8359179589795,
+      "t2_cpl": 5531.75025406504,
+      "t2_legal": 0.656,
+      "t3_score": 0.3415,
+      "job_id": 6000
+    },
+    {
+      "model": "gemma3:4b",
+      "difficulty": "extreme",
+      "t1_absolute_error": 223.08054027013506,
+      "t2_cpl": 4335.654876200101,
+      "t2_legal": 0.6596666666666666,
+      "t3_score": 0.294,
+      "job_id": 6000
+    },
+    {
+      "model": "gemma3:4b",
+      "difficulty": "hard",
+      "t1_absolute_error": 357.6155,
+      "t2_cpl": 4840.362854251012,
+      "t2_legal": 0.6586666666666666,
+      "t3_score": 0.296,
+      "job_id": 6000
+    },
+    {
+      "model": "gemma3:4b",
+      "difficulty": "medium",
+      "t1_absolute_error": 672.5516379094773,
+      "t2_cpl": 5227.917108920899,
+      "t2_legal": 0.6595,
+      "t3_score": 0.335,
+      "job_id": 6000
+    },
+    {
+      "model": "gemma4:26b",
+      "difficulty": "easy",
+      "t1_absolute_error": 1723.9846821547103,
+      "t2_cpl": 5221.952668680766,
+      "t2_legal": 0.662,
+      "t3_score": 0.5891823899371069,
+      "job_id": 6000
+    },
+    {
+      "model": "gemma4:26b",
+      "difficulty": "extreme",
+      "t1_absolute_error": 389.4412139760265,
+      "t2_cpl": 3207.2534005037783,
+      "t2_legal": 0.6616666666666666,
+      "t3_score": 0.44752076516486283,
+      "job_id": 6000
+    },
+    {
+      "model": "gemma4:26b",
+      "difficulty": "hard",
+      "t1_absolute_error": 506.60555838857726,
+      "t2_cpl": 3725.9705438066467,
+      "t2_legal": 0.662,
+      "t3_score": 0.48304446119065564,
+      "job_id": 6000
+    },
+    {
+      "model": "gemma4:26b",
+      "difficulty": "medium",
+      "t1_absolute_error": 787.0833333333334,
+      "t2_cpl": 4405.296193597177,
+      "t2_legal": 0.6611666666666667,
+      "t3_score": 0.5334170854271357,
+      "job_id": 6000
+    },
+    {
+      "model": "gemma4:31b",
+      "difficulty": "easy",
+      "t1_absolute_error": 1740.89875,
+      "t2_cpl": 5111.31432160804,
+      "t2_legal": 0.6633333333333333,
+      "t3_score": 0.583,
+      "job_id": 6000
+    },
+    {
+      "model": "gemma4:31b",
+      "difficulty": "extreme",
+      "t1_absolute_error": 374.70225,
+      "t2_cpl": 3010.1250629089077,
+      "t2_legal": 0.6623333333333333,
+      "t3_score": 0.4445,
+      "job_id": 6000
+    },
+    {
+      "model": "gemma4:31b",
+      "difficulty": "hard",
+      "t1_absolute_error": 488.2205,
+      "t2_cpl": 3498.3910530283993,
+      "t2_legal": 0.6631666666666667,
+      "t3_score": 0.46875,
+      "job_id": 6000
+    },
+    {
+      "model": "gemma4:31b",
+      "difficulty": "medium",
+      "t1_absolute_error": 782.39475,
+      "t2_cpl": 4100.79306009555,
+      "t2_legal": 0.6628333333333334,
+      "t3_score": 0.53075,
+      "job_id": 6000
+    },
+    {
+      "model": "gemma4:e2b",
+      "difficulty": "easy",
+      "t1_absolute_error": 1702.2610870290096,
+      "t2_cpl": 6014.2406847935545,
+      "t2_legal": 0.6627732354413483,
+      "t3_score": 0.4494831610536846,
+      "job_id": 5993
+    },
+    {
+      "model": "gemma4:e2b",
+      "difficulty": "extreme",
+      "t1_absolute_error": 275.6678892964321,
+      "t2_cpl": 4633.2909732728185,
+      "t2_legal": 0.6619929894842264,
+      "t3_score": 0.32477492497499166,
+      "job_id": 5991
+    },
+    {
+      "model": "gemma4:e2b",
+      "difficulty": "hard",
+      "t1_absolute_error": 406.9523492169277,
+      "t2_cpl": 4798.953188259109,
+      "t2_legal": 0.6600968765658928,
+      "t3_score": 0.3325558147284239,
+      "job_id": 5987
+    },
+    {
+      "model": "gemma4:e2b",
+      "difficulty": "medium",
+      "t1_absolute_error": 713.7498332221481,
+      "t2_cpl": 5502.459057697153,
+      "t2_legal": 0.6623831775700935,
+      "t3_score": 0.3829219479653102,
+      "job_id": 5992
+    },
+    {
+      "model": "gemma4:e4b",
+      "difficulty": "easy",
+      "t1_absolute_error": 1652.4791904218928,
+      "t2_cpl": 5703.218569636136,
+      "t2_legal": 0.6641666666666667,
+      "t3_score": 0.45163747143945165,
+      "job_id": 6000
+    },
+    {
+      "model": "gemma4:e4b",
+      "difficulty": "extreme",
+      "t1_absolute_error": 226.7094211123723,
+      "t2_cpl": 4200.702804206309,
+      "t2_legal": 0.6657776296049341,
+      "t3_score": 0.46658227848101264,
+      "job_id": 5999
+    },
+    {
+      "model": "gemma4:e4b",
+      "difficulty": "hard",
+      "t1_absolute_error": 357.7303082191781,
+      "t2_cpl": 4293.251002004008,
+      "t2_legal": 0.6653333333333333,
+      "t3_score": 0.4690578428896186,
+      "job_id": 6000
+    },
+    {
+      "model": "gemma4:e4b",
+      "difficulty": "medium",
+      "t1_absolute_error": 665.1453669594786,
+      "t2_cpl": 5034.332747804266,
+      "t2_legal": 0.6641666666666667,
+      "t3_score": 0.5135203436947182,
+      "job_id": 6000
+    },
+    {
+      "model": "llama3.1:8b",
+      "difficulty": "easy",
+      "t1_absolute_error": 1781.619072032812,
+      "t2_cpl": 5995.825332998241,
+      "t2_legal": 0.6631666666666667,
+      "t3_score": 0.3552231237322515,
+      "job_id": 6000
+    },
+    {
+      "model": "llama3.1:8b",
+      "difficulty": "extreme",
+      "t1_absolute_error": 382.77275051124747,
+      "t2_cpl": 4581.604260651629,
+      "t2_legal": 0.6656656656656657,
+      "t3_score": 0.3068756319514661,
+      "job_id": 5994
+    },
+    {
+      "model": "llama3.1:8b",
+      "difficulty": "hard",
+      "t1_absolute_error": 490.73133179368745,
+      "t2_cpl": 4930.913870806209,
+      "t2_legal": 0.6656666666666666,
+      "t3_score": 0.3255459624174708,
+      "job_id": 6000
+    },
+    {
+      "model": "llama3.1:8b",
+      "difficulty": "medium",
+      "t1_absolute_error": 798.4012298232129,
+      "t2_cpl": 5270.811339688911,
+      "t2_legal": 0.6643333333333333,
+      "t3_score": 0.35376044568245124,
+      "job_id": 6000
+    },
+    {
       "model": "llama3.2:3b",
       "difficulty": "easy",
-      "t1_absolute_error": 363.5,
-      "t2_cpl": NaN,
-      "t2_legal": 0.0,
-      "t3_score": 1.0,
-      "job_id": 2
+      "t1_absolute_error": 1885.9045,
+      "t2_cpl": 5214.838440111421,
+      "t2_legal": 0.6581666666666667,
+      "t3_score": 0.36725,
+      "job_id": 6000
     },
     {
       "model": "llama3.2:3b",
       "difficulty": "extreme",
-      "t1_absolute_error": 27.333333333333332,
-      "t2_cpl": NaN,
-      "t2_legal": 0.0,
-      "t3_score": 0.3333333333333333,
-      "job_id": 3
+      "t1_absolute_error": 492.32925,
+      "t2_cpl": 3872.5115030674847,
+      "t2_legal": 0.652,
+      "t3_score": 0.32625,
+      "job_id": 6000
     },
     {
       "model": "llama3.2:3b",
       "difficulty": "hard",
-      "t1_absolute_error": 205.0,
-      "t2_cpl": NaN,
-      "t2_legal": 0.0,
-      "t3_score": 0.0,
-      "job_id": 2
+      "t1_absolute_error": 616.9574574574575,
+      "t2_cpl": 4111.790526849038,
+      "t2_legal": 0.6586586586586587,
+      "t3_score": 0.3536036036036036,
+      "job_id": 5994
+    },
+    {
+      "model": "llama3.2:3b",
+      "difficulty": "medium",
+      "t1_absolute_error": 920.9497981836529,
+      "t2_cpl": 4589.50781049936,
+      "t2_legal": 0.6567440295997309,
+      "t3_score": 0.4008577194752775,
+      "job_id": 5946
+    },
+    {
+      "model": "llama3.3:70b",
+      "difficulty": "easy",
+      "t1_absolute_error": 1792.108,
+      "t2_cpl": 5604.7155064086455,
+      "t2_legal": 0.6631666666666667,
+      "t3_score": 0.45725,
+      "job_id": 6000
+    },
+    {
+      "model": "llama3.3:70b",
+      "difficulty": "extreme",
+      "t1_absolute_error": 413.3205837946653,
+      "t2_cpl": 4474.9242997729,
+      "t2_legal": 0.6648213387015601,
+      "t3_score": 0.5358851674641149,
+      "job_id": 5961
+    },
+    {
+      "model": "llama3.3:70b",
+      "difficulty": "hard",
+      "t1_absolute_error": 517.13775,
+      "t2_cpl": 4830.703805708563,
+      "t2_legal": 0.6656666666666666,
+      "t3_score": 0.5785,
+      "job_id": 6000
+    },
+    {
+      "model": "llama3.3:70b",
+      "difficulty": "medium",
+      "t1_absolute_error": 813.16275,
+      "t2_cpl": 5291.216562107905,
+      "t2_legal": 0.6641666666666667,
+      "t3_score": 0.5755,
+      "job_id": 6000
+    },
+    {
+      "model": "mistral:7b",
+      "difficulty": "easy",
+      "t1_absolute_error": 1677.86375,
+      "t2_cpl": 5116.581808396125,
+      "t2_legal": 0.6193333333333333,
+      "t3_score": 0.356,
+      "job_id": 6000
+    },
+    {
+      "model": "mistral:7b",
+      "difficulty": "extreme",
+      "t1_absolute_error": 238.70275,
+      "t2_cpl": 3692.8889780631353,
+      "t2_legal": 0.623,
+      "t3_score": 0.32675,
+      "job_id": 6000
+    },
+    {
+      "model": "mistral:7b",
+      "difficulty": "hard",
+      "t1_absolute_error": 367.418,
+      "t2_cpl": 3745.943435937911,
+      "t2_legal": 0.6335,
+      "t3_score": 0.34,
+      "job_id": 6000
+    },
+    {
+      "model": "mistral:7b",
+      "difficulty": "medium",
+      "t1_absolute_error": 676.52025,
+      "t2_cpl": 4690.247706422018,
+      "t2_legal": 0.6176666666666667,
+      "t3_score": 0.3715,
+      "job_id": 6000
+    },
+    {
+      "model": "mixtral:8x7b",
+      "difficulty": "easy",
+      "t1_absolute_error": 1687.7804079576933,
+      "t2_cpl": 5596.074371025712,
+      "t2_legal": 0.6028333333333333,
+      "t3_score": 0.4011016524787181,
+      "job_id": 6000
+    },
+    {
+      "model": "mixtral:8x7b",
+      "difficulty": "extreme",
+      "t1_absolute_error": 245.90446339017052,
+      "t2_cpl": 4095.5604793756966,
+      "t2_legal": 0.598,
+      "t3_score": 0.4892230576441103,
+      "job_id": 6000
+    },
+    {
+      "model": "mixtral:8x7b",
+      "difficulty": "hard",
+      "t1_absolute_error": 375.7748411689962,
+      "t2_cpl": 4515.5713484721055,
+      "t2_legal": 0.6030431107354184,
+      "t3_score": 0.5040691759918616,
+      "job_id": 5915
+    },
+    {
+      "model": "mixtral:8x7b",
+      "difficulty": "medium",
+      "t1_absolute_error": 681.5377453447409,
+      "t2_cpl": 4969.634126106194,
+      "t2_legal": 0.6029681507420377,
+      "t3_score": 0.4907314629258517,
+      "job_id": 5997
+    },
+    {
+      "model": "phi4:14b",
+      "difficulty": "easy",
+      "t1_absolute_error": 1767.341134571356,
+      "t2_cpl": 5589.365324267783,
+      "t2_legal": 0.6373333333333333,
+      "t3_score": 0.45125,
+      "job_id": 6000
+    },
+    {
+      "model": "phi4:14b",
+      "difficulty": "extreme",
+      "t1_absolute_error": 351.35505959928986,
+      "t2_cpl": 4196.158995815899,
+      "t2_legal": 0.6373333333333333,
+      "t3_score": 0.36575,
+      "job_id": 6000
+    },
+    {
+      "model": "phi4:14b",
+      "difficulty": "hard",
+      "t1_absolute_error": 479.8530456852792,
+      "t2_cpl": 4593.648598625066,
+      "t2_legal": 0.6303333333333333,
+      "t3_score": 0.37,
+      "job_id": 6000
+    },
+    {
+      "model": "phi4:14b",
+      "difficulty": "medium",
+      "t1_absolute_error": 797.7747448979592,
+      "t2_cpl": 5221.428834517233,
+      "t2_legal": 0.6335,
+      "t3_score": 0.44075,
+      "job_id": 6000
+    },
+    {
+      "model": "qwen2.5:14b",
+      "difficulty": "easy",
+      "t1_absolute_error": 1709.893,
+      "t2_cpl": 5439.829402910185,
+      "t2_legal": 0.6643333333333333,
+      "t3_score": 0.4135,
+      "job_id": 6000
+    },
+    {
+      "model": "qwen2.5:14b",
+      "difficulty": "extreme",
+      "t1_absolute_error": 281.00925,
+      "t2_cpl": 4073.684447783621,
+      "t2_legal": 0.6655,
+      "t3_score": 0.383,
+      "job_id": 6000
+    },
+    {
+      "model": "qwen2.5:14b",
+      "difficulty": "hard",
+      "t1_absolute_error": 406.282032032032,
+      "t2_cpl": 4581.128385155466,
+      "t2_legal": 0.665331998665332,
+      "t3_score": 0.4191691691691692,
+      "job_id": 5994
+    },
+    {
+      "model": "qwen2.5:14b",
+      "difficulty": "medium",
+      "t1_absolute_error": 715.67975,
+      "t2_cpl": 5137.090681362725,
+      "t2_legal": 0.6653333333333333,
+      "t3_score": 0.46175,
+      "job_id": 6000
+    },
+    {
+      "model": "qwen2.5:32b",
+      "difficulty": "easy",
+      "t1_absolute_error": 1713.59975,
+      "t2_cpl": 5699.082123184777,
+      "t2_legal": 0.6656666666666666,
+      "t3_score": 0.41325,
+      "job_id": 6000
+    },
+    {
+      "model": "qwen2.5:32b",
+      "difficulty": "extreme",
+      "t1_absolute_error": 301.57975,
+      "t2_cpl": 4507.57125,
+      "t2_legal": 0.6666666666666666,
+      "t3_score": 0.34475,
+      "job_id": 6000
+    },
+    {
+      "model": "qwen2.5:32b",
+      "difficulty": "hard",
+      "t1_absolute_error": 428.3805,
+      "t2_cpl": 4872.94375,
+      "t2_legal": 0.6666666666666666,
+      "t3_score": 0.3585,
+      "job_id": 6000
+    },
+    {
+      "model": "qwen2.5:32b",
+      "difficulty": "medium",
+      "t1_absolute_error": 729.26825,
+      "t2_cpl": 5330.629722291719,
+      "t2_legal": 0.6661666666666667,
+      "t3_score": 0.427,
+      "job_id": 6000
     },
     {
       "model": "qwen2.5:7b",
       "difficulty": "easy",
-      "t1_absolute_error": 1441.2307692307693,
-      "t2_cpl": 452.5,
-      "t2_legal": 0.038461538461538464,
-      "t3_score": 0.38461538461538464,
-      "job_id": 52
+      "t1_absolute_error": 1688.39425,
+      "t2_cpl": 5456.318597560976,
+      "t2_legal": 0.656,
+      "t3_score": 0.337,
+      "job_id": 6000
     },
     {
       "model": "qwen2.5:7b",
       "difficulty": "extreme",
-      "t1_absolute_error": 180.39285714285714,
-      "t2_cpl": 2028.0,
-      "t2_legal": 0.10714285714285714,
-      "t3_score": 0.32142857142857145,
-      "job_id": 56
+      "t1_absolute_error": 250.49174174174175,
+      "t2_cpl": 4024.4128113879005,
+      "t2_legal": 0.656322989656323,
+      "t3_score": 0.272022022022022,
+      "job_id": 5994
     },
     {
       "model": "qwen2.5:7b",
       "difficulty": "hard",
-      "t1_absolute_error": 714.796875,
-      "t2_cpl": 6476.625,
-      "t2_legal": 0.125,
-      "t3_score": 0.40625,
-      "job_id": 64
+      "t1_absolute_error": 372.9725,
+      "t2_cpl": 4514.7129417747265,
+      "t2_legal": 0.6555,
+      "t3_score": 0.29825,
+      "job_id": 6000
     },
     {
       "model": "qwen2.5:7b",
       "difficulty": "medium",
-      "t1_absolute_error": 236.8,
-      "t2_cpl": 1809.75,
-      "t2_legal": 0.16,
-      "t3_score": 0.38,
-      "job_id": 50
+      "t1_absolute_error": 687.6285,
+      "t2_cpl": 4772.348280254777,
+      "t2_legal": 0.6541666666666667,
+      "t3_score": 0.31775,
+      "job_id": 6000
+    },
+    {
+      "model": "solar:10.7b",
+      "difficulty": "easy",
+      "t1_absolute_error": 1828.569709127382,
+      "t2_cpl": 5386.059736842105,
+      "t2_legal": 0.633438906484414,
+      "t3_score": 0.4951188986232791,
+      "job_id": 5999
+    },
+    {
+      "model": "solar:10.7b",
+      "difficulty": "extreme",
+      "t1_absolute_error": 437.2389669007021,
+      "t2_cpl": 3843.5945388974756,
+      "t2_legal": 0.647,
+      "t3_score": 0.5481852315394243,
+      "job_id": 6000
+    },
+    {
+      "model": "solar:10.7b",
+      "difficulty": "hard",
+      "t1_absolute_error": 549.5664913598798,
+      "t2_cpl": 4016.4385736595523,
+      "t2_legal": 0.6403333333333333,
+      "t3_score": 0.5768942235558889,
+      "job_id": 6000
+    },
+    {
+      "model": "solar:10.7b",
+      "difficulty": "medium",
+      "t1_absolute_error": 854.7173366834171,
+      "t2_cpl": 4623.013859832636,
+      "t2_legal": 0.6375458486162054,
+      "t3_score": 0.5796194291437156,
+      "job_id": 5998
+    },
+    {
+      "model": "wizardlm2:7b",
+      "difficulty": "easy",
+      "t1_absolute_error": 1818.197963800905,
+      "t2_cpl": 5629.205084745763,
+      "t2_legal": 0.5909849749582637,
+      "t3_score": 0.38481539261570463,
+      "job_id": 5990
+    },
+    {
+      "model": "wizardlm2:7b",
+      "difficulty": "extreme",
+      "t1_absolute_error": 427.51857102353273,
+      "t2_cpl": 4097.66730558598,
+      "t2_legal": 0.6098864395457582,
+      "t3_score": 0.3824921135646688,
+      "job_id": 5988
+    },
+    {
+      "model": "wizardlm2:7b",
+      "difficulty": "hard",
+      "t1_absolute_error": 559.2220953468455,
+      "t2_cpl": 4333.41349862259,
+      "t2_legal": 0.6057066577673953,
+      "t3_score": 0.4133159268929504,
+      "job_id": 5993
+    },
+    {
+      "model": "wizardlm2:7b",
+      "difficulty": "medium",
+      "t1_absolute_error": 817.2794660607782,
+      "t2_cpl": 5055.206052269601,
+      "t2_legal": 0.6064397731064398,
+      "t3_score": 0.41877444589309,
+      "job_id": 5994
+    },
+    {
+      "model": "yi:34b",
+      "difficulty": "easy",
+      "t1_absolute_error": 1709.86475,
+      "t2_cpl": 5810.495542737283,
+      "t2_legal": 0.6356666666666667,
+      "t3_score": 0.4185,
+      "job_id": 6000
+    },
+    {
+      "model": "yi:34b",
+      "difficulty": "extreme",
+      "t1_absolute_error": 274.23148148148147,
+      "t2_cpl": 4106.514724711908,
+      "t2_legal": 0.6512675116744496,
+      "t3_score": 0.32866082603254065,
+      "job_id": 5996
+    },
+    {
+      "model": "yi:34b",
+      "difficulty": "hard",
+      "t1_absolute_error": 404.3666666666667,
+      "t2_cpl": 4335.063753213368,
+      "t2_legal": 0.6498496491814233,
+      "t3_score": 0.35046377538230133,
+      "job_id": 5986
+    },
+    {
+      "model": "yi:34b",
+      "difficulty": "medium",
+      "t1_absolute_error": 721.7615,
+      "t2_cpl": 5034.021682340648,
+      "t2_legal": 0.638,
+      "t3_score": 0.3715,
+      "job_id": 6000
     }
   ],
   "by_phase": [
     {
+      "model": "codellama:34b",
+      "phase": "endgame",
+      "t1_absolute_error": 576.219530658592,
+      "t2_cpl": 3517.6078085642316,
+      "t3_score": 0.16250944822373395,
+      "job_id": 5964
+    },
+    {
+      "model": "codellama:34b",
+      "phase": "middlegame",
+      "t1_absolute_error": 844.4266390116331,
+      "t2_cpl": 5251.99608164753,
+      "t3_score": 0.2897204688908927,
+      "job_id": 16668
+    },
+    {
+      "model": "codellama:34b",
+      "phase": "opening",
+      "t1_absolute_error": 202.47414741474148,
+      "t2_cpl": 3221.1872909698995,
+      "t3_score": 0.1989010989010989,
+      "job_id": 1368
+    },
+    {
+      "model": "command-r:35b",
+      "phase": "endgame",
+      "t1_absolute_error": 643.0178571428571,
+      "t2_cpl": 3450.484541307653,
+      "t3_score": 0.22937625754527163,
+      "job_id": 5964
+    },
+    {
+      "model": "command-r:35b",
+      "phase": "middlegame",
+      "t1_absolute_error": 877.7348812095032,
+      "t2_cpl": 5447.285351243419,
+      "t3_score": 0.44753419726421884,
+      "job_id": 16668
+    },
+    {
+      "model": "command-r:35b",
+      "phase": "opening",
+      "t1_absolute_error": 213.73793859649123,
+      "t2_cpl": 3722.3186813186812,
+      "t3_score": 0.4725877192982456,
+      "job_id": 1368
+    },
+    {
+      "model": "deepseek-r1:14b",
+      "phase": "endgame",
+      "t1_absolute_error": 568.0730471874167,
+      "t2_cpl": 3317.8808709175737,
+      "t3_score": 0.23859559200410047,
+      "job_id": 5957
+    },
+    {
+      "model": "deepseek-r1:14b",
+      "phase": "middlegame",
+      "t1_absolute_error": 844.4688512097542,
+      "t2_cpl": 5440.21749637506,
+      "t3_score": 0.4925834925834926,
+      "job_id": 16666
+    },
+    {
+      "model": "deepseek-r1:14b",
+      "phase": "opening",
+      "t1_absolute_error": 191.01956271576526,
+      "t2_cpl": 3256.468824940048,
+      "t3_score": 0.4901098901098901,
+      "job_id": 1368
+    },
+    {
+      "model": "deepseek-r1:7b",
+      "phase": "endgame",
+      "t1_absolute_error": 534.5019673974143,
+      "t2_cpl": 3521.086489542114,
+      "t3_score": 0.21766135565757494,
+      "job_id": 5736
+    },
+    {
+      "model": "deepseek-r1:7b",
+      "phase": "middlegame",
+      "t1_absolute_error": 768.1771270605099,
+      "t2_cpl": 5033.541653633615,
+      "t3_score": 0.476009362200117,
+      "job_id": 15921
+    },
+    {
+      "model": "deepseek-r1:7b",
+      "phase": "opening",
+      "t1_absolute_error": 199.23940149625935,
+      "t2_cpl": 3732.8992146596856,
+      "t3_score": 0.5286396181384249,
+      "job_id": 1313
+    },
+    {
+      "model": "gemma3:12b",
+      "phase": "endgame",
+      "t1_absolute_error": 588.9964788732394,
+      "t2_cpl": 3544.831191735954,
+      "t3_score": 0.22962776659959758,
+      "job_id": 5964
+    },
+    {
+      "model": "gemma3:12b",
+      "phase": "middlegame",
+      "t1_absolute_error": 845.0049496040317,
+      "t2_cpl": 5249.157899502037,
+      "t3_score": 0.4870410367170626,
+      "job_id": 16668
+    },
+    {
+      "model": "gemma3:12b",
+      "phase": "opening",
+      "t1_absolute_error": 197.84978070175438,
+      "t2_cpl": 3400.7579757975795,
+      "t3_score": 0.4682017543859649,
+      "job_id": 1368
+    },
+    {
+      "model": "gemma3:4b",
+      "phase": "endgame",
+      "t1_absolute_error": 563.9214896829391,
+      "t2_cpl": 3330.577283076145,
+      "t3_score": 0.21554325955734407,
+      "job_id": 5964
+    },
+    {
+      "model": "gemma3:4b",
+      "phase": "middlegame",
+      "t1_absolute_error": 835.4991448375191,
+      "t2_cpl": 5693.0918973234675,
+      "t3_score": 0.3560115190784737,
+      "job_id": 16668
+    },
+    {
+      "model": "gemma3:4b",
+      "phase": "opening",
+      "t1_absolute_error": 181.24122807017545,
+      "t2_cpl": 3611.765227021041,
+      "t3_score": 0.2774122807017544,
+      "job_id": 1368
+    },
+    {
+      "model": "gemma4:26b",
+      "phase": "endgame",
+      "t1_absolute_error": 719.1597739532494,
+      "t2_cpl": 3062.4323915237132,
+      "t3_score": 0.4011127971674254,
+      "job_id": 5964
+    },
+    {
+      "model": "gemma4:26b",
+      "phase": "middlegame",
+      "t1_absolute_error": 951.4393159249724,
+      "t2_cpl": 4661.540486564996,
+      "t3_score": 0.5388446215139442,
+      "job_id": 16668
+    },
+    {
+      "model": "gemma4:26b",
+      "phase": "opening",
+      "t1_absolute_error": 219.58028792912515,
+      "t2_cpl": 2506.9311875693675,
+      "t3_score": 0.6904500548847421,
+      "job_id": 1368
+    },
+    {
+      "model": "gemma4:31b",
+      "phase": "endgame",
+      "t1_absolute_error": 668.5696680080483,
+      "t2_cpl": 3007.689107413011,
+      "t3_score": 0.471579476861167,
+      "job_id": 5964
+    },
+    {
+      "model": "gemma4:31b",
+      "phase": "middlegame",
+      "t1_absolute_error": 962.0574154067674,
+      "t2_cpl": 4379.122916666666,
+      "t3_score": 0.5076493880489561,
+      "job_id": 16668
+    },
+    {
+      "model": "gemma4:31b",
+      "phase": "opening",
+      "t1_absolute_error": 215.18640350877192,
+      "t2_cpl": 2500.2300884955753,
+      "t3_score": 0.6491228070175439,
+      "job_id": 1368
+    },
+    {
+      "model": "gemma4:e2b",
+      "phase": "endgame",
+      "t1_absolute_error": 618.2331432405233,
+      "t2_cpl": 3706.781440162272,
+      "t3_score": 0.23851056692385106,
+      "job_id": 5956
+    },
+    {
+      "model": "gemma4:e2b",
+      "phase": "middlegame",
+      "t1_absolute_error": 875.4381901104176,
+      "t2_cpl": 5919.51974580118,
+      "t3_score": 0.41214594335093613,
+      "job_id": 16642
+    },
+    {
+      "model": "gemma4:e2b",
+      "phase": "opening",
+      "t1_absolute_error": 227.76461988304092,
+      "t2_cpl": 3606.5144444444445,
+      "t3_score": 0.4722222222222222,
+      "job_id": 1365
+    },
+    {
+      "model": "gemma4:e4b",
+      "phase": "endgame",
+      "t1_absolute_error": 569.8649789029536,
+      "t2_cpl": 3506.7123425692694,
+      "t3_score": 0.37035150280183393,
+      "job_id": 5964
+    },
+    {
+      "model": "gemma4:e4b",
+      "phase": "middlegame",
+      "t1_absolute_error": 828.108545510772,
+      "t2_cpl": 5411.239935006319,
+      "t3_score": 0.5015948236580698,
+      "job_id": 16667
+    },
+    {
+      "model": "gemma4:e4b",
+      "phase": "opening",
+      "t1_absolute_error": 169.6600741656366,
+      "t2_cpl": 3125.5980176211456,
+      "t3_score": 0.6103752759381899,
+      "job_id": 1368
+    },
+    {
+      "model": "llama3.1:8b",
+      "phase": "endgame",
+      "t1_absolute_error": 733.2182334710744,
+      "t2_cpl": 3559.3052259530423,
+      "t3_score": 0.17248407643312103,
+      "job_id": 5963
+    },
+    {
+      "model": "llama3.1:8b",
+      "phase": "middlegame",
+      "t1_absolute_error": 960.3565041025169,
+      "t2_cpl": 5880.337274368231,
+      "t3_score": 0.3909671532846715,
+      "job_id": 16663
+    },
+    {
+      "model": "llama3.1:8b",
+      "phase": "opening",
+      "t1_absolute_error": 246.1241610738255,
+      "t2_cpl": 3952.6090308370044,
+      "t3_score": 0.36807095343680707,
+      "job_id": 1368
+    },
+    {
       "model": "llama3.2:3b",
       "phase": "endgame",
-      "t1_absolute_error": 4354.6,
-      "t2_cpl": 6.0,
-      "t3_score": 0.45454545454545453,
-      "job_id": 11
+      "t1_absolute_error": 822.3413218970736,
+      "t2_cpl": 3153.0554561717354,
+      "t3_score": 0.17507568113017155,
+      "job_id": 5946
     },
     {
       "model": "llama3.2:3b",
       "phase": "middlegame",
-      "t1_absolute_error": 271.85714285714283,
-      "t2_cpl": NaN,
-      "t3_score": 0.7142857142857143,
-      "job_id": 7
+      "t1_absolute_error": 1077.9923312883436,
+      "t2_cpl": 5024.351437992306,
+      "t3_score": 0.42367376398412127,
+      "job_id": 16626
     },
     {
       "model": "llama3.2:3b",
       "phase": "opening",
-      "t1_absolute_error": 775.0,
-      "t2_cpl": 856.0,
-      "t3_score": 1.0,
-      "job_id": 1
+      "t1_absolute_error": 461.3092105263158,
+      "t2_cpl": 3062.5866364665912,
+      "t3_score": 0.4232456140350877,
+      "job_id": 1368
+    },
+    {
+      "model": "llama3.3:70b",
+      "phase": "endgame",
+      "t1_absolute_error": 817.8974552784076,
+      "t2_cpl": 3387.1333164685047,
+      "t3_score": 0.2835896143181245,
+      "job_id": 5953
+    },
+    {
+      "model": "llama3.3:70b",
+      "phase": "middlegame",
+      "t1_absolute_error": 963.5740557108086,
+      "t2_cpl": 5737.936427668413,
+      "t3_score": 0.6265777136675081,
+      "job_id": 16640
+    },
+    {
+      "model": "llama3.3:70b",
+      "phase": "opening",
+      "t1_absolute_error": 216.01754385964912,
+      "t2_cpl": 3896.3881431767336,
+      "t3_score": 0.5460526315789473,
+      "job_id": 1368
+    },
+    {
+      "model": "mistral:7b",
+      "phase": "endgame",
+      "t1_absolute_error": 593.4708249496982,
+      "t2_cpl": 3261.7479261439657,
+      "t3_score": 0.2147887323943662,
+      "job_id": 5964
+    },
+    {
+      "model": "mistral:7b",
+      "phase": "middlegame",
+      "t1_absolute_error": 838.2214722822174,
+      "t2_cpl": 4760.719540451824,
+      "t3_score": 0.3951583873290137,
+      "job_id": 16668
+    },
+    {
+      "model": "mistral:7b",
+      "phase": "opening",
+      "t1_absolute_error": 184.27850877192984,
+      "t2_cpl": 3391.386836027714,
+      "t3_score": 0.36403508771929827,
+      "job_id": 1368
+    },
+    {
+      "model": "mixtral:8x7b",
+      "phase": "endgame",
+      "t1_absolute_error": 608.2196721311475,
+      "t2_cpl": 3364.411731998888,
+      "t3_score": 0.3689663886782916,
+      "job_id": 5948
+    },
+    {
+      "model": "mixtral:8x7b",
+      "phase": "middlegame",
+      "t1_absolute_error": 844.2850649940915,
+      "t2_cpl": 5412.012864321608,
+      "t3_score": 0.5033502354219486,
+      "job_id": 16602
+    },
+    {
+      "model": "mixtral:8x7b",
+      "phase": "opening",
+      "t1_absolute_error": 188.8880266075388,
+      "t2_cpl": 3640.6599286563614,
+      "t3_score": 0.5248070562293274,
+      "job_id": 1362
+    },
+    {
+      "model": "phi4:14b",
+      "phase": "endgame",
+      "t1_absolute_error": 673.476506639428,
+      "t2_cpl": 3507.4586945436004,
+      "t3_score": 0.2701207243460765,
+      "job_id": 5964
+    },
+    {
+      "model": "phi4:14b",
+      "phase": "middlegame",
+      "t1_absolute_error": 960.9485583524028,
+      "t2_cpl": 5558.101771182384,
+      "t3_score": 0.4526637868970482,
+      "job_id": 16668
+    },
+    {
+      "model": "phi4:14b",
+      "phase": "opening",
+      "t1_absolute_error": 240.77491601343786,
+      "t2_cpl": 3274.3622685185187,
+      "t3_score": 0.44627192982456143,
+      "job_id": 1368
+    },
+    {
+      "model": "qwen2.5:14b",
+      "phase": "endgame",
+      "t1_absolute_error": 637.614185110664,
+      "t2_cpl": 3304.69079445145,
+      "t3_score": 0.24849094567404426,
+      "job_id": 5964
+    },
+    {
+      "model": "qwen2.5:14b",
+      "phase": "middlegame",
+      "t1_absolute_error": 875.5457328051855,
+      "t2_cpl": 5427.329543403718,
+      "t3_score": 0.47758372344256395,
+      "job_id": 16662
+    },
+    {
+      "model": "qwen2.5:14b",
+      "phase": "opening",
+      "t1_absolute_error": 207.36293859649123,
+      "t2_cpl": 3812.9638157894738,
+      "t3_score": 0.4550438596491228,
+      "job_id": 1368
+    },
+    {
+      "model": "qwen2.5:32b",
+      "phase": "endgame",
+      "t1_absolute_error": 644.3541247484909,
+      "t2_cpl": 3668.0196177062376,
+      "t3_score": 0.24346076458752516,
+      "job_id": 5964
+    },
+    {
+      "model": "qwen2.5:32b",
+      "phase": "middlegame",
+      "t1_absolute_error": 895.5242080633549,
+      "t2_cpl": 5704.76718004143,
+      "t3_score": 0.4321454283657307,
+      "job_id": 16668
+    },
+    {
+      "model": "qwen2.5:32b",
+      "phase": "opening",
+      "t1_absolute_error": 195.5,
+      "t2_cpl": 4020.4440789473683,
+      "t3_score": 0.44298245614035087,
+      "job_id": 1368
     },
     {
       "model": "qwen2.5:7b",
       "phase": "endgame",
-      "t1_absolute_error": 2615.7678571428573,
-      "t2_cpl": 4689.0,
-      "t3_score": 0.24107142857142858,
-      "job_id": 112
+      "t1_absolute_error": 599.1222334004024,
+      "t2_cpl": 3453.3657040633784,
+      "t3_score": 0.17630784708249497,
+      "job_id": 5964
     },
     {
       "model": "qwen2.5:7b",
       "phase": "middlegame",
-      "t1_absolute_error": 780.5054945054945,
-      "t2_cpl": 2647.7096774193546,
-      "t3_score": 0.5714285714285714,
-      "job_id": 182
+      "t1_absolute_error": 849.149171768095,
+      "t2_cpl": 5218.815659340659,
+      "t3_score": 0.35821029888368744,
+      "job_id": 16662
     },
     {
       "model": "qwen2.5:7b",
       "phase": "opening",
-      "t1_absolute_error": 99.95238095238095,
-      "t2_cpl": 128.2,
-      "t3_score": 0.30952380952380953,
-      "job_id": 42
+      "t1_absolute_error": 200.0953947368421,
+      "t2_cpl": 3679.839106145251,
+      "t3_score": 0.24013157894736842,
+      "job_id": 1368
+    },
+    {
+      "model": "solar:10.7b",
+      "phase": "endgame",
+      "t1_absolute_error": 801.1162966700302,
+      "t2_cpl": 3420.2843942505133,
+      "t3_score": 0.4479979853941073,
+      "job_id": 5964
+    },
+    {
+      "model": "solar:10.7b",
+      "phase": "middlegame",
+      "t1_absolute_error": 1012.5568900126423,
+      "t2_cpl": 4924.763180312352,
+      "t3_score": 0.5716216216216217,
+      "job_id": 16665
+    },
+    {
+      "model": "solar:10.7b",
+      "phase": "opening",
+      "t1_absolute_error": 267.3534577387486,
+      "t2_cpl": 3542.133032694476,
+      "t3_score": 0.7302631578947368,
+      "job_id": 1368
+    },
+    {
+      "model": "wizardlm2:7b",
+      "phase": "endgame",
+      "t1_absolute_error": 785.508699498673,
+      "t2_cpl": 3225.613078241005,
+      "t3_score": 0.26655982905982906,
+      "job_id": 5945
+    },
+    {
+      "model": "wizardlm2:7b",
+      "phase": "middlegame",
+      "t1_absolute_error": 991.3165839327322,
+      "t2_cpl": 5406.673063606687,
+      "t3_score": 0.44212594741274447,
+      "job_id": 16653
+    },
+    {
+      "model": "wizardlm2:7b",
+      "phase": "opening",
+      "t1_absolute_error": 393.5224242424242,
+      "t2_cpl": 3600.327423167849,
+      "t3_score": 0.45361990950226244,
+      "job_id": 1367
+    },
+    {
+      "model": "yi:34b",
+      "phase": "endgame",
+      "t1_absolute_error": 594.1433601609658,
+      "t2_cpl": 3568.7321930048506,
+      "t3_score": 0.19174635128334172,
+      "job_id": 5964
+    },
+    {
+      "model": "yi:34b",
+      "phase": "middlegame",
+      "t1_absolute_error": 889.7076049738691,
+      "t2_cpl": 5392.429657437822,
+      "t3_score": 0.4314290863218598,
+      "job_id": 16650
+    },
+    {
+      "model": "yi:34b",
+      "phase": "opening",
+      "t1_absolute_error": 218.71491228070175,
+      "t2_cpl": 3347.6774566473987,
+      "t3_score": 0.3519736842105263,
+      "job_id": 1368
     }
   ],
   "by_source": [
     {
-      "model": "llama3.2:3b",
-      "source": "generated",
-      "t1_absolute_error": 4091.3636363636365,
-      "t2_cpl": 431.0,
-      "t2_legal": 0.16666666666666666,
-      "t3_score": 0.6666666666666666,
-      "job_id": 12
+      "model": "codellama:34b",
+      "source": "lichess_puzzles",
+      "t1_absolute_error": 741.2727272727273,
+      "t2_cpl": 4702.336531784609,
+      "t2_legal": 0.6600416666666666,
+      "t3_score": 0.25292754712254994,
+      "job_id": 24000
+    },
+    {
+      "model": "command-r:35b",
+      "source": "lichess_puzzles",
+      "t1_absolute_error": 781.559875,
+      "t2_cpl": 4852.029230187728,
+      "t2_legal": 0.6614166666666667,
+      "t3_score": 0.39475,
+      "job_id": 24000
+    },
+    {
+      "model": "deepseek-r1:14b",
+      "source": "lichess_puzzles",
+      "t1_absolute_error": 738.3299378224633,
+      "t2_cpl": 4839.650687786578,
+      "t2_legal": 0.5999749906214831,
+      "t3_score": 0.4297196379975951,
+      "job_id": 23991
+    },
+    {
+      "model": "deepseek-r1:7b",
+      "source": "lichess_puzzles",
+      "t1_absolute_error": 677.0251291852481,
+      "t2_cpl": 4576.854315122724,
+      "t2_legal": 0.6048323900740096,
+      "t3_score": 0.4143291652585333,
+      "job_id": 22970
+    },
+    {
+      "model": "gemma3:12b",
+      "source": "lichess_puzzles",
+      "t1_absolute_error": 744.499,
+      "t2_cpl": 4718.813854173209,
+      "t2_legal": 0.6634583333333334,
+      "t3_score": 0.422,
+      "job_id": 24000
+    },
+    {
+      "model": "gemma3:4b",
+      "source": "lichess_puzzles",
+      "t1_absolute_error": 730.7206001875586,
+      "t2_cpl": 4983.197683984054,
+      "t2_legal": 0.6584583333333334,
+      "t3_score": 0.316625,
+      "job_id": 24000
+    },
+    {
+      "model": "gemma4:26b",
+      "source": "lichess_puzzles",
+      "t1_absolute_error": 851.5712098009188,
+      "t2_cpl": 4140.152194446194,
+      "t2_legal": 0.6617083333333333,
+      "t3_score": 0.5132943616820668,
+      "job_id": 24000
+    },
+    {
+      "model": "gemma4:31b",
+      "source": "lichess_puzzles",
+      "t1_absolute_error": 846.5540625,
+      "t2_cpl": 3930.4978001257073,
+      "t2_legal": 0.6629166666666667,
+      "t3_score": 0.50675,
+      "job_id": 24000
+    },
+    {
+      "model": "gemma4:e2b",
+      "source": "lichess_puzzles",
+      "t1_absolute_error": 774.6015670584313,
+      "t2_cpl": 5237.96702188032,
+      "t2_legal": 0.6618119601051621,
+      "t3_score": 0.37242643994331914,
+      "job_id": 23963
+    },
+    {
+      "model": "gemma4:e4b",
+      "source": "lichess_puzzles",
+      "t1_absolute_error": 724.9630998933523,
+      "t2_cpl": 4807.308034595137,
+      "t2_legal": 0.6648610358764948,
+      "t3_score": 0.47522935779816516,
+      "job_id": 23999
+    },
+    {
+      "model": "llama3.1:8b",
+      "source": "lichess_puzzles",
+      "t1_absolute_error": 863.1296355601102,
+      "t2_cpl": 5194.150981252743,
+      "t2_legal": 0.6647078436275735,
+      "t3_score": 0.3353392031418255,
+      "job_id": 23994
     },
     {
       "model": "llama3.2:3b",
       "source": "lichess_puzzles",
-      "t1_absolute_error": 174.14285714285714,
-      "t2_cpl": NaN,
-      "t2_legal": 0.0,
-      "t3_score": 0.42857142857142855,
-      "job_id": 7
+      "t1_absolute_error": 979.2570175438597,
+      "t2_cpl": 4448.137902507318,
+      "t2_legal": 0.656390977443609,
+      "t3_score": 0.3619047619047619,
+      "job_id": 23940
     },
     {
-      "model": "qwen2.5:7b",
-      "source": "generated",
-      "t1_absolute_error": 2601.6052631578946,
-      "t2_cpl": 909.5714285714286,
-      "t2_legal": 0.12280701754385964,
-      "t3_score": 0.5350877192982456,
-      "job_id": 114
+      "model": "llama3.3:70b",
+      "source": "lichess_puzzles",
+      "t1_absolute_error": 884.698259671967,
+      "t2_cpl": 5050.852144965768,
+      "t2_legal": 0.664454738950795,
+      "t3_score": 0.5367854235802392,
+      "job_id": 23961
+    },
+    {
+      "model": "mistral:7b",
+      "source": "lichess_puzzles",
+      "t1_absolute_error": 740.1261875,
+      "t2_cpl": 4307.040037430653,
+      "t2_legal": 0.623375,
+      "t3_score": 0.3485625,
+      "job_id": 24000
+    },
+    {
+      "model": "mixtral:8x7b",
+      "source": "lichess_puzzles",
+      "t1_absolute_error": 748.0431056213763,
+      "t2_cpl": 4796.574367528496,
+      "t2_legal": 0.601706256273001,
+      "t3_score": 0.47114659290922806,
+      "job_id": 23912
+    },
+    {
+      "model": "phi4:14b",
+      "source": "lichess_puzzles",
+      "t1_absolute_error": 848.5260582178721,
+      "t2_cpl": 4900.5104720635545,
+      "t2_legal": 0.634625,
+      "t3_score": 0.4069375,
+      "job_id": 24000
+    },
+    {
+      "model": "qwen2.5:14b",
+      "source": "lichess_puzzles",
+      "t1_absolute_error": 778.3090147536884,
+      "t2_cpl": 4807.706497900871,
+      "t2_legal": 0.665124614486955,
+      "t3_score": 0.41935483870967744,
+      "job_id": 23994
+    },
+    {
+      "model": "qwen2.5:32b",
+      "source": "lichess_puzzles",
+      "t1_absolute_error": 793.2070625,
+      "t2_cpl": 5102.290100681634,
+      "t2_legal": 0.6662916666666666,
+      "t3_score": 0.385875,
+      "job_id": 24000
     },
     {
       "model": "qwen2.5:7b",
       "source": "lichess_puzzles",
-      "t1_absolute_error": 642.490990990991,
-      "t2_cpl": 3306.8333333333335,
-      "t2_legal": 0.10810810810810811,
-      "t3_score": 0.3738738738738739,
-      "job_id": 222
+      "t1_absolute_error": 749.996624156039,
+      "t2_cpl": 4692.010618006104,
+      "t2_legal": 0.6554972076352421,
+      "t3_score": 0.30626406601650413,
+      "job_id": 23994
+    },
+    {
+      "model": "solar:10.7b",
+      "source": "lichess_puzzles",
+      "t1_absolute_error": 917.4392751896671,
+      "t2_cpl": 4462.954326296586,
+      "t2_legal": 0.6395799474934367,
+      "t3_score": 0.5499593317900269,
+      "job_id": 23997
+    },
+    {
+      "model": "wizardlm2:7b",
+      "source": "lichess_puzzles",
+      "t1_absolute_error": 906.7652445517143,
+      "t2_cpl": 4772.638306702635,
+      "t2_legal": 0.6032547465053203,
+      "t3_score": 0.3998694090760692,
+      "job_id": 23965
+    },
+    {
+      "model": "yi:34b",
+      "source": "lichess_puzzles",
+      "t1_absolute_error": 777.9154885524835,
+      "t2_cpl": 4815.106756494138,
+      "t2_legal": 0.643691101659578,
+      "t3_score": 0.3673048048048048,
+      "job_id": 23982
     }
   ],
   "hypothesis_tests": {
@@ -205,49 +1936,74 @@
       "description": "T1 error increases with difficulty",
       "supported": false,
       "values": {
-        "easy": 1401.3148148148148,
-        "medium": 236.8,
-        "hard": 699.3484848484849,
-        "extreme": 172.61016949152543
+        "easy": 1722.2972762093914,
+        "medium": 740.4035802802673,
+        "hard": 436.1372146011463,
+        "extreme": 310.5541280959253
       }
     },
     "H2": {
       "description": "T2 CPL increases with difficulty",
       "supported": false,
       "values": {
-        "easy": 452.5,
-        "medium": 1809.75,
-        "hard": 6476.625,
-        "extreme": 2028.0
+        "easy": 5507.205984665626,
+        "medium": 4957.243072486872,
+        "hard": 4411.991188291677,
+        "extreme": 4070.4882637919504
       }
     },
     "H3": {
       "description": "T3 score decreases with difficulty",
       "supported": false,
       "values": {
-        "easy": 0.4074074074074074,
-        "medium": 0.38,
-        "hard": 0.3939393939393939,
-        "extreme": 0.3220338983050847
+        "easy": 0.4175753762989888,
+        "medium": 0.43423821305524085,
+        "hard": 0.4028762828151936,
+        "extreme": 0.3808945206272059
       }
     },
     "H4": {
       "description": "Larger models perform better within family",
-      "supported": true,
-      "by_family": {}
+      "supported": false,
+      "by_family": {
+        "llama": {
+          "better_t1": "True",
+          "better_t2": "False",
+          "better_t3": "True",
+          "all_better": "False"
+        },
+        "gemma": {
+          "better_t1": "False",
+          "better_t2": "True",
+          "better_t3": "True",
+          "all_better": "False"
+        },
+        "qwen": {
+          "better_t1": "False",
+          "better_t2": "False",
+          "better_t3": "True",
+          "all_better": "False"
+        },
+        "unknown": {
+          "better_t1": "False",
+          "better_t2": "False",
+          "better_t3": "False",
+          "all_better": "False"
+        }
+      }
     },
     "H5": {
       "description": "Better T3 vs T2 on openings, worse on endgames",
       "phase_data": {
         "t2_legal": {
-          "endgame": 0.024390243902439025,
-          "middlegame": 0.164021164021164,
-          "opening": 0.13953488372093023
+          "endgame": 0.6469595110771581,
+          "middlegame": 0.6461798425618829,
+          "opening": 0.6460990310012986
         },
         "t3_score": {
-          "endgame": 0.2601626016260163,
-          "middlegame": 0.5767195767195767,
-          "opening": 0.32558139534883723
+          "endgame": 0.2656291923799302,
+          "middlegame": 0.45561779709443706,
+          "opening": 0.46351735335904204
         }
       },
       "note": "Requires detailed relative performance analysis"
