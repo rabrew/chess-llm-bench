@@ -4,7 +4,7 @@ import json
 import logging
 import os
 import sqlite3
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -14,7 +14,7 @@ logger = logging.getLogger("chess_llm_bench")
 class JobQueue:
     """SQLite-based job queue with atomic operations."""
 
-    def __init__(self, db_path: str = "jobs/jobs.db"):
+    def __init__(self, db_path: str = "jobs/db/jobs.db"):
         """Initialize job queue.
 
         Args:
@@ -26,9 +26,14 @@ class JobQueue:
         self._init_db()
 
     def _connect(self) -> sqlite3.Connection:
-        """Return the persistent connection, creating it if needed."""
+        """Return the per-process connection, creating it if needed.
+
+        Each OS process must have its own connection.  The parent closes its
+        connection before forking workers (run_workers.py) so children never
+        inherit a shared sqlite3.Connection object.
+        """
         if self._conn is None:
-            self._conn = sqlite3.connect(self.db_path, timeout=30, check_same_thread=False)
+            self._conn = sqlite3.connect(self.db_path, timeout=30, check_same_thread=True)
             self._conn.row_factory = sqlite3.Row
         return self._conn
 
@@ -209,7 +214,7 @@ class JobQueue:
             SET status = 'done',
                 completed_at = ?
             WHERE job_id = ?
-        """, (datetime.utcnow().isoformat(), job_id))
+        """, (datetime.now(timezone.utc).isoformat(), job_id))
         conn.commit()
 
     def fail_job(self, job_id: str, error_message: str = "") -> None:
@@ -226,7 +231,7 @@ class JobQueue:
                 completed_at = ?,
                 error_message = ?
             WHERE job_id = ?
-        """, (datetime.utcnow().isoformat(), error_message, job_id))
+        """, (datetime.now(timezone.utc).isoformat(), error_message, job_id))
         conn.commit()
 
     def reset_job(self, job_id: str) -> None:
@@ -326,6 +331,17 @@ class JobQueue:
         conn = self._connect()
         cursor = conn.execute("SELECT COUNT(*) as count FROM jobs")
         return cursor.fetchone()["count"]
+
+    def get_done_job_ids(self) -> list[str]:
+        """Return IDs of all jobs marked done in the queue.
+
+        Used by workers at startup instead of scanning the JSONL results file.
+        The DB query is fast (status is indexed) and cross-process accurate —
+        every worker sees the same committed state via SQLite WAL.
+        """
+        conn = self._connect()
+        cursor = conn.execute("SELECT job_id FROM jobs WHERE status = 'done'")
+        return [row[0] for row in cursor.fetchall()]
 
     def has_hash(self, hash_value: str) -> bool:
         """Check if a job with the given hash exists.
