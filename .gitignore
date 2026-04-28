@@ -41,3 +41,4 @@ dashboard/tailwind.min.js
 
 # OS
 .DS_Store
+data/jobs.db
