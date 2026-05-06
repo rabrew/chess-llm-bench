@@ -16,28 +16,26 @@ chess_bench.db
 
 # Results (generated output)
 results/evaluations.jsonl
+results/evaluations_retried.jsonl
 results/evaluations*.jsonl.bak*
 results/evaluations_pre_*.jsonl
 results/plots/
 results/metrics/
 results/logs/
-results/ollama.log
+results/archive/
 results/benchmark.db
-results/backups/
 
-# Logs at root
+# Logs
 *.log
+logs/
 
 # Coverage
 .coverage
 .coveragerc
 
-# Vendor JS
+# Vendor JS (dashboard)
 dashboard/chart.umd.min.js
 dashboard/tailwind.min.js
-
-# Misc
-26.0.1
 
 # OS
 .DS_Store

@@ -19,7 +19,7 @@ while true; do
     ATTEMPT=$((ATTEMPT + 1))
     log "--- Attempt $ATTEMPT: launching run_all.sh ---"
 
-    bash run_all.sh
+    bash bin/run_all.sh
     EXIT_CODE=$?
 
     log "--- run_all.sh exited with code $EXIT_CODE ---"

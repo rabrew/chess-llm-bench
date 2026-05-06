@@ -1,17 +1,23 @@
 # Scripts Reference
 
-Quick guide to every script in `scripts/` and the top-level shell helpers.
+Quick guide to every script in `scripts/` and the shell helpers in `bin/`.
 
 ---
 
-## Top-level shell scripts
+## `bin/` — shell scripts
 
 | Script | Purpose |
 |---|---|
-| `run_pipeline.sh` | **Start here.** `cd`s into the project root, creates `results/logs/`, and runs `run_all.sh` while tee-ing output to a timestamped log. |
-| `run_all.sh` | Orchestrates the full benchmark: iterates every model × tier, generates jobs, runs workers, and wipes the DB between tiers. Called by `run_pipeline.sh`. |
-| `monitor_progress.sh` | Live terminal dashboard (refreshes every 3 s). Shows per-model progress bars, done/failed/active counts, and which tier is running. Uses the shared SQLite job DB. |
-| `monitor.sh` | Background watchdog that polls a tmux session for crash/error patterns and logs them to a file. Useful for overnight runs. |
+| `bin/run_pipeline.sh` | **Start here.** Creates `results/logs/`, runs `bin/run_all.sh` and tees output to a timestamped log. |
+| `bin/run_all.sh` | Orchestrates the full benchmark: iterates every model × tier, generates jobs, runs workers, and wipes the DB between tiers. |
+| `bin/run_forever.sh` | Crash-restart wrapper — relaunches `run_all.sh` automatically until it exits 0. |
+| `bin/monitor_progress.sh` | Live terminal dashboard (refreshes every 5 s). Shows per-model progress bars, done/failed/active counts, and which tier is running. |
+| `bin/monitor.sh` | Background watchdog that polls a tmux session for crash/error patterns and logs them to a file. Useful for overnight runs. |
+| `bin/goodnight.sh` | Shuts down the machine and sets an RTC wake alarm for 6 am. |
+| `bin/sleeptime.sh` | Pauses the benchmark for a given duration (kills Ollama, restarts after sleep). |
+| `bin/pause_resume.sh` | Sends SIGSTOP/SIGCONT to a process group to pause/resume the pipeline. |
+| `bin/restart.sh` | Kills the running pipeline and restarts it in the `chess-bench` tmux session. |
+| `bin/auto_sync.sh` | Auto-commits and pushes tracked file changes every 30 minutes. |
 
 ---
 

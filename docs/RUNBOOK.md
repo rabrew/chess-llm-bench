@@ -3,7 +3,7 @@
 ## Quick Reference Commands
 
 ```bash
-cd /home/rabrew/chess-llm-bench
+cd /home/rabrew/Desktop/chess-llm-bench
 ```
 
 ---
@@ -133,7 +133,7 @@ pytest tests/test_evaluator.py -v
 ## Quick Start (Minimal Test)
 
 ```bash
-cd /home/rabrew/chess-llm-bench
+cd /home/rabrew/Desktop/chess-llm-bench
 pip install -r requirements.txt
 python scripts/build_dataset.py
 python scripts/precompute_stockfish.py
@@ -146,7 +146,7 @@ python scripts/run_workers.py --dry-run --max-jobs 5
 ## Full Benchmark Run
 
 ```bash
-cd /home/rabrew/chess-llm-bench
+cd /home/rabrew/Desktop/chess-llm-bench
 
 # Setup
 pip install -r requirements.txt
@@ -173,7 +173,7 @@ python scripts/generate_plots.py --save-metrics
 | Output | Location |
 |--------|----------|
 | Dataset files | `data/*.json` |
-| Job database | `jobs/jobs.db` |
+| Job database | `jobs/db/jobs.db` |
 | Results | `results/evaluations.jsonl` |
 | Plots | `results/plots/*.png` |
 | Metrics | `results/metrics/*.csv` |
