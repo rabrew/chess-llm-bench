@@ -1,7 +1,8 @@
 #!/bin/bash
 # Monitor script - constantly checks tmux session for errors
 
-LOGFILE="/home/rabrew/Desktop/chess-llm-bench/crash_report.txt"
+mkdir -p /home/rabrew/Desktop/chess-llm-bench/results/logs
+LOGFILE="/home/rabrew/Desktop/chess-llm-bench/results/logs/crash_report.txt"
 SESSION="chess"
 LAST_PROGRESS=""
 

@@ -10,15 +10,14 @@ data/*.json
 data/*.csv
 data/*.zst
 
-# Job database
+# Job database and runtime state
 jobs/
 chess_bench.db
+data/jobs.db
 
-# Results (generated output)
+# Results (generated output — not committed, reproduced from evaluations.jsonl)
 results/evaluations.jsonl
 results/evaluations_retried.jsonl
-results/evaluations*.jsonl.bak*
-results/evaluations_pre_*.jsonl
 results/plots/
 results/metrics/
 results/logs/
@@ -27,16 +26,14 @@ results/benchmark.db
 
 # Logs
 *.log
-logs/
 
 # Coverage
 .coverage
 .coveragerc
 
-# Vendor JS (dashboard)
+# Vendor JS (vendored, not authored)
 dashboard/chart.umd.min.js
 dashboard/tailwind.min.js
 
 # OS
 .DS_Store
-data/jobs.db
