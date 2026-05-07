@@ -478,6 +478,117 @@ def plot_summary_heatmap(mdf: pd.DataFrame, output_dir: Path) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Plot 6 — Per-family deep-dives (one plot per family)
+# ---------------------------------------------------------------------------
+
+# Families with 3+ models get their own plot.
+# Smaller families are grouped into "Others".
+_SOLO_FAMILIES = {"LLaMA 3", "Gemma 3", "Gemma 4", "Qwen 2.5", "DeepSeek-R1", "Mistral"}
+
+# Within each family plot, use these tab colours for individual models
+_TAB10 = [
+    "#1f77b4", "#ff7f0e", "#2ca02c", "#d62728",
+    "#9467bd", "#8c564b", "#e377c2", "#bcbd22",
+]
+
+
+def _family_filename(name: str) -> str:
+    return "family_" + name.lower().replace(" ", "_").replace("-", "_").replace(".", "") + ".png"
+
+
+def plot_per_family(ddf: pd.DataFrame, mdf: pd.DataFrame, output_dir: Path) -> None:
+    """One 2×2 subplot per model family: each metric vs difficulty, one line per model."""
+
+    panels = [
+        ("t2_legal",          "T2: Legal Move Rate",        True,  "fraction of legal moves"),
+        ("t2_cpl",            "T2: Move Quality (CPL)",     False, "centipawn loss vs Stockfish"),
+        ("t3_score",          "T3: Explanation Score",      True,  "score (0–1)"),
+        ("t1_absolute_error", "T1: Eval Error (absolute)",  False, "centipawns (lower = better)"),
+    ]
+
+    ddf = ddf.copy()
+    ddf["plot_family"] = ddf["family"].apply(
+        lambda f: f if f in _SOLO_FAMILIES else "Others"
+    )
+    mdf = mdf.copy()
+    mdf["plot_family"] = mdf["family"].apply(
+        lambda f: f if f in _SOLO_FAMILIES else "Others"
+    )
+
+    for family_name in sorted(ddf["plot_family"].unique()):
+        fam_diff = ddf[ddf["plot_family"] == family_name]
+        fam_model = mdf[mdf["plot_family"] == family_name]
+        models = sorted(fam_diff["model"].unique(), key=lambda m: MODEL_META.get(m, {}).get("size", 0))
+
+        if not models:
+            continue
+
+        model_colors = {m: _TAB10[i % len(_TAB10)] for i, m in enumerate(models)}
+
+        fig, axes = plt.subplots(2, 2, figsize=(13, 9), sharey=False)
+        axes = axes.flatten()
+
+        subtitle = "  ·  ".join(
+            f"{short_name(m)}  ({MODEL_META.get(m, {}).get('size', '?')}B)"
+            for m in models
+        )
+        fig.suptitle(
+            f"{family_name} models\n{subtitle}",
+            fontsize=12, fontweight="bold", y=1.03,
+        )
+
+        for ax, (col, title, higher_better, ylabel) in zip(axes, panels):
+            for model in models:
+                row_data = fam_diff[fam_diff["model"] == model]
+                ys = [
+                    row_data.loc[row_data["difficulty"] == d, col].mean()
+                    if d in row_data["difficulty"].values else float("nan")
+                    for d in DIFFICULTY_ORDER
+                ]
+                size_b = MODEL_META.get(model, {}).get("size", 0)
+                ax.plot(
+                    DIFFICULTY_ORDER, ys,
+                    marker="o", linewidth=2.2, markersize=7,
+                    color=model_colors[model],
+                    label=f"{short_name(model)} ({size_b}B)",
+                )
+
+            arrow = "↑ better" if higher_better else "↓ better"
+            ax.set_title(title, fontsize=10, fontweight="bold")
+            ax.set_xlabel("Difficulty tier", fontsize=9)
+            ax.set_ylabel(f"{ylabel}  ({arrow})", fontsize=9)
+            ax.tick_params(labelsize=8)
+            ax.grid(True, alpha=0.25)
+            ax.spines[["top", "right"]].set_visible(False)
+            ax.legend(fontsize=8, loc="best")
+
+        # Add a small per-model summary bar inset on the T3 panel (axes[2])
+        ax_t3 = axes[2]
+        ax_inset = ax_t3.inset_axes([0.65, 0.04, 0.33, 0.40])
+        vals  = [fam_model.loc[fam_model["model"] == m, "t3_score_mean"].values for m in models]
+        vals  = [float(v[0]) if len(v) else float("nan") for v in vals]
+        names = [short_name(m) for m in models]
+        ys    = list(range(len(models)))
+        ax_inset.barh(ys, vals,
+                      color=[model_colors[m] for m in models],
+                      edgecolor="white", linewidth=0.4)
+        ax_inset.set_yticks(ys)
+        ax_inset.set_yticklabels(names, fontsize=6)
+        valid_vals = [v for v in vals if not np.isnan(v)]
+        if valid_vals:
+            ax_inset.set_xlim(0, max(valid_vals) * 1.25)
+        ax_inset.set_title("Overall T3", fontsize=6.5, pad=2)
+        ax_inset.tick_params(axis="x", labelsize=6)
+        ax_inset.spines[["top", "right"]].set_visible(False)
+
+        plt.tight_layout()
+        out = output_dir / _family_filename(family_name)
+        plt.savefig(out, dpi=150, bbox_inches="tight")
+        plt.close()
+        print(f"  {out.name}")
+
+
+# ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
 
@@ -538,11 +649,15 @@ def main():
         "axes.titlepad": 10,
     })
 
+    print("Overview charts …")
     plot_overview_rankings(mdf, output_dir)
     plot_family_scaling(mdf, output_dir)
     plot_difficulty_profiles(ddf, output_dir)
     plot_verbal_vs_mechanical(mdf, output_dir)
     plot_summary_heatmap(mdf, output_dir)
+
+    print("\nPer-family deep-dives …")
+    plot_per_family(ddf, mdf, output_dir)
 
     print(f"\nAll plots written to {output_dir}/")
 
