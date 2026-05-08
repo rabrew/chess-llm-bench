@@ -13,7 +13,11 @@ EVALUATIONS_PATH = str(BASE_DIR / "results" / "evaluations.jsonl")
 
 TIERS = ["easy", "medium", "hard", "extreme"]
 JOBS_PER_TIER = 5900
-DIRECTION_THRESHOLD = 150  # centipawns — only call it White/Black if advantage > 1.5 pawns
+# Direction threshold matches `metrics.DIRECTION_THRESHOLDS_CP` and the
+# "1 pawn = decisive" convention used as primary in docs/FINDINGS.md.
+# Earlier versions of this dashboard used 150 cp, which diverged from the
+# published findings. Keep this in sync with the docs.
+DIRECTION_THRESHOLD = 100
 
 
 def _direction(eval_cp, threshold=DIRECTION_THRESHOLD):

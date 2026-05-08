@@ -36,17 +36,24 @@ Total explanation score per position: 0, 1, or 2.
 
 ### 1.4 Models Under Test
 
-All models run locally via **Ollama**. Models are grouped by family to enable within-family parameter scaling as a secondary analysis.
+22 models run locally via **Ollama**. Models are grouped by family to enable within-family parameter scaling as a secondary analysis.
 
 | Family | Organisation | Sizes | Ollama tags |
 |---|---|---|---|
-| Qwen2.5 | Alibaba | 7B, 14B | `qwen2.5:7b`, `qwen2.5:14b` |
-| Llama 3.2 | Meta | 3B, 8B | `llama3.2:3b`, `llama3.2:8b` |
-| Mistral | Mistral AI | 7B | `mistral:7b` |
-| Phi-4 | Microsoft | 14B | `phi4:14b` |
+| LLaMA 3 | Meta | 3B, 8B, 70B | `llama3.2:3b`, `llama3.1:8b`, `llama3.3:70b` |
 | Gemma 3 | Google | 4B, 12B | `gemma3:4b`, `gemma3:12b` |
+| Gemma 4 | Google (2025) | 2B, 4B, 26B, 31B | `gemma4:e2b`, `gemma4:e4b`, `gemma4:26b`, `gemma4:31b` |
+| Qwen 2.5 | Alibaba | 7B, 14B, 32B | `qwen2.5:7b`, `qwen2.5:14b`, `qwen2.5:32b` |
+| DeepSeek-R1 | DeepSeek | 7B, 14B | `deepseek-r1:7b`, `deepseek-r1:14b` |
+| Mistral / Mixtral | Mistral AI | 7B, 47B (8×7B MoE) | `mistral:7b`, `mixtral:8x7b` |
+| Solar | Upstage | 11B | `solar:10.7b` |
+| Phi-4 | Microsoft | 14B | `phi4:14b` |
+| WizardLM | Microsoft | 7B | `wizardlm2:7b` |
+| CodeLlama | Meta | 34B | `codellama:34b` |
+| Yi | 01.AI | 34B | `yi:34b` |
+| Command-R | Cohere | 35B | `command-r:35b` |
 
-Primary analysis compares models of comparable parameter counts across families. Within-family size comparisons are a secondary analysis.
+Total: **22 models, 12 architecture families, 2B → 70B parameters.** Primary analysis compares models across families and across sizes; within-family size comparisons are a secondary analysis.
 
 ### 1.5 Hypotheses
 

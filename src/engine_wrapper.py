@@ -219,19 +219,25 @@ class Lc0Engine:
 
     def __init__(
         self,
-        path: str = "/home/rabrew/lc0-src/build/release/lc0",
-        weights: str = "/home/rabrew/lc0-nets/network.pb",
+        path: str | None = None,
+        weights: str | None = None,
         nodes: int = 1000,
         backend: str = "cuda-auto",
     ):
         """Initialize Lc0 engine.
 
         Args:
-            path: Path to Lc0 executable
-            weights: Path to neural network weights
+            path: Path to Lc0 executable. Required — pass explicitly or via config.
+            weights: Path to neural network weights. Required.
             nodes: Number of nodes to search per position
             backend: Backend to use (cuda-auto, cuda, cudnn, etc.)
         """
+        if path is None or weights is None:
+            raise ValueError(
+                "Lc0Engine requires both `path` and `weights`; supply them via "
+                "config/config.yaml (lc0.binary / lc0.weights) instead of "
+                "relying on hardcoded defaults."
+            )
         self.path = path
         self.weights = weights
         self.nodes = nodes

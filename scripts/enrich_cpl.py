@@ -271,8 +271,13 @@ def main() -> None:
     config = load_config(args.config)
 
     lc0_config = config.get("lc0", {})
-    binary = lc0_config.get("binary", "/home/rabrew/lc0-src/build/release/lc0")
-    weights = lc0_config.get("weights", "/home/rabrew/lc0-nets/network.pb")
+    binary = lc0_config.get("binary")
+    weights = lc0_config.get("weights")
+    if not binary or not weights:
+        raise SystemExit(
+            "lc0.binary and lc0.weights must be set in config/config.yaml "
+            "before running enrich_cpl.py"
+        )
     nodes = args.nodes or lc0_config.get("nodes", 800)
 
     if args.dry_run:

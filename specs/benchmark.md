@@ -1,71 +1,72 @@
-# Spec: Chess LLM Benchmark
+# Spec: Chess LLM Benchmark — Overview
+
+This is the **short overview** of the benchmark. For the full specification (parameters, edge cases, scoring details, hypothesis tests), see [benchmark-detailed.md](benchmark-detailed.md).
 
 ## Goal
 
-Benchmark 19 large language models on chess move quality across ~5.8 million positions, measuring spatial reasoning ability as a proxy for genuine reasoning vs pattern matching. Primary research question: *"Can AI language models trained on text learn to reason spatially, as measured by chess performance?"*
+Benchmark **22 open-source local LLMs** (2B–70B parameters, 12 architecture families) on chess move quality, evaluation, and explanation across **4,000 stratified Lichess puzzle positions** (1,000 each at four difficulty tiers). Primary research question: *"Can current general-purpose LLMs reason about a fully formal closed domain (chess) where ground truth is computable, and does scaling help?"*
 
 ## Inputs / Outputs
 
 **Inputs:**
-- `data/{easy,medium,hard,extreme}.json` — ~5.8M chess positions with Lc0 evaluations
-- `config/config.yaml` — models, prompt formats, paths, thresholds
-- Ollama instance with 19 models pulled and running
+- `data/{easy,medium,hard,extreme}.json` — 1,000 Lichess puzzle positions per tier (4,000 total). Each carries a precomputed Stockfish-17 evaluation at depth 22. The full Lichess puzzle CSV (~5.8M positions) is sampled down to 1,000 per tier in `dataset_builder.py`.
+- `config/config.yaml` — models, prompt formats, paths, thresholds, engine settings
+- Ollama instance with all 22 models pulled and running
 
 **Outputs:**
-- `results/evaluations.jsonl` — one record per job: model, position, move chosen, centipawn loss, correctness
-- `results/plots/*.png` — performance charts by model, difficulty, prompt format
-- `results/metrics/*.csv` — aggregated metrics for analysis
+- `results/evaluations.jsonl` — one record per (model × position × prompt format) job. ~526k records.
+- `results/evaluations_retried.jsonl` — output of `scripts/retry_illegal_moves.py` on the residual illegal-move rows
+- `results/plots/*.png` — per-model and per-family visualisations
+- `results/metrics/{by_model,by_difficulty,...}.csv` and `summary.json` — aggregated metrics
 
 ## Steps / Logic
 
-1. **Build dataset** (`scripts/build_dataset.py`) — load Lichess puzzle CSV, validate positions, split into difficulty tiers
-2. **Lc0 evaluation** (`scripts/precompute_lc0_batch.py`) — GPU batch inference to get centipawn evaluations and best moves for all positions
-3. **Pull models** (`scripts/pull_models.py`) — ensure all configured Ollama models are available
-4. **Generate jobs** (`scripts/generate_jobs.py`) — create job queue in SQLite: every combination of position × model × prompt format (~330M jobs)
-5. **Run workers** (`scripts/run_workers.py`) — parallel workers claim jobs, query Ollama, score moves, write results
-6. **Generate plots** (`scripts/generate_plots.py`) — produce charts and CSVs from results
+1. **Build dataset** (`scripts/build_dataset.py`) — sample 1,000 puzzles per difficulty tier from the full Lichess CSV, validate, assign stable hash-based IDs.
+2. **Stockfish ground truth** (`scripts/precompute_stockfish.py`) — depth-22 Stockfish-17 evaluations stored alongside each position. Used as T1 truth.
+3. **Lc0 ground truth** (`scripts/enrich_cpl.py`) — Lc0 @ 800 nodes computes best-move and CPL post-hoc. Used as T2 truth. Runs after the LLM jobs complete.
+4. **Pull models** (`scripts/pull_models.py`) — ensure all 22 models in `config.models` are available locally via Ollama.
+5. **Generate jobs** (`scripts/generate_jobs.py`) — populate the SQLite job queue with one row per (position × model × prompt format). 4,000 × 22 × 6 = 528,000 jobs.
+6. **Run workers** (`scripts/run_workers.py`) — parallel workers claim jobs, prompt the model, parse the response, score each task (T1/T2/T3), write to `evaluations.jsonl`.
+7. **Generate plots & metrics** (`scripts/generate_plots.py --save-metrics`) — postprocess the JSONL into per-model and per-difficulty aggregations, compute hypothesis tests, render charts.
 
-## Prompt Formats
+## Tasks scored per position
 
-- `fen_only` — just the FEN string
-- `pgn+fen` — move history plus FEN
-- `cot` — chain-of-thought, asks model to reason step by step
+| Task | Question | Truth |
+|---|---|---|
+| **T1 — Eval** | What is the centipawn evaluation of this position? | Stockfish-17 @ depth 22 |
+| **T2 — Move** | What is the best move? | Lc0 @ 800 nodes (post-hoc enrichment) |
+| **T3 — Explanation** | Who stands better, and why? | Rule-based scorer comparing model output against the Lichess theme tag |
 
-## Evaluation Metric
+## Prompt Formats (six)
 
-**Centipawn Loss (CPL)** — difference between the Lc0-evaluated best move and the model's chosen move, in centipawns. Lower is better. A threshold of 50 CPL is used to classify a move as "correct".
+- `cot` — full three-task prompt with chain-of-thought scratchpad
+- `fen_only` — full three-task prompt with just the FEN
+- `pgn+fen` — full three-task prompt with PGN history + FEN
+- `eval_only` — isolated T1 prompt
+- `move_only` — isolated T2 prompt with the legal-move list shown to the model
+- `explanation_only` — isolated T3 prompt
 
-## Correction Loop
+The **isolated prompts** (`eval_only`, `move_only`, `explanation_only`) exist to disentangle "the model can't do this task" from "the prompt format confused the model".
 
-After a model makes a bad move (CPL > threshold), it is told it was wrong and asked again. A paired control group gets the same follow-up position without feedback. This tests self-correction as evidence of reasoning vs memorisation.
+## Headline Metrics
 
-## Edge Cases
+- **T1**: direction accuracy at multiple thresholds (±0/50/100/200 cp), absolute error excl. mate-truth rows, magnitude-invariant relative error.
+- **T2**: legality rate (computed only on move-asking prompts), clamped CPL (Lichess convention, ±1000 cp), win-probability loss (×1000, bounded).
+- **T3**: 0/1/2 score combining side-correctness and theme-keyword match (using the v2 camelCase-aware matcher).
 
-- Model returns illegal move — mark as failed, record error
-- Model times out — retry up to `max_retries` times, then fail
-- Duplicate jobs — detected via hash, skipped on insert
-- OOM during job generation — handled by batch insertion (10k jobs at a time)
-- SQLite file descriptor exhaustion — handled by single connection per batch
+## What is NOT in this study
 
-## Dependencies
-
-| Dependency | Purpose |
-|-----------|---------|
-| Ollama | LLM inference server |
-| Lc0 + ONNX model | Chess position evaluation |
-| python-chess | FEN/PGN parsing, move validation |
-| onnxruntime-gpu | GPU batch inference for Lc0 |
-| SQLite | Job queue and deduplication |
-| pytest | Test suite |
-
-## Hardware
-
-- GPU: RTX 5080 (for Lc0 ONNX batch inference)
-- Storage: ~130GB for jobs DB, ~250GB for models split across main and shared NTFS partition
+- **No commercial models.** Local Ollama only. The Anthropic API integration is specced in [commercial-models.md](commercial-models.md) but not yet run.
+- **No correction-loop / learning-delta data.** The infrastructure exists (`src/feedback_loop.py`) but is dead code under the current worker because CPL is filled in post-hoc, not inline. The `correction_loop.enabled` config flag is set to `false` to reflect this.
 
 ## Reproducibility
 
-- Random seed: `42` (set in config)
-- Lc0 model: `network.onnx` at path set in `config.yaml`
-- All model versions pinned by Ollama tag
-- Dataset source: Lichess puzzle database (`data/lichess_puzzles.csv`)
+- Random seed: `42` in `config/config.yaml` (controls puzzle sampling).
+- Position IDs are SHA-256-derived from the FEN, stable across rebuilds with different `max_positions_per_tier`.
+- All model versions pinned by Ollama tag.
+- Engine versions and search budgets pinned in config (`stockfish.depth`, `lc0.nodes`).
+- Python dependencies pinned in `requirements.txt`.
+
+## Audit-log
+
+This benchmark has gone through two post-hoc audit passes that fixed several measurement artefacts (mate-encoding inflation in CPL and T1, T3 theme matcher, legality denominator, direction-accuracy threshold cherry-picking). All corrections are postprocessing-only and unit-tested. See [`docs/FINDINGS.md` § Methodology and metric artefacts](../docs/FINDINGS.md) and [artefact-fixes.md](artefact-fixes.md) for the audit trail.

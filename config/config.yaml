@@ -10,6 +10,7 @@ lc0:
   binary: /home/rabrew/lc0-src/build/release/lc0
   weights: /home/rabrew/lc0-nets/network.pb
   onnx_model: /home/rabrew/lc0-nets/network.onnx
+  nodes: 800  # Search budget per position for CPL ground truth (enrich_cpl.py)
 
 ollama:
   base_url: http://localhost:11434
@@ -76,7 +77,13 @@ workers:
   count: 1
 
 correction_loop:
-  enabled: true
+  # DISABLED — dead code. The trigger checks t2_cpl > threshold at the
+  # end of each job, but the worker runs with engine=None so t2_cpl is
+  # never computed inline (CPL is filled in post-hoc by enrich_cpl.py).
+  # Result: 0 correction jobs were ever produced. See FINDINGS.md
+  # methodology for details. Setting `enabled: false` to be honest about
+  # what's actually running.
+  enabled: false
   control_group: true
   max_attempts: 2
 

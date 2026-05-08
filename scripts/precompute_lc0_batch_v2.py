@@ -9,7 +9,7 @@ import numpy as np
 import chess
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from src.utils import setup_logging
+from src.utils import load_config, setup_logging
 
 import onnxruntime as ort
 from tqdm import tqdm
@@ -88,10 +88,17 @@ def main():
     setup_logging(level=logging.DEBUG if args.verbose else logging.INFO)
     logger = logging.getLogger("chess_llm_bench")
 
-    # Load ONNX model
-    print("Loading Lc0 ONNX model...")
+    # Load ONNX model — path comes from config/config.yaml (lc0.onnx_model)
+    config = load_config(getattr(args, "config", None) or "config/config.yaml")
+    onnx_path = config.get("lc0", {}).get("onnx_model")
+    if not onnx_path:
+        raise SystemExit(
+            "lc0.onnx_model must be set in config/config.yaml "
+            "before running precompute_lc0_batch_v2.py"
+        )
+    print(f"Loading Lc0 ONNX model from {onnx_path}...")
     sess = ort.InferenceSession(
-        "/home/rabrew/lc0-nets/network.onnx",
+        onnx_path,
         providers=["CUDAExecutionProvider", "CPUExecutionProvider"]
     )
     print(f"Using providers: {sess.get_providers()}")

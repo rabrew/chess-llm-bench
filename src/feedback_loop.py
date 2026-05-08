@@ -1,4 +1,27 @@
-"""Correction loop experiment for secondary analysis."""
+"""Correction loop experiment for secondary analysis.
+
+⚠️ DEAD CODE — NOT EXERCISED BY ANY BENCHMARK RUN ⚠️
+
+This module implements a "correction loop" intended to test self-correction
+behaviour: when a model makes a CPL > threshold move, re-prompt it on a
+similar position and measure whether the second attempt is better than a
+control with no feedback.
+
+The trigger lives in `worker.process_job` and checks
+`should_trigger_correction(scores.get("t2_cpl"), self.cpl_threshold)`. But
+the worker runs with `self.engine = None` (CPL is filled in post-hoc by
+`scripts/enrich_cpl.py`, not inline), so `t2_cpl` is always None at trigger
+time and the trigger never fires. Result: 0 records have
+`job_type='correction'` in the 526k-record dataset.
+
+The infrastructure (`build_correction_prompt`, `select_follow_up_position`,
+`calculate_learning_delta`) and tests are kept here for the eventual fix
+(make `worker` evaluate CPL inline, or run a separate correction-only
+worker that uses the post-hoc Lc0 evaluator). Do NOT cite correction-loop
+results in any paper or write-up — there is no data.
+
+`config.correction_loop.enabled` is set to `false` to make this honest.
+"""
 
 import hashlib
 import logging
