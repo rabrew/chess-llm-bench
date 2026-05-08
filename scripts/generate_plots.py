@@ -98,7 +98,12 @@ def load_model_df(metrics_dir: Path) -> pd.DataFrame:
     df["family"] = df["model"].map(lambda m: MODEL_META.get(m, {}).get("family", "Other"))
     df["size_b"] = df["model"].map(lambda m: MODEL_META.get(m, {}).get("size", 0))
     df["display"] = df["model"].map(short_name)
-    df["illegal_rate"] = 1 - df["t2_legal_mean"]
+    # Headline legality: prefer t2_legal_attempted (only counts move-asking
+    # prompts) when available; falls back to legacy column for older files.
+    df["t2_legal_headline_mean"] = df.get(
+        "t2_legal_attempted_mean", df.get("t2_legal_mean")
+    )
+    df["illegal_rate"] = 1 - df["t2_legal_headline_mean"]
     # Headline CPL: prefer the clamped column if available (Lichess convention,
     # ±1000 cp). Falls back to the raw uncapped column for older metrics files.
     df["t2_cpl_headline_mean"] = df.get("t2_cpl_clamped_mean", df["t2_cpl_mean"])
@@ -438,13 +443,13 @@ def plot_summary_heatmap(mdf: pd.DataFrame, output_dir: Path) -> None:
 
     cols = {
         "t1_direction_correct_mean": "T1\nDirection\nAccuracy",
-        "t2_legal_mean":             "T2\nLegal Move\nRate",
+        "t2_legal_headline_mean":             "T2\nLegal Move\nRate",
         "t2_cpl_headline_mean":      "T2 Move\nQuality\n(clamped CPL)",
         "t3_score_headline_mean":    "T3\nExplanation\nScore",
     }
     higher_better = {
         "t1_direction_correct_mean": True,
-        "t2_legal_mean":             True,
+        "t2_legal_headline_mean":             True,
         "t2_cpl_headline_mean":      False,
         "t3_score_headline_mean":    True,
     }
@@ -488,7 +493,7 @@ def plot_summary_heatmap(mdf: pd.DataFrame, output_dir: Path) -> None:
     # Annotate cells with raw values
     fmt_fns = {
         "t1_direction_correct_mean": lambda v: f"{v:.1%}",
-        "t2_legal_mean":             lambda v: f"{v:.1%}",
+        "t2_legal_headline_mean":             lambda v: f"{v:.1%}",
         "t2_cpl_headline_mean":      lambda v: f"{v:.0f}",
         "t3_score_headline_mean":    lambda v: f"{v:.3f}",
     }

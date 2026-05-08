@@ -33,6 +33,14 @@ EVAL_CLAMP_CP = 1000
 # the model's eval output is itself clamped to ±2000.
 MATE_SCORE_THRESHOLD_CP = 9000
 
+# Direction-accuracy thresholds (in centipawns). The original headline used
+# ±50 only; that turns out to be the worst-case threshold because it forces a
+# White/Black/Equal call right at the boundary where humans and engines also
+# disagree. Reporting at multiple thresholds gives a much fuller picture:
+# at ±100 ("one pawn = decisive") and ±200 ("clearly winning"), models agree
+# with Stockfish much more often.
+DIRECTION_THRESHOLDS_CP = (0, 50, 100, 200)
+
 
 def compute_relative_error(
     model_eval: float, stockfish_eval: float, floor: int = RELATIVE_ERROR_FLOOR_CP
@@ -223,7 +231,44 @@ def load_results_df(
                 + pd.to_numeric(df["t3_p2_theme_correct_v2"], errors="coerce")
             )
 
+    # ----- T2 legal-move rate, computed only on move-asking attempts -----
+    # `score_t2` returns t2_legal=False when t2_move is None, conflating
+    # "model produced an illegal move" with "this prompt didn't ask for a
+    # move at all" (eval_only and explanation_only prompts). The corrected
+    # column is True/False only when the model attempted a move; NaN when
+    # no move was attempted, so pandas .mean() automatically skips it.
+    if "t2_legal" in df.columns and "t2_move" in df.columns:
+        attempted = df["t2_move"].notna()
+        df["t2_legal_attempted"] = np.where(attempted, df["t2_legal"], np.nan)
+
+    # ----- T1 direction accuracy at multiple thresholds -----
+    # The headline `t1_direction_correct` field uses ±50 cp, which empirically
+    # is the worst-case threshold for this dataset (forces the call right at
+    # the boundary where everyone disagrees). Reporting at 0/50/100/200 cp
+    # gives a more honest picture of model evaluation skill.
+    if "t1_model_eval" in df.columns and "t1_stockfish_eval" in df.columns:
+        for thresh in DIRECTION_THRESHOLDS_CP:
+            df[f"t1_direction_correct_t{thresh}"] = _compute_direction_correct(
+                df["t1_model_eval"], df["t1_stockfish_eval"], thresh
+            )
+
     return df
+
+
+def _compute_direction_correct(
+    model_eval: pd.Series, stockfish_eval: pd.Series, threshold: int
+) -> pd.Series:
+    """Vectorised direction-correctness at a given centipawn threshold.
+
+    Returns True/False where both values are present, NaN otherwise.
+    """
+    valid = model_eval.notna() & stockfish_eval.notna()
+    me_dir = np.where(model_eval > threshold, "W",
+                       np.where(model_eval < -threshold, "B", "E"))
+    sf_dir = np.where(stockfish_eval > threshold, "W",
+                       np.where(stockfish_eval < -threshold, "B", "E"))
+    correct = (me_dir == sf_dir).astype(object)
+    return pd.Series(np.where(valid, correct, np.nan), index=model_eval.index)
 
 
 def _build_fen_lookup(data_dir: str) -> dict[int, str]:
@@ -301,9 +346,14 @@ def aggregate_by_model(df: pd.DataFrame) -> pd.DataFrame:
         "t1_abs_error_excl_mate": ["mean", "median"],
         "t2_cpl_clamped": ["mean", "median"],
         "t2_wp_loss": ["mean", "median"],
+        "t2_legal_attempted": "mean",
         "t3_p2_theme_correct_v2": "mean",
         "t3_score_v2": "mean",
     }
+    for thresh in DIRECTION_THRESHOLDS_CP:
+        col = f"t1_direction_correct_t{thresh}"
+        if col in df.columns:
+            optional_cols[col] = "mean"
     for col, ops in optional_cols.items():
         if col in df.columns:
             spec[col] = ops
@@ -340,6 +390,7 @@ def aggregate_by_difficulty(df: pd.DataFrame) -> pd.DataFrame:
         "t1_abs_error_excl_mate",
         "t2_cpl_clamped",
         "t2_wp_loss",
+        "t2_legal_attempted",
         "t3_score_v2",
     ):
         if col in df.columns:
@@ -706,8 +757,20 @@ def generate_summary(df: pd.DataFrame) -> dict[str, Any]:
                 df["t1_relative_error"].mean()
                 if "t1_relative_error" in df.columns else None
             ),
-            "t1_direction_accuracy": df["t1_direction_correct"].mean(),
-            "t2_legal_rate": df["t2_legal"].mean(),
+            "t1_direction_accuracy_t50": df["t1_direction_correct"].mean(),
+            "t1_direction_accuracy_by_threshold": {
+                f"t{thresh}": (
+                    df[f"t1_direction_correct_t{thresh}"].mean()
+                    if f"t1_direction_correct_t{thresh}" in df.columns
+                    else None
+                )
+                for thresh in DIRECTION_THRESHOLDS_CP
+            },
+            "t2_legal_rate_buggy_includes_no_move_prompts": df["t2_legal"].mean(),
+            "t2_legal_rate": (
+                df["t2_legal_attempted"].mean()
+                if "t2_legal_attempted" in df.columns else None
+            ),
             "t2_mean_cpl_raw": df["t2_cpl"].mean(),
             "t2_mean_cpl_clamped": (
                 df["t2_cpl_clamped"].mean()
