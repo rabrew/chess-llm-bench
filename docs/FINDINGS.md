@@ -1,7 +1,7 @@
 # Chess LLM Benchmark — Findings
 
 **Ryan Brew · Chess LLM Benchmark · May 2026**
-**Dataset:** 526,662 evaluations across 22 models × 4 difficulty tiers × ~6,000 positions per cell
+**Dataset:** 4,000 unique chess positions (1,000 per tier) × 22 models × 6 prompt formats = 526,662 evaluations
 **Ground truth:** Stockfish 17 (depth 22)
 **Positions:** Lichess puzzle database (stratified by puzzle rating into easy / medium / hard / extreme)
 
@@ -47,9 +47,23 @@ The 70B model (llama3.3) achieves 66.4% — essentially identical to the 4B mode
 
 ---
 
-## Finding 2: Move quality is poor — uniform across architectures
+## Finding 2: Move quality is bimodal — inconsistent, not uniformly weak
 
 For legal moves, performance is measured in **centipawn loss (CPL)** — the difference in position evaluation between the model's move and Stockfish's best move. CPL is reported under the standard Lichess convention with both endpoints clamped to ±1000 cp before subtraction (see *Methodology and metric artefacts* below for why; previous versions of this document reported the unclamped centipawn loss, which was inflated by mate-encoded scores).
+
+The mean clamped CPL across all 22 models is **702**, ranging from gemma4:31b at 634 to gemma4:e2b at 727 — a tight spread of only ~14%. But the **mean conceals a bimodal distribution** that is the more interesting finding:
+
+| Move quality | % of legal moves | Notes |
+|---|---|---|
+| Essentially perfect (CPL < 25) | **17.8%** | Top-3 Stockfish choice |
+| Excellent / strong-club level (CPL 25–100) | 4.8% | |
+| Decent amateur (CPL 100–500) | 11.6% | |
+| Very weak (CPL 500–1000) | 26.7% | |
+| **Catastrophic / saturated (CPL ≥ 1000)** | **39.1%** | Hung piece, walked into mate |
+
+**Models pick Stockfish's exact #1 move 10.2% of the time, vs ~3.3% random** (using the average of ~30 legal moves per position). The best architecture, Gemma 4, picks the #1 move at 14.4% (gemma4:31b) and 13.7% (gemma4:26b) — over 4× random chance. So models do encode some chess knowledge.
+
+But the distribution mass at the extreme (39% saturated blunders) drives the mean up. **Among non-catastrophic moves, mean CPL is 449 / median 337** — within "weak amateur" territory rather than "random move generator". The story is therefore *unreliability*, not *uniform incompetence*: models flip between recognising the right move and walking into disaster.
 
 | Reference point | Approximate clamped CPL |
 |----------------|----------------|
@@ -57,13 +71,12 @@ For legal moves, performance is measured in **centipawn loss (CPL)** — the dif
 | Magnus Carlsen (peak) | ~5 |
 | Strong club player (~2000 Elo) | ~50–100 |
 | Complete beginner | ~200–400 |
-| **Best model in this study (gemma4:31b)** | **634** |
-| **Median model in this study** | **~705** |
-| **Worst model (gemma4:e2b)** | **727** |
+| **All models, mean (incl. blunders)** | **702** |
+| **All models, mean (excl. CPL ≥ 1000)** | **449** |
+| **Best model (gemma4:31b), best-move match** | **14.4%** |
+| **Worst model (wizardlm2:7b), best-move match** | **8.0%** |
 
-Every model in this study plays at a level a few times worse than a complete beginner, and **the spread between the best and worst model is only ~14%** (634 → 727). The Gemma 4 26B and 31B models are the best performers (Google's newest architecture), but still average 634–650 CPL — roughly 6× worse than a beginner human and ~10× worse than a strong club player.
-
-The same ranking holds under the alternative win-probability-loss metric (Δ win-probability × 1000), where models cluster between 283 (gemma4:31b, best) and 321 (gemma4:e2b, worst) milli-WP per move. Either way, the dispersion across 2B → 70B is small, and all models are bad.
+The same ranking holds under the alternative win-probability-loss metric (Δ win-probability × 1000), where models cluster between 283 (gemma4:31b, best) and 321 (gemma4:e2b, worst) milli-WP per move. Either way, the dispersion across 2B → 70B is small, and all models suffer from the same bimodal failure pattern.
 
 ---
 
