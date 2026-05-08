@@ -714,17 +714,50 @@ def compute_hypothesis_tests(df: pd.DataFrame) -> dict[str, Any]:
         "by_family": h4_results,
     }
 
-    # H5: Better T3 than T2 on openings, worse on endgames (relative performance)
-    # This requires normalizing scores - simplified version
-    phase_data = df.groupby("phase").agg({
-        "t2_legal": "mean",
-        "t3_score": "mean",
-    })
+    # H5: Better T3 than T2 on openings, worse on endgames (relative performance).
+    #
+    # We measure the per-phase gap between normalised T3 and T2 performance.
+    # T3 score is on [0, 2] (P1 + P2); we normalise to [0, 1] by dividing by 2.
+    # T2 legality (`t2_legal_attempted` if present, else `t2_legal`) is on
+    # [0, 1] already. The hypothesis predicts:
+    #   gap(opening) > gap(middlegame) > gap(endgame)
+    # i.e. the T3-vs-T2 advantage shrinks (or reverses) toward the endgame.
+    phase_order = ["opening", "middlegame", "endgame"]
+    t2_col = (
+        "t2_legal_attempted" if "t2_legal_attempted" in df.columns else "t2_legal"
+    )
+    t3_col = "t3_score_v2" if "t3_score_v2" in df.columns else "t3_score"
+    phase_metrics = df.groupby("phase").agg({t2_col: "mean", t3_col: "mean"})
+    phase_values = {}
+    gaps = {}
+    for ph in phase_order:
+        if ph in phase_metrics.index:
+            t2_norm = float(phase_metrics.loc[ph, t2_col])
+            # t3 normalised to [0, 1] (max possible v2 score is 2)
+            t3_norm = float(phase_metrics.loc[ph, t3_col]) / 2.0
+            gap = t3_norm - t2_norm
+            phase_values[ph] = {
+                "t2_legal_normalised": t2_norm,
+                "t3_score_normalised": t3_norm,
+                "gap_t3_minus_t2": gap,
+            }
+            gaps[ph] = gap
 
+    ordered_gaps = [gaps[ph] for ph in phase_order if ph in gaps]
+    h5_supported = (
+        len(ordered_gaps) == 3
+        and ordered_gaps[0] > ordered_gaps[1]
+        and ordered_gaps[1] > ordered_gaps[2]
+    )
     results["H5"] = {
-        "description": "Better T3 vs T2 on openings, worse on endgames",
-        "phase_data": phase_data.to_dict() if not phase_data.empty else {},
-        "note": "Requires detailed relative performance analysis",
+        "description": "T3 advantage over T2 is largest in openings, smallest in endgames",
+        "supported": h5_supported,
+        "phase_values": phase_values,
+        "gap_order": ordered_gaps,
+        "metrics_used": {
+            "t2": t2_col + " (normalised to [0,1])",
+            "t3": t3_col + " (divided by 2 to normalise to [0,1])",
+        },
     }
 
     return results

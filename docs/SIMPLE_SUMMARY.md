@@ -39,7 +39,7 @@ The benchmark was run locally on consumer hardware (no API costs, no commercial 
 
 ### 1. When asked for a move, models produce a legal one ~98% of the time.
 
-When the prompt explicitly asks for a move, models produce a valid chess move on average **97.9% of the time**. The largest models do best (Qwen2.5-32B at 99.94%, Llama3.3-70B at 99.67%); the worst is the DeepSeek-R1 reasoning model at 90% (its long chain-of-thought output makes the move harder to extract).
+When the prompt explicitly asks for a move, models produce a valid chess move on average **97.85% of the time**. The largest models do best (Qwen2.5-32B at 99.96%, Llama3.3-70B at 99.79%); the worst is the DeepSeek-R1 reasoning model at 92.7% (its long chain-of-thought output makes the move harder to extract).
 
 So **legality is mostly NOT the problem.** Models can do chess notation. The problem is move *quality*.
 

@@ -2909,20 +2909,34 @@
       }
     },
     "H5": {
-      "description": "Better T3 vs T2 on openings, worse on endgames",
-      "phase_data": {
-        "t2_legal": {
-          "endgame": 0.6469595110771581,
-          "middlegame": 0.6461798425618829,
-          "opening": 0.6460990310012986
+      "description": "T3 advantage over T2 is largest in openings, smallest in endgames",
+      "supported": true,
+      "phase_values": {
+        "opening": {
+          "t2_legal_normalised": 0.9787137452711223,
+          "t3_score_normalised": 0.2906941343616805,
+          "gap_t3_minus_t2": -0.6880196109094419
         },
-        "t3_score": {
-          "endgame": 0.2656291923799302,
-          "middlegame": 0.45561779709443706,
-          "opening": 0.46351735335904204
+        "middlegame": {
+          "t2_legal_normalised": 0.9786446363128145,
+          "t3_score_normalised": 0.28038932708229924,
+          "gap_t3_minus_t2": -0.6982553092305153
+        },
+        "endgame": {
+          "t2_legal_normalised": 0.9793914582104569,
+          "t3_score_normalised": 0.19495222874208187,
+          "gap_t3_minus_t2": -0.7844392294683751
         }
       },
-      "note": "Requires detailed relative performance analysis"
+      "gap_order": [
+        -0.6880196109094419,
+        -0.6982553092305153,
+        -0.7844392294683751
+      ],
+      "metrics_used": {
+        "t2": "t2_legal_attempted (normalised to [0,1])",
+        "t3": "t3_score_v2 (divided by 2 to normalise to [0,1])"
+      }
     }
   }
 }

@@ -37,21 +37,23 @@ All 22 models, spanning 2B to 70B parameters, show roughly the same ceiling on m
 
 ## Finding 1: When asked for a move, models produce a legal one ~98% of the time
 
-**Models are not bad at the chess-notation level.** Across the four prompt formats that ask the model to produce a move (`cot`, `fen_only`, `pgn+fen`, `move_only`), the legality rate is **97.9%** averaged across all 22 models. Per-model legality on these prompts:
+**Models are not bad at the chess-notation level.** Across the four prompt formats that ask the model to produce a move (`cot`, `fen_only`, `pgn+fen`, `move_only`), the legality rate is **97.85%** averaged across all 22 models. Per-model legality on these prompts:
 
-| Model | Legal % (when asked for a move) |
+| Model | Legal % (`t2_legal_attempted`) |
 |---|---|
-| qwen2.5:32b | **99.94%** |
-| qwen2.5:14b | 99.77% |
-| llama3.3:70b | 99.67% |
-| gemma3:12b | 99.52% |
-| gemma4:31b | 99.44% |
-| ... | ... (16 models in 95–99% range) |
-| wizardlm2:7b | 90.54% |
-| mixtral:8x7b | 90.26% |
-| deepseek-r1:14b | **90.00%** (worst) |
+| qwen2.5:32b | **99.96%** |
+| gemma4:e4b | 99.86% |
+| qwen2.5:14b | 99.84% |
+| llama3.3:70b | 99.79% |
+| llama3.1:8b | 99.79% |
+| ... | ... (most models in 95–99.7% range) |
+| mistral:7b | 95.26% |
+| wizardlm2:7b | 93.93% |
+| deepseek-r1:7b | 93.29% |
+| mixtral:8x7b | 92.94% |
+| deepseek-r1:14b | **92.73%** (worst) |
 
-*(Reported as `t2_legal_attempted` — only counts attempts on prompts that asked for a move. The previous version of this report quoted "65% legal" / "1 in 3 illegal" — that was a denominator bug; see the methodology section.)*
+*(Reported as `t2_legal_attempted` in `results/metrics/by_model.csv` — counts records where the model produced a parseable move and rates whether that move was legal. Records where the model failed to produce any parseable move at all are excluded, not counted as illegal. The previous version of this report quoted "65% legal" / "1 in 3 illegal" — that was a denominator bug from including the eval-only and explanation-only prompts; see the methodology section.)*
 
 **Important caveats:**
 1. The combined-prompt formats (`cot`/`fen_only`/`pgn+fen`) include **silent system rescue**: if the model's first answer is illegal, the worker pulls any legal token from the response, and if that fails it re-prompts with the legal-move list. The legality numbers above are post-rescue. The pre-rescue (single-shot) rate is not recoverable from the data.
@@ -173,7 +175,7 @@ Notable inversions:
 The DeepSeek-R1 models (7B and 14B) show a distinctive trade-off:
 
 - **Best T1 direction accuracy in the study** (deepseek-r1:14b: 76.7% at ±100 cp; deepseek-r1:7b: 73.9% at ±100 cp)
-- **Lowest legal move rates** (both at 90.0–90.7%)
+- **Lowest legal move rates** (both at 92.7–93.3%)
 
 The chain-of-thought reasoning process improves the model's ability to classify who is winning — a problem it can approach as a textual inference task ("the queen on d5 is dominant, the king is exposed...") — but the extended reasoning output makes it more likely to produce a move in a non-standard format that fails legality parsing. This suggests reasoning chains help with coarse-grained evaluation but not with the mechanical precision required to produce valid notation.
 
@@ -183,7 +185,7 @@ The chain-of-thought reasoning process improves the model's ability to classify 
 
 | Metric | Best model | Score | Worst model | Score | All-model avg |
 |--------|-----------|-------|-------------|-------|--------------|
-| T2 legal-move rate (move-asking prompts) | qwen2.5:32b | 99.94% | deepseek-r1:14b | 90.00% | 97.9% |
+| T2 legal-move rate (move-asking prompts) | qwen2.5:32b | 99.96% | deepseek-r1:14b | 92.73% | 97.85% |
 | T1 direction (±50 cp threshold) | deepseek-r1:14b | 53.0% | llama3.3:70b | 34.3% | 46.1% |
 | T1 direction (±100 cp threshold) | deepseek-r1:14b | 76.7% | llama3.3:70b | 21.9% | 61.6% |
 | T1 direction (±200 cp threshold) | deepseek-r1:14b | 91.8% | llama3.3:70b | 42.2% | 78.9% |
@@ -270,7 +272,7 @@ The original draft of this report claimed *"models produce a legal move 64.6% of
 - For those records, `t2_move` is always None, so `t2_legal` is always False
 - These two prompt formats account for 33% of all 526k records — they automatically contributed "False" to the legality denominator
 
-When the legality rate is computed correctly (only counting records where the model was actually asked for a move), the average is **97.9%**, not 64.6%. The corrected per-model rates range from 90.0% (deepseek-r1:14b) to 99.94% (qwen2.5:32b). This completely changes the headline finding: legality is mostly *not* a problem; **scale even helps somewhat at the upper end** (the largest models are at 99%+).
+When the legality rate is computed correctly (only counting records where the model produced a parseable move), the average is **97.85%**, not 64.6%. The corrected per-model rates range from 92.73% (deepseek-r1:14b) to 99.96% (qwen2.5:32b). This completely changes the headline finding: legality is mostly *not* a problem; **scale even helps somewhat at the upper end** (the largest models are at 99%+).
 
 The corrected column is `t2_legal_attempted`; the buggy original is preserved as `t2_legal_rate_buggy_includes_no_move_prompts` in `summary.json`.
 
@@ -311,6 +313,7 @@ Documented but not fixed — would require re-running the benchmark with worker.
 - **Missing data: deepseek-r1:7b** is missing ~1,020 of 24,000 expected evaluations (~4%). Job-DB audit trail is empty so the failure mode is not recoverable, but inferred from inference-time outliers to be CoT-induced timeouts. Affects the deepseek-r1:7b numbers slightly; statistical impact is negligible.
 - **Correction loop is dead code.** The `correction_loop.enabled: True` config flag is set, but the trigger checks `t2_cpl > threshold` at job-completion time, when `t2_cpl` is always `None` (CPL is filled in post-hoc by `enrich_cpl.py`, not computed during job processing because the worker's `engine = None`). Result: 0 records have `job_type='correction'`. The correction-loop / learning-delta infrastructure exists but produced no data. **No claim in this report depends on correction-loop data.**
 - **Hypothesis tests H1 and H2 (T1 / T2 error increases with difficulty)** come out as **not supported** under all corrected primary metrics (relative-error, clamped-CPL, WP-loss, multi-threshold direction accuracy). Performance is roughly flat across difficulty tiers — consistent with "models are not engaging with position complexity at all".
+- **H5 (T3 advantage over T2 is largest in openings, smallest in endgames)** is **supported** under the corrected metric. The normalised T3-minus-T2 gap is -0.688 in openings, -0.698 in middlegame, -0.784 in endgame — i.e. T3 relative performance does decline toward the endgame. (The gap is negative throughout because models are very good at producing legal moves but bad at writing correct explanations; H5 is about the *trend*, not the absolute level.)
 
 ---
 

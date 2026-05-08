@@ -236,6 +236,68 @@ class TestTestHypotheses:
         assert "supported" in result["H1"]
         assert "values" in result["H1"]
 
+    def test_h2_structure_and_metrics(self, sample_df):
+        result = compute_hypothesis_tests(sample_df)
+        assert "supported" in result["H2"]
+        assert "values" in result["H2"]
+        # New multi-metric structure
+        assert "metrics" in result["H2"]
+        assert "primary_metric" in result["H2"]
+        assert result["H2"]["primary_metric"] in ("absolute_cpl", "clamped_cpl", "wp_loss")
+
+    def test_h3_structure(self, sample_df):
+        result = compute_hypothesis_tests(sample_df)
+        assert "supported" in result["H3"]
+        assert "values" in result["H3"]
+        assert isinstance(result["H3"]["supported"], bool)
+
+    def test_h5_supported_when_gap_decreases_by_phase(self):
+        # Construct phase data where opening has high T3-T2 gap, endgame has low.
+        # T3 score is on [0,2] in input; normalised to [0,1] internally.
+        # t2_legal is stored as float (0.0/1.0) so per-phase mean is controllable.
+        rows = []
+        # Each phase: 50 rows with T2 legality split to give the target rate,
+        # T3 score set uniformly. Means: opening (T3=1.8, T2=0.5), middle (1.0, 0.5),
+        # endgame (0.4, 0.9). Gaps: 0.9-0.5=0.4, 0.5-0.5=0.0, 0.2-0.9=-0.7.
+        cases = [("opening", 1.8, 0.5), ("middlegame", 1.0, 0.5), ("endgame", 0.4, 0.9)]
+        for phase, t3, t2 in cases:
+            for i in range(50):
+                rows.append({
+                    "job_id": f"j_{phase}_{i}", "model": "m", "model_family": "m",
+                    "model_size_b": 1, "difficulty": "medium", "phase": phase,
+                    "source": "lichess_puzzles",
+                    "t1_absolute_error": 100, "t1_direction_correct": True,
+                    "t2_legal": float(t2),  # store as float so groupby-mean works directly
+                    "t2_cpl": 100,
+                    "t3_p1_side_correct": 1, "t3_p2_theme_correct": 0,
+                    "t3_score": float(t3),
+                    "inference_ms": 1000,
+                })
+        df = pd.DataFrame(rows)
+        result = compute_hypothesis_tests(df)
+        assert result["H5"]["supported"] is True
+        gaps = result["H5"]["gap_order"]
+        assert gaps[0] > gaps[1] > gaps[2]
+
+    def test_h5_not_supported_when_gap_flat(self):
+        rows = []
+        for phase in ("opening", "middlegame", "endgame"):
+            for i in range(20):
+                rows.append({
+                    "job_id": f"j_{phase}_{i}", "model": "m", "model_family": "m",
+                    "model_size_b": 1, "difficulty": "medium", "phase": phase,
+                    "source": "lichess_puzzles",
+                    "t1_absolute_error": 100, "t1_direction_correct": True,
+                    "t2_legal": 0.7, "t2_cpl": 100,
+                    "t3_p1_side_correct": 1, "t3_p2_theme_correct": 0,
+                    "t3_score": 1.0,
+                    "inference_ms": 1000,
+                })
+        df = pd.DataFrame(rows)
+        result = compute_hypothesis_tests(df)
+        # Flat gaps → strict ordering doesn't hold
+        assert result["H5"]["supported"] is False
+
     def test_h4_no_family_with_multiple_sizes(self):
         # Single model per family — H4 should have empty by_family
         df = pd.DataFrame([{
@@ -249,6 +311,28 @@ class TestTestHypotheses:
         }])
         result = compute_hypothesis_tests(df)
         assert result["H4"]["by_family"] == {}
+
+    def test_h1_supported_when_relative_error_increases(self):
+        """Sanity: synthetic data with monotonic increase in relative error → H1 supported."""
+        rows = []
+        diff_to_err = {"easy": 0.5, "medium": 1.0, "hard": 1.5, "extreme": 2.0}
+        for diff, err in diff_to_err.items():
+            for i in range(20):
+                rows.append({
+                    "job_id": f"j_{diff}_{i}", "model": "m", "model_family": "m",
+                    "model_size_b": 1, "difficulty": diff, "phase": "middlegame",
+                    "source": "lichess_puzzles",
+                    "t1_absolute_error": int(err * 100),
+                    "t1_relative_error": err,
+                    "t1_direction_correct": True,
+                    "t2_legal": True, "t2_cpl": 100,
+                    "t3_p1_side_correct": 1, "t3_p2_theme_correct": 0, "t3_score": 1,
+                    "inference_ms": 1000,
+                })
+        df = pd.DataFrame(rows)
+        result = compute_hypothesis_tests(df)
+        assert result["H1"]["primary_supported"] is True
+        assert result["H1"]["primary_metric"] == "relative_error"
 
 
 class TestGenerateSummary:
