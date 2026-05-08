@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(tmux capture-pane *)",
+      "Bash(tmux list-sessions *)",
+      "Bash(tmux list-windows *)",
+      "Bash(tmux list-panes *)",
+      "Bash(tmux ls *)",
+      "Bash(curl -s *)",
+      "Bash(crontab -l)",
+      "Bash(tailscale status *)",
+      "Bash(journalctl *)",
+      "Bash(nvidia-smi *)",
+      "Bash(systemctl is-active *)",
+      "Bash(systemctl status *)",
+      "Bash(python -m pytest tests/test_artefact_fixes.py -x -q)"
+    ]
+  }
+}

@@ -84,7 +84,13 @@ def short_name(m: str) -> str:
 # ---------------------------------------------------------------------------
 
 def load_model_df(metrics_dir: Path) -> pd.DataFrame:
-    """Load by_model.csv, annotate with family/size."""
+    """Load by_model.csv, annotate with family/size.
+
+    Adds aliases so the rest of the plotting code can reference the headline
+    metric as ``t2_cpl_headline_mean`` and ``t3_score_headline_mean``
+    regardless of whether the underlying file has the new (clamped /
+    rescored) columns or only the legacy raw ones.
+    """
     path = metrics_dir / "by_model.csv"
     if not path.exists():
         raise FileNotFoundError(f"Metrics not found at {path}. Run with --save-metrics first.")
@@ -92,8 +98,19 @@ def load_model_df(metrics_dir: Path) -> pd.DataFrame:
     df["family"] = df["model"].map(lambda m: MODEL_META.get(m, {}).get("family", "Other"))
     df["size_b"] = df["model"].map(lambda m: MODEL_META.get(m, {}).get("size", 0))
     df["display"] = df["model"].map(short_name)
-    # Illegal move rate = 1 - legal rate
     df["illegal_rate"] = 1 - df["t2_legal_mean"]
+    # Headline CPL: prefer the clamped column if available (Lichess convention,
+    # ±1000 cp). Falls back to the raw uncapped column for older metrics files.
+    df["t2_cpl_headline_mean"] = df.get("t2_cpl_clamped_mean", df["t2_cpl_mean"])
+    df["t2_cpl_headline_label"] = (
+        "CPL (clamped ±1000 cp)" if "t2_cpl_clamped_mean" in df.columns
+        else "CPL (raw)"
+    )
+    df["t3_score_headline_mean"] = df.get("t3_score_v2_mean", df["t3_score_mean"])
+    df["t3_score_headline_label"] = (
+        "T3 score (v2 theme matcher)" if "t3_score_v2_mean" in df.columns
+        else "T3 score (legacy)"
+    )
     return df
 
 
@@ -113,20 +130,26 @@ def load_difficulty_df(metrics_dir: Path) -> pd.DataFrame:
 # ---------------------------------------------------------------------------
 
 def plot_overview_rankings(mdf: pd.DataFrame, output_dir: Path) -> None:
-    """Three horizontal bar charts: T1 direction acc, T2 CPL, T3 score."""
+    """Three horizontal bar charts: T1 direction acc, T2 CPL, T3 score.
+
+    T2 uses clamped CPL (±1000 cp, Lichess convention). T3 uses the v2 theme
+    matcher (handles camelCase Lichess labels). See specs/artefact-fixes.md.
+    """
 
     # For CPL we invert so that "longer bar = better" is consistent across all panels.
     # We display a "moves quality" score = max_cpl - cpl so highest score = best model.
     mdf = mdf.copy()
-    max_cpl = mdf["t2_cpl_mean"].max()
-    mdf["t2_quality_score"] = max_cpl - mdf["t2_cpl_mean"]
+    cpl_col = "t2_cpl_headline_mean"
+    t3_col = "t3_score_headline_mean"
+    max_cpl = mdf[cpl_col].max()
+    mdf["t2_quality_score"] = max_cpl - mdf[cpl_col]
 
     metrics = [
         ("t1_direction_correct_mean", "T1: Direction Accuracy\n(who is winning?)", True,
          "Higher = better  ↑", 0.33, "Chance (33%)"),
         ("t2_quality_score",          "T2: Move Quality\n(higher bar = fewer centipawns lost)", True,
-         "Higher = better  ↑  (raw CPL shown on bar)", None, None),
-        ("t3_score_mean",             "T3: Explanation Score\n(verbal reasoning quality)", True,
+         "Higher = better  ↑  (clamped CPL shown on bar)", None, None),
+        (t3_col,                      "T3: Explanation Score\n(verbal reasoning quality)", True,
          "Higher = better  ↑", None, None),
     ]
 
@@ -139,7 +162,7 @@ def plot_overview_rankings(mdf: pd.DataFrame, output_dir: Path) -> None:
     ]
 
     for ax, (col, title, higher_better, note, refval, reflabel) in zip(axes, metrics):
-        needed = list(dict.fromkeys(["display", "family", col, "t2_cpl_mean"]))
+        needed = list(dict.fromkeys(["display", "family", col, cpl_col]))
         data = mdf[needed].dropna(subset=[col]).copy()
         data = data.sort_values(col, ascending=False)  # best at top in every panel
 
@@ -150,7 +173,7 @@ def plot_overview_rankings(mdf: pd.DataFrame, output_dir: Path) -> None:
         # Value labels — show the raw interpretable number, not the inverted score
         for bar, (_, row) in zip(bars, data.iterrows()):
             if col == "t2_quality_score":
-                raw = row["t2_cpl_mean"]
+                raw = row[cpl_col]
                 fmt = f"{raw:.0f} CPL"
             elif col == "t1_direction_correct_mean":
                 fmt = f"{row[col]:.1%}"
@@ -198,9 +221,9 @@ def plot_family_scaling(mdf: pd.DataFrame, output_dir: Path) -> None:
     """Performance vs parameter count, one line per model family."""
 
     panels = [
-        ("t1_direction_correct_mean", "T1 Direction Accuracy", True,  0.33, "Chance (33%)"),
-        ("t2_cpl_mean",               "T2 Move Quality (CPL)",  False, None, None),
-        ("t3_score_mean",             "T3 Explanation Score",   True,  None, None),
+        ("t1_direction_correct_mean", "T1 Direction Accuracy",       True,  0.33, "Chance (33%)"),
+        ("t2_cpl_headline_mean",      "T2 Move Quality (clamped CPL)", False, None, None),
+        ("t3_score_headline_mean",    "T3 Explanation Score",        True,  None, None),
     ]
 
     fig, axes = plt.subplots(1, 3, figsize=(18, 6))
@@ -270,13 +293,24 @@ def plot_family_scaling(mdf: pd.DataFrame, output_dir: Path) -> None:
 # ---------------------------------------------------------------------------
 
 def plot_difficulty_profiles(ddf: pd.DataFrame, output_dir: Path) -> None:
-    """How each metric changes easy→extreme, averaged per family."""
+    """How each metric changes easy→extreme, averaged per family.
+
+    T2 uses clamped CPL where available; T3 uses v2 score; T1 uses
+    absolute error excl. mate-truth rows where available. All three changes
+    fall through to legacy columns if the metrics file is older.
+    """
+
+    cpl_col = "t2_cpl_clamped" if "t2_cpl_clamped" in ddf.columns else "t2_cpl"
+    t3_col = "t3_score_v2" if "t3_score_v2" in ddf.columns else "t3_score"
+    t1_col = "t1_abs_error_excl_mate" if "t1_abs_error_excl_mate" in ddf.columns else "t1_absolute_error"
+    cpl_label = "T2 Move Quality (clamped CPL)" if cpl_col == "t2_cpl_clamped" else "T2 Move Quality (CPL)"
+    t1_label = "T1 Eval Error (abs, excl. mate)" if t1_col == "t1_abs_error_excl_mate" else "T1 Eval Error (abs)"
 
     panels = [
-        ("t2_legal",          "T2 Legal Move Rate",   True,  "% legal moves produced"),
-        ("t2_cpl",            "T2 Move Quality (CPL)", False, "centipawn loss vs Stockfish"),
-        ("t3_score",          "T3 Explanation Score", True,  "0–1 score"),
-        ("t1_absolute_error", "T1 Eval Error (abs)",  False, "centipawns (lower = better)"),
+        ("t2_legal", "T2 Legal Move Rate",  True,  "% legal moves produced"),
+        (cpl_col,    cpl_label,             False, "centipawn loss vs Stockfish"),
+        (t3_col,     "T3 Explanation Score", True, "0–2 score (v2 theme matcher)"),
+        (t1_col,     t1_label,              False, "centipawns (lower = better)"),
     ]
 
     fig, axes = plt.subplots(2, 2, figsize=(14, 10))
@@ -339,26 +373,29 @@ def plot_verbal_vs_mechanical(mdf: pd.DataFrame, output_dir: Path) -> None:
 
     families_present = sorted(mdf["family"].unique(), key=lambda f: FAMILY_ORDER.index(f) if f in FAMILY_ORDER else 99)
 
+    cpl_col = "t2_cpl_headline_mean"
+    t3_col = "t3_score_headline_mean"
+
     for family in families_present:
         fdata = mdf[mdf["family"] == family]
         color = FAMILY_COLORS.get(family, "#999")
         sizes = (fdata["size_b"] * 3).clip(30, 400)
         ax.scatter(
-            fdata["t2_cpl_mean"], fdata["t3_score_mean"],
+            fdata[cpl_col], fdata[t3_col],
             s=sizes, color=color, alpha=0.85, edgecolors="white",
             linewidth=0.8, label=family, zorder=3
         )
         for _, row in fdata.iterrows():
             ax.annotate(
                 short_name(row["model"]),
-                (row["t2_cpl_mean"], row["t3_score_mean"]),
+                (row[cpl_col], row[t3_col]),
                 textcoords="offset points", xytext=(6, 3),
                 fontsize=7, color=color, alpha=0.9
             )
 
     # Quadrant dividers at medians
-    med_cpl = mdf["t2_cpl_mean"].median()
-    med_t3  = mdf["t3_score_mean"].median()
+    med_cpl = mdf[cpl_col].median()
+    med_t3  = mdf[t3_col].median()
     ax.axvline(med_cpl, color="#aaa", linestyle="--", linewidth=1, alpha=0.7)
     ax.axhline(med_t3,  color="#aaa", linestyle="--", linewidth=1, alpha=0.7)
 
@@ -394,19 +431,22 @@ def plot_verbal_vs_mechanical(mdf: pd.DataFrame, output_dir: Path) -> None:
 # ---------------------------------------------------------------------------
 
 def plot_summary_heatmap(mdf: pd.DataFrame, output_dir: Path) -> None:
-    """Normalised model × metric matrix. Green = good, red = bad."""
+    """Normalised model × metric matrix. Green = good, red = bad.
+
+    Uses headline (clamped CPL, v2 T3) columns where available.
+    """
 
     cols = {
         "t1_direction_correct_mean": "T1\nDirection\nAccuracy",
         "t2_legal_mean":             "T2\nLegal Move\nRate",
-        "t2_cpl_mean":               "T2 Move\nQuality\n(CPL)",
-        "t3_score_mean":             "T3\nExplanation\nScore",
+        "t2_cpl_headline_mean":      "T2 Move\nQuality\n(clamped CPL)",
+        "t3_score_headline_mean":    "T3\nExplanation\nScore",
     }
     higher_better = {
         "t1_direction_correct_mean": True,
         "t2_legal_mean":             True,
-        "t2_cpl_mean":               False,
-        "t3_score_mean":             True,
+        "t2_cpl_headline_mean":      False,
+        "t3_score_headline_mean":    True,
     }
 
     data = mdf[["model", "family", "size_b"] + list(cols.keys())].dropna().copy()
@@ -449,8 +489,8 @@ def plot_summary_heatmap(mdf: pd.DataFrame, output_dir: Path) -> None:
     fmt_fns = {
         "t1_direction_correct_mean": lambda v: f"{v:.1%}",
         "t2_legal_mean":             lambda v: f"{v:.1%}",
-        "t2_cpl_mean":               lambda v: f"{v:.0f}",
-        "t3_score_mean":             lambda v: f"{v:.3f}",
+        "t2_cpl_headline_mean":      lambda v: f"{v:.0f}",
+        "t3_score_headline_mean":    lambda v: f"{v:.3f}",
     }
     for i in range(n_models):
         for j, col in enumerate(cols.keys()):
@@ -499,11 +539,18 @@ def _family_filename(name: str) -> str:
 def plot_per_family(ddf: pd.DataFrame, mdf: pd.DataFrame, output_dir: Path) -> None:
     """One 2×2 subplot per model family: each metric vs difficulty, one line per model."""
 
+    cpl_col = "t2_cpl_clamped" if "t2_cpl_clamped" in ddf.columns else "t2_cpl"
+    t3_col = "t3_score_v2" if "t3_score_v2" in ddf.columns else "t3_score"
+    t1_col = "t1_abs_error_excl_mate" if "t1_abs_error_excl_mate" in ddf.columns else "t1_absolute_error"
+    cpl_label = "T2: Move Quality (clamped CPL)" if cpl_col == "t2_cpl_clamped" else "T2: Move Quality (CPL)"
+    t1_label = "T1: Eval Error (abs, excl. mate)" if t1_col == "t1_abs_error_excl_mate" else "T1: Eval Error (absolute)"
+    t3_label = "T3: Explanation Score (v2 matcher)" if t3_col == "t3_score_v2" else "T3: Explanation Score"
+
     panels = [
-        ("t2_legal",          "T2: Legal Move Rate",        True,  "fraction of legal moves"),
-        ("t2_cpl",            "T2: Move Quality (CPL)",     False, "centipawn loss vs Stockfish"),
-        ("t3_score",          "T3: Explanation Score",      True,  "score (0–1)"),
-        ("t1_absolute_error", "T1: Eval Error (absolute)",  False, "centipawns (lower = better)"),
+        ("t2_legal", "T2: Legal Move Rate",       True,  "fraction of legal moves"),
+        (cpl_col,    cpl_label,                   False, "centipawn loss vs Stockfish"),
+        (t3_col,     t3_label,                    True,  "score"),
+        (t1_col,     t1_label,                    False, "centipawns (lower = better)"),
     ]
 
     ddf = ddf.copy()
@@ -562,10 +609,16 @@ def plot_per_family(ddf: pd.DataFrame, mdf: pd.DataFrame, output_dir: Path) -> N
             ax.spines[["top", "right"]].set_visible(False)
             ax.legend(fontsize=8, loc="best")
 
-        # Add a small per-model summary bar inset on the T3 panel (axes[2])
+        # Add a small per-model summary bar inset on the T3 panel (axes[2]).
+        # Uses the headline T3 column so the inset shares the v2 matcher when
+        # available.
         ax_t3 = axes[2]
         ax_inset = ax_t3.inset_axes([0.65, 0.04, 0.33, 0.40])
-        vals  = [fam_model.loc[fam_model["model"] == m, "t3_score_mean"].values for m in models]
+        t3_inset_col = (
+            "t3_score_headline_mean" if "t3_score_headline_mean" in fam_model.columns
+            else "t3_score_mean"
+        )
+        vals  = [fam_model.loc[fam_model["model"] == m, t3_inset_col].values for m in models]
         vals  = [float(v[0]) if len(v) else float("nan") for v in vals]
         names = [short_name(m) for m in models]
         ys    = list(range(len(models)))

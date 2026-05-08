@@ -2,13 +2,16 @@
 
 import json
 import logging
+import math
 from collections import defaultdict
 from pathlib import Path
 from typing import Any
 
+import chess
 import numpy as np
 import pandas as pd
 
+from .evaluator import THEME_SYNONYMS, _camel_to_words
 from .result_writer import load_results
 
 logger = logging.getLogger("chess_llm_bench")
@@ -18,6 +21,17 @@ logger = logging.getLogger("chess_llm_bench")
 # enough that near-zero positions are penalised meaningfully but large enough
 # to avoid divide-by-zero blow-up.
 RELATIVE_ERROR_FLOOR_CP = 100
+
+# Centipawn clamp for CPL — Lichess analysis convention. See
+# evaluator.EVAL_CLAMP_CP for rationale.
+EVAL_CLAMP_CP = 1000
+
+# Threshold above which a Stockfish eval is treated as a mate-encoded score
+# and excluded from absolute-error aggregations. Engine_wrapper encodes
+# mate-in-N as ±10000 - mate_in*10, so anything ≥ 9000 is unambiguously a
+# mate score. Mate-truth rows inflate t1_absolute_error by ~9966 each because
+# the model's eval output is itself clamped to ±2000.
+MATE_SCORE_THRESHOLD_CP = 9000
 
 
 def compute_relative_error(
@@ -36,23 +50,108 @@ def compute_relative_error(
     return abs(model_eval - stockfish_eval) / max(abs(stockfish_eval), floor)
 
 
-def load_results_df(results_file: str = "results/evaluations.jsonl") -> pd.DataFrame:
-    """Load results into a pandas DataFrame.
+def _white_to_move_from_fen(fen: str) -> bool | None:
+    """Return True if it's White to move in the given FEN. None on parse error."""
+    try:
+        return chess.Board(fen).turn == chess.WHITE
+    except Exception:
+        return None
+
+
+def _win_probability(cp: float) -> float:
+    """Sigmoid mapping centipawn eval → expected score. Standard k=400."""
+    return 1.0 / (1.0 + math.exp(-cp / 400.0))
+
+
+def compute_clamped_cpl(
+    stockfish_eval: float,
+    eval_after: float,
+    white_to_move: bool,
+    clamp_cp: int = EVAL_CLAMP_CP,
+) -> float:
+    """CPL with both endpoints clamped to ±clamp_cp.
+
+    Lichess convention. See evaluator.EVAL_CLAMP_CP for rationale.
+    """
+    sf_c = max(-clamp_cp, min(clamp_cp, stockfish_eval))
+    ea_c = max(-clamp_cp, min(clamp_cp, eval_after))
+    cpl = (sf_c - ea_c) if white_to_move else (ea_c - sf_c)
+    return max(0.0, cpl)
+
+
+def compute_wp_loss(
+    stockfish_eval: float,
+    eval_after: float,
+    white_to_move: bool,
+    clamp_cp: int = EVAL_CLAMP_CP,
+) -> float:
+    """Win-probability loss × 1000 (milli-WP).
+
+    Bounded to [0, 1000]. A value of 300 means the move dropped the side's
+    win probability by 0.30. Less prone to mate-encoding artefacts than CPL
+    because the sigmoid saturates outside the clamp window.
+    """
+    sf_c = max(-clamp_cp, min(clamp_cp, stockfish_eval))
+    ea_c = max(-clamp_cp, min(clamp_cp, eval_after))
+    wp_before = _win_probability(sf_c) if white_to_move else 1.0 - _win_probability(sf_c)
+    wp_after = _win_probability(ea_c) if white_to_move else 1.0 - _win_probability(ea_c)
+    return max(0.0, (wp_before - wp_after) * 1000.0)
+
+
+def rescore_t3_theme(theme: str | None, explanation: str | None) -> int | None:
+    """Recompute the T3 theme-correctness component using the new matcher.
+
+    Postprocessing of the stored t3_explanation field — the underlying LLM
+    output is unchanged. Keyed by exact Lichess theme label first, with
+    camelCase-to-words fallback.
+    """
+    if theme is None or explanation is None:
+        return None
+    if not isinstance(theme, str) or not isinstance(explanation, str):
+        return None
+
+    explanation_lower = explanation.lower()
+    candidates: list[str] = []
+    candidates.extend(THEME_SYNONYMS.get(theme, []))
+    candidates.append(theme.lower())
+    candidates.append(_camel_to_words(theme))
+    candidates.append(theme.lower().replace("_", " "))
+
+    seen: set[str] = set()
+    for candidate in candidates:
+        if not candidate or candidate in seen:
+            continue
+        seen.add(candidate)
+        if candidate in explanation_lower:
+            return 1
+    return 0
+
+
+def load_results_df(
+    results_file: str = "results/evaluations.jsonl",
+    data_dir: str = "data",
+) -> pd.DataFrame:
+    """Load results into a pandas DataFrame with derived metric columns.
 
     Args:
         results_file: Path to JSONL results file
+        data_dir: Directory containing position JSON files (for FEN lookup —
+            needed to recover side-to-move when reconstructing eval_after)
 
     Returns:
-        DataFrame with all results, including the derived
-        ``t1_relative_error`` column for hypothesis-test calibration.
+        DataFrame with all results plus derived columns:
+            t1_relative_error      magnitude-invariant T1 error
+            t1_abs_error_excl_mate t1_absolute_error with mate-truth rows NaN'd
+            t2_cpl_clamped         CPL recomputed with ±EVAL_CLAMP_CP clamp
+            t2_wp_loss             Δ win-probability × 1000 (bounded [0,1000])
+            t3_p2_theme_correct_v2 theme-correctness rescored with new matcher
     """
     results = load_results(results_file)
     if not results:
         return pd.DataFrame()
     df = pd.DataFrame(results)
 
-    # Derived: position-magnitude-invariant T1 error. NaN where either input
-    # is missing (model failed to produce a parseable number).
+    # ----- T1 derived columns ---------------------------------------------
     if "t1_model_eval" in df.columns and "t1_stockfish_eval" in df.columns:
         valid = df["t1_model_eval"].notna() & df["t1_stockfish_eval"].notna()
         df["t1_relative_error"] = np.where(
@@ -61,7 +160,106 @@ def load_results_df(results_file: str = "results/evaluations.jsonl") -> pd.DataF
             / np.maximum(np.abs(df["t1_stockfish_eval"]), RELATIVE_ERROR_FLOOR_CP),
             np.nan,
         )
+        # T1 absolute error with mate-truth rows excluded. Mate-truth rows
+        # contribute ~9966 cp of "error" automatically because the model's
+        # output is itself clamped to ±2000 and the truth can be ±16000.
+        if "t1_absolute_error" in df.columns:
+            mate_truth = (
+                df["t1_stockfish_eval"].notna()
+                & (df["t1_stockfish_eval"].abs() >= MATE_SCORE_THRESHOLD_CP)
+            )
+            df["t1_abs_error_excl_mate"] = np.where(
+                mate_truth, np.nan, df["t1_absolute_error"]
+            )
+
+    # ----- T2 derived columns: clamped CPL + win-probability loss ---------
+    # Reconstruct eval_after from (t1_stockfish_eval, t2_cpl, fen):
+    #   cpl = max(0, sf - eval_after)  if white_to_move else
+    #         max(0, eval_after - sf)
+    # so eval_after = sf - cpl  if white_to_move else  sf + cpl.
+    if "t2_cpl" in df.columns and "t1_stockfish_eval" in df.columns:
+        fen_lookup = _build_fen_lookup(data_dir)
+        if "fen" in df.columns:
+            fens = df["fen"]
+        elif "position_id" in df.columns:
+            fens = df["position_id"].map(fen_lookup)
+        else:
+            fens = pd.Series([None] * len(df))
+
+        white_to_move = fens.map(
+            lambda f: _white_to_move_from_fen(f) if isinstance(f, str) else None
+        )
+
+        def _derive(row_sf, row_cpl, row_wtm):
+            if pd.isna(row_sf) or pd.isna(row_cpl) or row_wtm is None:
+                return (np.nan, np.nan)
+            sf = float(row_sf)
+            cpl = float(row_cpl)
+            ea = sf - cpl if row_wtm else sf + cpl
+            return (
+                compute_clamped_cpl(sf, ea, bool(row_wtm)),
+                compute_wp_loss(sf, ea, bool(row_wtm)),
+            )
+
+        derived = [
+            _derive(sf, cpl, wtm)
+            for sf, cpl, wtm in zip(
+                df["t1_stockfish_eval"], df["t2_cpl"], white_to_move
+            )
+        ]
+        df["t2_cpl_clamped"] = [d[0] for d in derived]
+        df["t2_wp_loss"] = [d[1] for d in derived]
+
+    # ----- T3 rescored theme-correctness with the new matcher -------------
+    if "theme" in df.columns and "t3_explanation" in df.columns:
+        df["t3_p2_theme_correct_v2"] = [
+            rescore_t3_theme(t, e)
+            for t, e in zip(df["theme"], df["t3_explanation"])
+        ]
+        # Combined T3 score under the new theme matcher (P1 unchanged).
+        if "t3_p1_side_correct" in df.columns:
+            df["t3_score_v2"] = (
+                pd.to_numeric(df["t3_p1_side_correct"], errors="coerce")
+                + pd.to_numeric(df["t3_p2_theme_correct_v2"], errors="coerce")
+            )
+
     return df
+
+
+def _build_fen_lookup(data_dir: str) -> dict[int, str]:
+    """Map position_id → fen by reading data/{difficulty}.json files.
+
+    Cached at module level after first call so repeated metrics computations
+    don't re-read the JSON files.
+    """
+    global _FEN_LOOKUP_CACHE
+    if _FEN_LOOKUP_CACHE is not None:
+        return _FEN_LOOKUP_CACHE
+    lookup: dict[int, str] = {}
+    base = Path(data_dir)
+    if not base.exists():
+        logger.warning(f"data_dir {data_dir} not found; skipping FEN lookup")
+        _FEN_LOOKUP_CACHE = lookup
+        return lookup
+    for tier in ("easy", "medium", "hard", "extreme"):
+        path = base / f"{tier}.json"
+        if not path.exists():
+            continue
+        try:
+            with open(path) as f:
+                positions = json.load(f)
+            for p in positions:
+                pid = p.get("id")
+                fen = p.get("fen")
+                if pid is not None and isinstance(fen, str):
+                    lookup[pid] = fen
+        except Exception as e:
+            logger.warning(f"Failed to load {path}: {e}")
+    _FEN_LOOKUP_CACHE = lookup
+    return lookup
+
+
+_FEN_LOOKUP_CACHE: dict[int, str] | None = None
 
 
 def aggregate_by_model(df: pd.DataFrame) -> pd.DataFrame:
@@ -76,7 +274,7 @@ def aggregate_by_model(df: pd.DataFrame) -> pd.DataFrame:
     if df.empty:
         return pd.DataFrame()
 
-    agg = df.groupby("model").agg({
+    spec: dict[str, Any] = {
         # T1 metrics
         "t1_absolute_error": ["mean", "std", "median"],
         "t1_direction_correct": "mean",
@@ -93,7 +291,24 @@ def aggregate_by_model(df: pd.DataFrame) -> pd.DataFrame:
         # Counts
         "job_id": "count",
         "inference_ms": ["mean", "median"],
-    })
+    }
+
+    # Optional derived columns (added by load_results_df). Including them via
+    # spec only when present keeps aggregate_by_model() callable from tests
+    # that pass a hand-rolled DataFrame.
+    optional_cols = {
+        "t1_relative_error": "mean",
+        "t1_abs_error_excl_mate": ["mean", "median"],
+        "t2_cpl_clamped": ["mean", "median"],
+        "t2_wp_loss": ["mean", "median"],
+        "t3_p2_theme_correct_v2": "mean",
+        "t3_score_v2": "mean",
+    }
+    for col, ops in optional_cols.items():
+        if col in df.columns:
+            spec[col] = ops
+
+    agg = df.groupby("model").agg(spec)
 
     # Flatten column names
     agg.columns = ["_".join(col).strip("_") for col in agg.columns]
@@ -113,13 +328,23 @@ def aggregate_by_difficulty(df: pd.DataFrame) -> pd.DataFrame:
     if df.empty:
         return pd.DataFrame()
 
-    return df.groupby(["model", "difficulty"]).agg({
+    spec: dict[str, Any] = {
         "t1_absolute_error": "mean",
         "t2_cpl": "mean",
         "t2_legal": "mean",
         "t3_score": "mean",
         "job_id": "count",
-    }).reset_index()
+    }
+    for col in (
+        "t1_relative_error",
+        "t1_abs_error_excl_mate",
+        "t2_cpl_clamped",
+        "t2_wp_loss",
+        "t3_score_v2",
+    ):
+        if col in df.columns:
+            spec[col] = "mean"
+    return df.groupby(["model", "difficulty"]).agg(spec).reset_index()
 
 
 def aggregate_by_phase(df: pd.DataFrame) -> pd.DataFrame:
@@ -345,18 +570,41 @@ def compute_hypothesis_tests(df: pd.DataFrame) -> dict[str, Any]:
         "values": primary["values"],
     }
 
-    # H2: T2 CPL increases with difficulty
-    h2_data = df.groupby("difficulty")["t2_cpl"].mean()
-    h2_values = [h2_data.get(d) for d in difficulty_order if d in h2_data]
-    h2_increasing = len(h2_values) >= 2 and all(
-        h2_values[i] <= h2_values[i + 1]
-        for i in range(len(h2_values) - 1)
-        if h2_values[i] is not None and h2_values[i + 1] is not None
-    )
+    # H2: T2 CPL increases with difficulty.
+    #
+    # Same artefact pattern as H1 — raw CPL is dominated by mate-encoding
+    # leakage on easy puzzles (which are mostly mate-in-N tactics). Reported
+    # under three metrics with t2_cpl_clamped as the primary.
+    def _h2_metric(column: str) -> dict[str, Any]:
+        if column not in df.columns:
+            return {"supported": False, "values": {}, "expect": "increasing", "missing": True}
+        data = df.groupby("difficulty")[column].mean()
+        values_dict = {d: (None if d not in data.index else float(data.loc[d]))
+                       for d in difficulty_order}
+        ordered = [values_dict[d] for d in difficulty_order]
+        return {
+            "supported": _trend_supported(ordered, "increasing"),
+            "values": values_dict,
+            "expect": "increasing",
+        }
+
+    h2_metrics = {
+        "absolute_cpl": _h2_metric("t2_cpl"),
+    }
+    if "t2_cpl_clamped" in df.columns:
+        h2_metrics["clamped_cpl"] = _h2_metric("t2_cpl_clamped")
+    if "t2_wp_loss" in df.columns:
+        h2_metrics["wp_loss"] = _h2_metric("t2_wp_loss")
+
+    primary_h2 = "clamped_cpl" if "clamped_cpl" in h2_metrics else "absolute_cpl"
     results["H2"] = {
         "description": "T2 CPL increases with difficulty",
-        "supported": h2_increasing,
-        "values": {d: h2_data.get(d) for d in difficulty_order},
+        "primary_metric": primary_h2,
+        "primary_supported": h2_metrics[primary_h2]["supported"],
+        "metrics": h2_metrics,
+        # Backwards-compat surface
+        "supported": h2_metrics[primary_h2]["supported"],
+        "values": h2_metrics[primary_h2]["values"],
     }
 
     # H3: T3 score decreases with difficulty
@@ -450,10 +698,30 @@ def generate_summary(df: pd.DataFrame) -> dict[str, Any]:
 
         "overall_metrics": {
             "t1_mean_error": df["t1_absolute_error"].mean(),
+            "t1_mean_error_excl_mate": (
+                df["t1_abs_error_excl_mate"].mean()
+                if "t1_abs_error_excl_mate" in df.columns else None
+            ),
+            "t1_relative_error": (
+                df["t1_relative_error"].mean()
+                if "t1_relative_error" in df.columns else None
+            ),
             "t1_direction_accuracy": df["t1_direction_correct"].mean(),
             "t2_legal_rate": df["t2_legal"].mean(),
-            "t2_mean_cpl": df["t2_cpl"].mean(),
+            "t2_mean_cpl_raw": df["t2_cpl"].mean(),
+            "t2_mean_cpl_clamped": (
+                df["t2_cpl_clamped"].mean()
+                if "t2_cpl_clamped" in df.columns else None
+            ),
+            "t2_mean_wp_loss": (
+                df["t2_wp_loss"].mean()
+                if "t2_wp_loss" in df.columns else None
+            ),
             "t3_mean_score": df["t3_score"].mean(),
+            "t3_mean_score_v2": (
+                df["t3_score_v2"].mean()
+                if "t3_score_v2" in df.columns else None
+            ),
         },
 
         "by_model": aggregate_by_model(df).to_dict(orient="records"),
