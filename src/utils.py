@@ -140,12 +140,18 @@ def get_run_id() -> str:
 def parse_model_info(model_tag: str) -> dict[str, Any]:
     """Parse model tag into family and size information.
 
+    Strips -board-ft suffix before parsing so fine-tuned model tags
+    (e.g. "llama3.2:3b-board-ft") map to the same family/size as the base.
+
     Args:
-        model_tag: Ollama model tag (e.g., "qwen2.5:7b")
+        model_tag: Ollama model tag (e.g., "qwen2.5:7b" or "qwen2.5:7b-board-ft")
 
     Returns:
         Dictionary with family, size_str, and size_b (billions)
     """
+    # Strip fine-tuning suffix before parsing
+    model_tag = model_tag.removesuffix("-board-ft")
+
     # Map model prefixes to family names
     family_map = {
         "qwen": "qwen",
