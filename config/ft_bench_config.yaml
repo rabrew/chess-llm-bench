@@ -1,0 +1,85 @@
+# Benchmark config for fine-tuned models only.
+# Base model results already exist in results/evaluations.jsonl — do NOT re-run them.
+# This config lists only the 22 fine-tuned tags and writes to a separate results dir.
+#
+# Re-run strategy: same positions as original benchmark (max_positions_per_tier=1000,
+# random_seed=42) so results join cleanly on (position_id, prompt_format).
+
+stockfish:
+  path: /usr/games/stockfish
+  depth: 15
+  threads: 1
+  workers: 24
+
+lc0:
+  binary: /home/rabrew/lc0-src/build/release/lc0
+  weights: /home/rabrew/lc0-nets/network.pb
+  onnx_model: /home/rabrew/lc0-nets/network.onnx
+  nodes: 800
+
+ollama:
+  base_url: http://localhost:11434
+  timeout: 600
+  max_retries: 3
+
+models:
+  - llama3.2:3b-board-ft
+  - gemma3:4b-board-ft
+  - qwen2.5:7b-board-ft
+  - mistral:7b-board-ft
+  - wizardlm2:7b-board-ft
+  - deepseek-r1:7b-board-ft
+  - gemma4:e2b-board-ft
+  - gemma4:e4b-board-ft
+  - llama3.1:8b-board-ft
+  - solar:10.7b-board-ft
+  - gemma3:12b-board-ft
+  - qwen2.5:14b-board-ft
+  - phi4:14b-board-ft
+  - deepseek-r1:14b-board-ft
+  - qwen2.5:32b-board-ft
+  - codellama:34b-board-ft
+  - yi:34b-board-ft
+  - command-r:35b-board-ft
+  - gemma4:26b-board-ft
+  - gemma4:31b-board-ft
+  - mixtral:8x7b-board-ft
+  - llama3.3:70b-board-ft
+
+dataset:
+  lichess_source: local
+  lichess_csv_path: data/lichess_puzzles.csv
+  pgn_path: data/games.pgn
+
+benchmark:
+  max_positions_per_tier: 1000
+  random_seed: 42
+  prompt_formats:
+    - fen_only
+    - pgn+fen
+    - cot
+    - eval_only
+    - move_only
+    - explanation_only
+
+evaluation:
+  cpl_threshold: 50
+  centipawn_eval_range:
+    min: -2000
+    max: 2000
+
+workers:
+  count: 1
+
+correction_loop:
+  enabled: false
+  control_group: true
+  max_attempts: 2
+
+paths:
+  data_dir: data
+  jobs_db: jobs/finetuning_experiment/jobs.db
+  results_file: results/finetuning_experiment/evaluations.jsonl
+  logs_dir: results/finetuning_experiment/logs
+  plots_dir: results/finetuning_experiment/plots
+  metrics_dir: results/finetuning_experiment/metrics
