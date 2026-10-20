@@ -263,12 +263,183 @@ def _compute_direction_correct(
     Returns True/False where both values are present, NaN otherwise.
     """
     valid = model_eval.notna() & stockfish_eval.notna()
-    me_dir = np.where(model_eval > threshold, "W",
-                       np.where(model_eval < -threshold, "B", "E"))
-    sf_dir = np.where(stockfish_eval > threshold, "W",
-                       np.where(stockfish_eval < -threshold, "B", "E"))
+    me_dir = _direction_labels(model_eval, threshold)
+    sf_dir = _direction_labels(stockfish_eval, threshold)
     correct = (me_dir == sf_dir).astype(object)
     return pd.Series(np.where(valid, correct, np.nan), index=model_eval.index)
+
+
+# ---------------------------------------------------------------------------
+# Chance-corrected direction metrics (specs/direction-baseline-kappa.md).
+#
+# Raw direction accuracy rewards a model that always answers 0 cp, because the
+# "Equal" class grows with the threshold. These metrics compare against what
+# the label frequencies alone would score.
+# ---------------------------------------------------------------------------
+
+DIRECTION_LABELS = ("W", "B", "E")
+_T1_EVAL_COLS = ("t1_model_eval", "t1_stockfish_eval")
+
+
+def _direction_labels(evals: pd.Series, threshold: int) -> np.ndarray:
+    """Label each eval "W" (> threshold), "B" (< -threshold) or "E"."""
+    return np.where(evals > threshold, "W", np.where(evals < -threshold, "B", "E"))
+
+
+def _validate_label_pair(pred, truth) -> tuple[np.ndarray, np.ndarray]:
+    pred_arr, truth_arr = np.asarray(pred), np.asarray(truth)
+    if len(pred_arr) != len(truth_arr):
+        raise ValueError(f"length mismatch: {len(pred_arr)} predictions vs {len(truth_arr)} truths")
+    if len(pred_arr) == 0:
+        raise ValueError("cannot score an empty set of labels")
+    return pred_arr, truth_arr
+
+
+def cohen_kappa(pred, truth) -> float:
+    """Cohen's κ: agreement beyond what the label frequencies alone produce.
+
+    Returns NaN when expected agreement is 1 (both sides are the same single
+    constant label), where κ is mathematically undefined.
+    """
+    pred_arr, truth_arr = _validate_label_pair(pred, truth)
+    observed = float(np.mean(pred_arr == truth_arr))
+    expected = sum(
+        float(np.mean(pred_arr == label)) * float(np.mean(truth_arr == label))
+        for label in set(pred_arr) | set(truth_arr)
+    )
+    if math.isclose(expected, 1.0):
+        return float("nan")
+    return (observed - expected) / (1.0 - expected)
+
+
+def balanced_accuracy(pred, truth) -> float:
+    """Mean per-class recall over the classes present in ``truth``."""
+    pred_arr, truth_arr = _validate_label_pair(pred, truth)
+    recalls = [
+        float(np.mean(pred_arr[truth_arr == label] == label))
+        for label in np.unique(truth_arr)
+    ]
+    return float(np.mean(recalls))
+
+
+def _valid_t1_rows(df: pd.DataFrame) -> pd.DataFrame:
+    if df.empty or not all(col in df.columns for col in _T1_EVAL_COLS):
+        return pd.DataFrame()
+    return df.dropna(subset=list(_T1_EVAL_COLS))
+
+
+def _class_shares(labels: np.ndarray) -> dict[str, float]:
+    return {label: float(np.mean(labels == label)) for label in DIRECTION_LABELS}
+
+
+def _majority(shares: dict[str, float]) -> tuple[str, float]:
+    # max() keeps the first of tied keys, so ties resolve in W, B, E order.
+    label = max(DIRECTION_LABELS, key=lambda lbl: shares[lbl])
+    return label, shares[label]
+
+
+def compute_direction_baselines(df: pd.DataFrame) -> pd.DataFrame:
+    """Engine-label class shares and majority-class baseline per threshold."""
+    valid = _valid_t1_rows(df)
+    if valid.empty:
+        return pd.DataFrame()
+    rows = []
+    for thresh in DIRECTION_THRESHOLDS_CP:
+        shares = _class_shares(_direction_labels(valid["t1_stockfish_eval"], thresh))
+        majority_class, majority_acc = _majority(shares)
+        rows.append({
+            "threshold": thresh,
+            "n": len(valid),
+            **{f"pct_{label}": share for label, share in shares.items()},
+            "majority_class": majority_class,
+            "majority_baseline_acc": majority_acc,
+        })
+    return pd.DataFrame(rows)
+
+
+def _agreement_row(model: str, rows: pd.DataFrame, thresh: int) -> dict[str, Any]:
+    pred = _direction_labels(rows["t1_model_eval"], thresh)
+    truth = _direction_labels(rows["t1_stockfish_eval"], thresh)
+    accuracy = float(np.mean(pred == truth))
+    _, baseline = _majority(_class_shares(truth))
+    return {
+        "model": model,
+        "threshold": thresh,
+        "n": len(rows),
+        "accuracy": accuracy,
+        "majority_baseline_acc": baseline,
+        "lift_over_baseline": accuracy - baseline,
+        "cohen_kappa": cohen_kappa(pred, truth),
+        "balanced_accuracy": balanced_accuracy(pred, truth),
+    }
+
+
+def compute_direction_agreement(df: pd.DataFrame) -> pd.DataFrame:
+    """Per (model, threshold) accuracy alongside its baseline, κ and balanced accuracy.
+
+    Each model's baseline is computed on that model's own valid rows.
+    """
+    valid = _valid_t1_rows(df)
+    if valid.empty:
+        return pd.DataFrame()
+    for model in set(df["model"]) - set(valid["model"]):
+        logger.warning(f"{model}: no rows with both T1 evals; omitted from direction agreement")
+    records = [
+        _agreement_row(model, rows, thresh)
+        for model, rows in valid.groupby("model")
+        for thresh in DIRECTION_THRESHOLDS_CP
+    ]
+    return pd.DataFrame(records)
+
+
+def _spearman(rows: pd.DataFrame) -> float:
+    """Spearman ρ as Pearson correlation of average ranks (tie-aware, no scipy)."""
+    model, truth = rows["t1_model_eval"], rows["t1_stockfish_eval"]
+    if model.nunique() < 2 or truth.nunique() < 2:
+        return float("nan")
+    return float(model.rank().corr(truth.rank()))
+
+
+def compute_eval_rank_correlation(df: pd.DataFrame) -> pd.DataFrame:
+    """Spearman ρ between model eval and engine eval, per model (threshold-free).
+
+    A constant model has zero variance, so its ρ is NaN (undefined).
+    """
+    valid = _valid_t1_rows(df)
+    if valid.empty:
+        return pd.DataFrame()
+    records = [
+        {"model": model, "n": len(rows), "spearman_rho": _spearman(rows)}
+        for model, rows in valid.groupby("model")
+    ]
+    return pd.DataFrame(records)
+
+
+def _overall_direction_chance_metrics(df: pd.DataFrame) -> dict[str, Any]:
+    """Pooled (all-model) baseline, κ and ρ for summary.json."""
+    valid = _valid_t1_rows(df)
+    if valid.empty:
+        return {
+            "t1_direction_baselines": None,
+            "t1_direction_kappa_by_threshold": None,
+            "t1_spearman_rho": None,
+        }
+    baselines = compute_direction_baselines(valid)
+    kappas = {
+        f"t{thresh}": cohen_kappa(
+            _direction_labels(valid["t1_model_eval"], thresh),
+            _direction_labels(valid["t1_stockfish_eval"], thresh),
+        )
+        for thresh in DIRECTION_THRESHOLDS_CP
+    }
+    return {
+        "t1_direction_baselines": {
+            f"t{row['threshold']}": {k: v for k, v in row.items() if k != "threshold"}
+            for row in baselines.to_dict(orient="records")
+        },
+        "t1_direction_kappa_by_threshold": kappas,
+        "t1_spearman_rho": _spearman(valid),
+    }
 
 
 def _build_fen_lookup(data_dir: str) -> dict[int, str]:
@@ -799,6 +970,7 @@ def generate_summary(df: pd.DataFrame) -> dict[str, Any]:
                 )
                 for thresh in DIRECTION_THRESHOLDS_CP
             },
+            **_overall_direction_chance_metrics(df),
             "t2_legal_rate_buggy_includes_no_move_prompts": df["t2_legal"].mean(),
             "t2_legal_rate": (
                 df["t2_legal_attempted"].mean()
@@ -830,6 +1002,19 @@ def generate_summary(df: pd.DataFrame) -> dict[str, Any]:
     return summary
 
 
+def _save_direction_chance_tables(df: pd.DataFrame, output_path: Path) -> None:
+    tables = {
+        "direction_baselines.csv": compute_direction_baselines(df),
+        "direction_agreement.csv": compute_direction_agreement(df),
+        "t1_rank_correlation.csv": compute_eval_rank_correlation(df),
+    }
+    for name, table in tables.items():
+        if table.empty:
+            logger.warning(f"No T1 eval columns in results; skipping {name}")
+            continue
+        table.to_csv(output_path / name, index=False)
+
+
 def save_metrics(
     df: pd.DataFrame,
     output_dir: str = "results/metrics",
@@ -858,6 +1043,7 @@ def save_metrics(
     calculate_hallucination_rate(df).to_csv(
         output_path / "hallucination_rate.csv", index=False
     )
+    _save_direction_chance_tables(df, output_path)
 
     # Save learning deltas if available
     learning_df = calculate_learning_deltas(df)

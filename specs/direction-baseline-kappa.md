@@ -74,9 +74,10 @@ is compared against the baseline for exactly the positions it answered.
 5. `compute_direction_agreement(df)`: group by model, and for each
    threshold compute the columns in the table above.
    `lift_over_baseline = accuracy − majority_baseline_acc`.
-6. `compute_eval_rank_correlation(df)`: Spearman ρ per model using
-   `Series.corr(method="spearman")`. This is pandas-native, so no new
-   dependency is needed. Mate-encoded truth rows stay in because rank
+6. `compute_eval_rank_correlation(df)`: Spearman ρ per model, computed as
+   the Pearson correlation of average ranks. This handles ties correctly
+   and avoids `Series.corr(method="spearman")`, which needs scipy, and
+   scipy isn't in `requirements.txt`. Mate-encoded truth rows stay in because rank
    correlation doesn't care about magnitude.
 
 ## Edge cases
