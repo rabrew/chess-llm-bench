@@ -11,7 +11,7 @@ import chess
 import numpy as np
 import pandas as pd
 
-from .evaluator import THEME_SYNONYMS, _camel_to_words
+from .evaluator import theme_mentioned
 from .result_writer import load_results
 
 logger = logging.getLogger("chess_llm_bench")
@@ -111,28 +111,14 @@ def rescore_t3_theme(theme: str | None, explanation: str | None) -> int | None:
 
     Postprocessing of the stored t3_explanation field — the underlying LLM
     output is unchanged. Keyed by exact Lichess theme label first, with
-    camelCase-to-words fallback.
+    camelCase-to-words fallback, matched as whole words.
     """
     if theme is None or explanation is None:
         return None
     if not isinstance(theme, str) or not isinstance(explanation, str):
         return None
 
-    explanation_lower = explanation.lower()
-    candidates: list[str] = []
-    candidates.extend(THEME_SYNONYMS.get(theme, []))
-    candidates.append(theme.lower())
-    candidates.append(_camel_to_words(theme))
-    candidates.append(theme.lower().replace("_", " "))
-
-    seen: set[str] = set()
-    for candidate in candidates:
-        if not candidate or candidate in seen:
-            continue
-        seen.add(candidate)
-        if candidate in explanation_lower:
-            return 1
-    return 0
+    return 1 if theme_mentioned(theme, explanation) else 0
 
 
 def load_results_df(

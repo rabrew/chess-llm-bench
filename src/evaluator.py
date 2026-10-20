@@ -1,6 +1,7 @@
 """Scoring logic for T1, T2, and T3 benchmark tasks."""
 
 import logging
+import re
 from typing import Any
 
 import chess
@@ -131,6 +132,36 @@ def _camel_to_words(label: str) -> str:
             out.append(" ")
         out.append(ch.lower())
     return "".join(out)
+
+
+# Word endings accepted after a theme phrase, so "forks", "mated" and "pins"
+# match while "material", "estimate" and "opinion" do not.
+THEME_WORD_ENDINGS = r"(?:s|es|d|ed|ing)?"
+
+
+def _theme_candidates(theme: str) -> list[str]:
+    """Synonyms first, then the label and its normalised forms, deduplicated."""
+    candidates = [
+        *THEME_SYNONYMS.get(theme, []),
+        theme.lower(),
+        _camel_to_words(theme),
+        theme.lower().replace("_", " "),
+    ]
+    return list(dict.fromkeys(c for c in candidates if c))
+
+
+def theme_mentioned(theme: str | None, explanation: str | None) -> bool:
+    """True if the explanation names the theme as a whole word or phrase.
+
+    See specs/t3-whole-word-matching.md. Substring matching credited "mate"
+    inside "material" and "estimate", and "pin" inside "opinion".
+    """
+    if not isinstance(theme, str) or not isinstance(explanation, str):
+        return False
+    return any(
+        re.search(rf"\b{re.escape(phrase)}{THEME_WORD_ENDINGS}\b", explanation, re.IGNORECASE)
+        for phrase in _theme_candidates(theme)
+    )
 
 
 def get_direction(eval_cp: int, threshold: int = 50) -> str:
@@ -302,31 +333,8 @@ def score_t3(
     ground_truth_side = get_direction(stockfish_eval)
     p1 = 1 if side_claimed == ground_truth_side else 0
 
-    # Point 2: Theme identification.
-    #
-    # Lichess theme labels are mostly camelCase (advancedPawn, kingsideAttack,
-    # backRankMate). The synonym dict is keyed by exact label. Final fallback
-    # converts camelCase to space-separated words so unmapped labels still
-    # have a sensible matcher.
-    p2 = 0
-    explanation_lower = explanation.lower()
-
-    candidates: list[str] = []
-    if isinstance(theme, str):
-        candidates.extend(THEME_SYNONYMS.get(theme, []))
-        # Normalised forms of the label itself
-        candidates.append(theme.lower())
-        candidates.append(_camel_to_words(theme))
-        candidates.append(theme.lower().replace("_", " "))
-
-    seen: set[str] = set()
-    for candidate in candidates:
-        if not candidate or candidate in seen:
-            continue
-        seen.add(candidate)
-        if candidate in explanation_lower:
-            p2 = 1
-            break
+    # Point 2: Theme named as a whole word or phrase (theme_mentioned).
+    p2 = 1 if theme_mentioned(theme, explanation) else 0
 
     return {
         "t3_explanation": explanation,
