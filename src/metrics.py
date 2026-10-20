@@ -1002,6 +1002,20 @@ def generate_summary(df: pd.DataFrame) -> dict[str, Any]:
     return summary
 
 
+def _write_or_remove(table: pd.DataFrame, path: Path) -> None:
+    """Write a conditional output, or delete any stale copy when there is none.
+
+    Skipping the write silently left March pilot data in learning_deltas.csv
+    through every later regeneration (D11).
+    """
+    if table.empty:
+        if path.exists():
+            path.unlink()
+            logger.info(f"Removed stale {path.name} (no data this run)")
+        return
+    table.to_csv(path, index=False)
+
+
 def _save_direction_chance_tables(df: pd.DataFrame, output_path: Path) -> None:
     tables = {
         "direction_baselines.csv": compute_direction_baselines(df),
@@ -1009,10 +1023,7 @@ def _save_direction_chance_tables(df: pd.DataFrame, output_path: Path) -> None:
         "t1_rank_correlation.csv": compute_eval_rank_correlation(df),
     }
     for name, table in tables.items():
-        if table.empty:
-            logger.warning(f"No T1 eval columns in results; skipping {name}")
-            continue
-        table.to_csv(output_path / name, index=False)
+        _write_or_remove(table, output_path / name)
 
 
 def save_metrics(
@@ -1046,9 +1057,7 @@ def save_metrics(
     _save_direction_chance_tables(df, output_path)
 
     # Save learning deltas if available
-    learning_df = calculate_learning_deltas(df)
-    if not learning_df.empty:
-        learning_df.to_csv(output_path / "learning_deltas.csv", index=False)
+    _write_or_remove(calculate_learning_deltas(df), output_path / "learning_deltas.csv")
 
     # Save summary as JSON
     summary = generate_summary(df)
