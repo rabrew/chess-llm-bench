@@ -1,9 +1,9 @@
 """Board state utility for chess FEN parsing, verification, and correction.
 
 Used by:
-  - scripts/generate_board_dataset.py  (training data generation)
-  - scripts/finetune_model.py          (held-out eval during training)
-  - scripts/compare_finetuning_results.py (T0 board accuracy metric)
+  - fine-tuning/scripts/generate_board_dataset.py  (training data generation)
+  - fine-tuning/scripts/finetune_model.py          (held-out eval during training)
+  - fine-tuning/scripts/compare_finetuning_results.py (T0 board accuracy metric)
 """
 
 import re

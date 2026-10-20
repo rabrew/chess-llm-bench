@@ -31,7 +31,7 @@ Side to move: White
 - Deduplication: by FEN before writing
 
 **Fine-tuning (`finetune_model.py`)**
-- Input: `data/board_dataset.jsonl`, HuggingFace model weights, `config/finetune_config.yaml`
+- Input: `data/board_dataset.jsonl`, HuggingFace model weights, `fine-tuning/config/finetune_config.yaml`
 - Output: GGUF file at `~/finetuned_gguf/<ollama_ft_tag>/model-q4_k_m.gguf`
 
 **Ollama import (`import_finetuned_to_ollama.py`)**
@@ -60,7 +60,7 @@ Compare T1/T2/T3 metrics against base model results.
 
 ---
 
-## Board State Utility (`src/board_state.py`)
+## Board State Utility (`fine-tuning/src/board_state.py`)
 
 Central module used by training data generation, fine-tuning evaluation, and comparison.
 
@@ -90,12 +90,12 @@ Format: `Correction — <list of fixes>. Full board: <ground truth>`
 
 ## Fine-tuning Pipeline
 
-1. `python scripts/generate_board_dataset.py` — create `data/board_dataset.jsonl`
-2. `python scripts/finetune_model.py <ollama_base>` — one model per invocation
-3. `python scripts/import_finetuned_to_ollama.py <ollama_base>` — register in Ollama
-4. `python scripts/generate_jobs.py --config config/ft_bench_config.yaml` — generate jobs
-5. `python scripts/run_workers.py --config config/ft_bench_config.yaml` — run benchmark
-6. `python scripts/compare_finetuning_results.py` — compare results
+1. `python fine-tuning/scripts/generate_board_dataset.py` — create `data/board_dataset.jsonl`
+2. `python fine-tuning/scripts/finetune_model.py <ollama_base>` — one model per invocation
+3. `python fine-tuning/scripts/import_finetuned_to_ollama.py <ollama_base>` — register in Ollama
+4. `python scripts/generate_jobs.py --config fine-tuning/config/ft_bench_config.yaml` — generate jobs
+5. `python scripts/run_workers.py --config fine-tuning/config/ft_bench_config.yaml` — run benchmark
+6. `python fine-tuning/scripts/compare_finetuning_results.py` — compare results
 
 ---
 

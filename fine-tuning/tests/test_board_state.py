@@ -1,4 +1,4 @@
-"""Tests for src/board_state.py — verifier and parser."""
+"""Tests for fine-tuning/src/board_state.py — verifier and parser."""
 
 import sys
 from pathlib import Path
@@ -6,9 +6,13 @@ from pathlib import Path
 import chess
 import pytest
 
-sys.path.insert(0, str(Path(__file__).parent.parent))
+REPO_ROOT = Path(__file__).resolve().parents[2]
+FT_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(REPO_ROOT))
+sys.path.insert(0, str(FT_ROOT / "src"))
+sys.path.insert(0, str(FT_ROOT / "scripts"))
 
-from src.board_state import (
+from board_state import (
     build_correction,
     fen_to_board_description,
     parse_board_description,

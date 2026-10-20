@@ -1,4 +1,4 @@
-"""Tests for scripts/generate_board_dataset.py — dataset generation."""
+"""Tests for fine-tuning/scripts/generate_board_dataset.py — dataset generation."""
 
 import json
 import sys
@@ -8,9 +8,13 @@ from pathlib import Path
 import chess
 import pytest
 
-sys.path.insert(0, str(Path(__file__).parent.parent))
+REPO_ROOT = Path(__file__).resolve().parents[2]
+FT_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(REPO_ROOT))
+sys.path.insert(0, str(FT_ROOT / "src"))
+sys.path.insert(0, str(FT_ROOT / "scripts"))
 
-from src.board_state import fen_to_board_description
+from board_state import fen_to_board_description
 
 # ---------------------------------------------------------------------------
 # Helpers — build minimal fake tier data for tests
@@ -109,14 +113,14 @@ class TestDatasetSize:
     def test_generate_n_samples(self, tmp_path):
         """Generate N records from fake data and verify count."""
         # Import the generator function directly
-        from scripts.generate_board_dataset import generate_records
+        from generate_board_dataset import generate_records
 
         records = list(generate_records(make_fake_records(SAMPLE_FENS), seed=42))
         # Should get one record per unique FEN
         assert len(records) == len(SAMPLE_FENS)
 
     def test_generate_with_limit(self, tmp_path):
-        from scripts.generate_board_dataset import generate_records
+        from generate_board_dataset import generate_records
 
         records = list(generate_records(make_fake_records(SAMPLE_FENS), seed=42, max_samples=2))
         assert len(records) == 2
@@ -124,7 +128,7 @@ class TestDatasetSize:
 
 class TestNoDuplicateFens:
     def test_dedup_on_fen(self):
-        from scripts.generate_board_dataset import generate_records
+        from generate_board_dataset import generate_records
 
         # Feed duplicate FENs
         duped = make_fake_records([STARTING_FEN, STARTING_FEN, ITALIAN_FEN])

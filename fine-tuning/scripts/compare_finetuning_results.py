@@ -11,8 +11,8 @@ Also computes T0: board description accuracy via verify_board_description().
 Output: results/finetuning_experiment/comparison.csv
 
 Usage:
-    python scripts/compare_finetuning_results.py
-    python scripts/compare_finetuning_results.py --base results/evaluations.jsonl
+    python fine-tuning/scripts/compare_finetuning_results.py
+    python fine-tuning/scripts/compare_finetuning_results.py --base results/evaluations.jsonl
 """
 
 import argparse
@@ -23,9 +23,12 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Any
 
-sys.path.insert(0, str(Path(__file__).parent.parent))
+REPO_ROOT = Path(__file__).resolve().parents[2]
+FT_SRC = Path(__file__).resolve().parents[1] / "src"
+sys.path.insert(0, str(REPO_ROOT))
+sys.path.insert(0, str(FT_SRC))
 
-from src.board_state import verify_board_description
+from board_state import verify_board_description
 from src.utils import setup_logging
 
 BASE_RESULTS = "results/evaluations.jsonl"

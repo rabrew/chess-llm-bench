@@ -4,9 +4,9 @@ Streams from data/{easy,medium,hard,extreme}.json, 5,000 samples per tier.
 Output: data/board_dataset.jsonl
 
 Usage:
-    python scripts/generate_board_dataset.py
-    python scripts/generate_board_dataset.py --n-samples 50 --dry-run
-    python scripts/generate_board_dataset.py --n-samples 20000 --output data/board_dataset.jsonl
+    python fine-tuning/scripts/generate_board_dataset.py
+    python fine-tuning/scripts/generate_board_dataset.py --n-samples 50 --dry-run
+    python fine-tuning/scripts/generate_board_dataset.py --n-samples 20000 --output data/board_dataset.jsonl
 """
 
 import argparse
@@ -16,9 +16,12 @@ import sys
 from pathlib import Path
 from typing import Iterator
 
-sys.path.insert(0, str(Path(__file__).parent.parent))
+REPO_ROOT = Path(__file__).resolve().parents[2]
+FT_SRC = Path(__file__).resolve().parents[1] / "src"
+sys.path.insert(0, str(REPO_ROOT))
+sys.path.insert(0, str(FT_SRC))
 
-from src.board_state import fen_to_board_description
+from board_state import fen_to_board_description
 from src.utils import setup_logging
 
 INSTRUCTION = (

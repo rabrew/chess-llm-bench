@@ -1,15 +1,15 @@
 """Fine-tune a single model on board comprehension using Unsloth QLoRA.
 
 Each invocation handles exactly one model. Run once per model:
-    python scripts/finetune_model.py llama3.2:3b
-    python scripts/finetune_model.py qwen2.5:7b --dry-run
-    python scripts/finetune_model.py llama3.3:70b --config config/finetune_config.yaml
+    python fine-tuning/scripts/finetune_model.py llama3.2:3b
+    python fine-tuning/scripts/finetune_model.py qwen2.5:7b --dry-run
+    python fine-tuning/scripts/finetune_model.py llama3.3:70b --config fine-tuning/config/finetune_config.yaml
 
 After training, the GGUF is saved to:
     ~/finetuned_gguf/<ollama_ft_tag>/model-q4_k_m.gguf
 
 Import it into Ollama with:
-    python scripts/import_finetuned_to_ollama.py <ollama_base>
+    python fine-tuning/scripts/import_finetuned_to_ollama.py <ollama_base>
 """
 
 import argparse
@@ -21,9 +21,12 @@ from typing import Any
 
 import yaml
 
-sys.path.insert(0, str(Path(__file__).parent.parent))
+REPO_ROOT = Path(__file__).resolve().parents[2]
+FT_SRC = Path(__file__).resolve().parents[1] / "src"
+sys.path.insert(0, str(REPO_ROOT))
+sys.path.insert(0, str(FT_SRC))
 
-from src.board_state import fen_to_board_description, verify_board_description
+from board_state import fen_to_board_description, verify_board_description
 from src.utils import setup_logging
 
 INSTRUCTION = (
@@ -173,13 +176,13 @@ def run_finetuning(
         if dry_run:
             logger.info(
                 f"[dry-run] Dataset not found at {dataset_path} — "
-                "run 'python scripts/generate_board_dataset.py' first."
+                "run 'python fine-tuning/scripts/generate_board_dataset.py' first."
             )
             logger.info("[dry-run] Config and model lookup validated successfully.")
             return
         logger.error(
             f"Dataset not found: {dataset_path}\n"
-            "Run: python scripts/generate_board_dataset.py"
+            "Run: python fine-tuning/scripts/generate_board_dataset.py"
         )
         sys.exit(1)
 
@@ -274,7 +277,7 @@ def run_finetuning(
         quantization_method=training.get("gguf_quantization", "q4_k_m"),
     )
     logger.info(f"GGUF saved: {gguf_dir}/model-q4_k_m.gguf")
-    logger.info(f"Done. Run: python scripts/import_finetuned_to_ollama.py {ollama_base}")
+    logger.info(f"Done. Run: python fine-tuning/scripts/import_finetuned_to_ollama.py {ollama_base}")
 
 
 def main() -> None:
@@ -283,8 +286,8 @@ def main() -> None:
     )
     parser.add_argument("ollama_base", help="Ollama base model tag (e.g. llama3.2:3b)")
     parser.add_argument(
-        "--config", default="config/finetune_config.yaml",
-        help="Fine-tuning config path (default: config/finetune_config.yaml)",
+        "--config", default="fine-tuning/config/finetune_config.yaml",
+        help="Fine-tuning config path (default: fine-tuning/config/finetune_config.yaml)",
     )
     parser.add_argument(
         "--dry-run", action="store_true",

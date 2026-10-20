@@ -1,8 +1,8 @@
 """Import a fine-tuned GGUF model into Ollama.
 
 Usage:
-    python scripts/import_finetuned_to_ollama.py llama3.2:3b
-    python scripts/import_finetuned_to_ollama.py qwen2.5:7b --config config/finetune_config.yaml
+    python fine-tuning/scripts/import_finetuned_to_ollama.py llama3.2:3b
+    python fine-tuning/scripts/import_finetuned_to_ollama.py qwen2.5:7b --config fine-tuning/config/finetune_config.yaml
 """
 
 import argparse
@@ -13,7 +13,10 @@ from typing import Any
 
 import yaml
 
-sys.path.insert(0, str(Path(__file__).parent.parent))
+REPO_ROOT = Path(__file__).resolve().parents[2]
+FT_SRC = Path(__file__).resolve().parents[1] / "src"
+sys.path.insert(0, str(REPO_ROOT))
+sys.path.insert(0, str(FT_SRC))
 
 from src.utils import setup_logging
 
@@ -58,7 +61,7 @@ def run(ollama_base: str, config_path: str, logger: Any) -> None:
     if not gguf_path.exists():
         logger.error(
             f"GGUF not found: {gguf_path}\n"
-            f"Run first: python scripts/finetune_model.py {ollama_base}"
+            f"Run first: python fine-tuning/scripts/finetune_model.py {ollama_base}"
         )
         sys.exit(1)
 
@@ -101,8 +104,8 @@ def main() -> None:
     )
     parser.add_argument("ollama_base", help="Ollama base model tag (e.g. llama3.2:3b)")
     parser.add_argument(
-        "--config", default="config/finetune_config.yaml",
-        help="Fine-tuning config path (default: config/finetune_config.yaml)",
+        "--config", default="fine-tuning/config/finetune_config.yaml",
+        help="Fine-tuning config path (default: fine-tuning/config/finetune_config.yaml)",
     )
     args = parser.parse_args()
 
