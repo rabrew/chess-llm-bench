@@ -13,6 +13,7 @@ import pandas as pd
 
 from .evaluator import theme_mentioned
 from .result_writer import load_results
+from .utils import parse_model_info
 
 logger = logging.getLogger("chess_llm_bench")
 
@@ -144,6 +145,13 @@ def load_results_df(
     if not results:
         return pd.DataFrame()
     df = pd.DataFrame(results)
+
+    # ----- Model family / size --------------------------------------------
+    # Stored values came from the old guessing parser (D3); recompute them.
+    if "model" in df.columns:
+        info = {tag: parse_model_info(tag) for tag in df["model"].dropna().unique()}
+        df["model_family"] = df["model"].map(lambda tag: info[tag]["family"] if tag in info else None)
+        df["model_size_b"] = df["model"].map(lambda tag: info[tag]["size_b"] if tag in info else None)
 
     # ----- T1 derived columns ---------------------------------------------
     if "t1_model_eval" in df.columns and "t1_stockfish_eval" in df.columns:
@@ -607,6 +615,12 @@ def aggregate_by_model_family(df: pd.DataFrame) -> pd.DataFrame:
     """
     if df.empty:
         return pd.DataFrame()
+
+    if "model" in df.columns:
+        models_per_group = df.groupby(["model_family", "model_size_b"])["model"].nunique()
+        merged = models_per_group[models_per_group > 1]
+        if not merged.empty:
+            raise ValueError(f"Family table would merge more than one model per row: {merged.to_dict()}")
 
     return df.groupby(["model_family", "model_size_b"]).agg({
         "t1_absolute_error": "mean",

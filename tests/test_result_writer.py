@@ -102,7 +102,7 @@ class TestBuildResultRecord:
         record = build_result_record(sample_job, sample_parsed, sample_scores, 1500)
         assert record["job_id"] == sample_job["job_id"]
         assert record["model"] == "qwen2.5:7b"
-        assert record["model_family"] == "qwen"
+        assert record["model_family"] == "qwen2.5"
         assert record["model_size_b"] == 7
         assert record["inference_ms"] == 1500
         assert record["t1_absolute_error"] == 5

@@ -137,58 +137,62 @@ def get_run_id() -> str:
     return datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
 
 
+FINE_TUNED_SUFFIX = "-board-ft"
+
+# Exact Ollama tag -> (family, total params in billions, active params in billions).
+# Family is the model generation, so different generations never share a row in
+# the family table. See specs/model-registry.md.
+MODEL_REGISTRY: dict[str, tuple[str, float, float]] = {
+    "llama3.2:3b": ("llama3", 3.0, 3.0),
+    "llama3.1:8b": ("llama3", 8.0, 8.0),
+    "llama3.3:70b": ("llama3", 70.0, 70.0),
+    "gemma3:4b": ("gemma3", 4.0, 4.0),
+    "gemma3:12b": ("gemma3", 12.0, 12.0),
+    "gemma4:e2b": ("gemma4", 2.0, 2.0),  # "effective" 2B
+    "gemma4:e4b": ("gemma4", 4.0, 4.0),  # "effective" 4B
+    "gemma4:26b": ("gemma4", 26.0, 26.0),
+    "gemma4:31b": ("gemma4", 31.0, 31.0),
+    "qwen2.5:7b": ("qwen2.5", 7.0, 7.0),
+    "qwen2.5:14b": ("qwen2.5", 14.0, 14.0),
+    "qwen2.5:32b": ("qwen2.5", 32.0, 32.0),
+    "qwen2.5:72b": ("qwen2.5", 72.0, 72.0),
+    "deepseek-r1:7b": ("deepseek-r1", 7.0, 7.0),
+    "deepseek-r1:14b": ("deepseek-r1", 14.0, 14.0),
+    "mistral:7b": ("mistral", 7.0, 7.0),
+    "mixtral:8x7b": ("mixtral", 46.7, 12.9),  # mixture of experts
+    "wizardlm2:7b": ("wizardlm2", 7.0, 7.0),
+    "phi4:14b": ("phi4", 14.0, 14.0),
+    "solar:10.7b": ("solar", 10.7, 10.7),
+    "codellama:34b": ("codellama", 34.0, 34.0),
+    "yi:34b": ("yi", 34.0, 34.0),
+    "command-r:35b": ("command-r", 35.0, 35.0),
+}
+
+
 def parse_model_info(model_tag: str) -> dict[str, Any]:
-    """Parse model tag into family and size information.
+    """Look up a model's family and size in MODEL_REGISTRY.
 
-    Strips -board-ft suffix before parsing so fine-tuned model tags
-    (e.g. "llama3.2:3b-board-ft") map to the same family/size as the base.
+    A "-board-ft" suffix (fine-tuned models) resolves like its base model.
 
-    Args:
-        model_tag: Ollama model tag (e.g., "qwen2.5:7b" or "qwen2.5:7b-board-ft")
-
-    Returns:
-        Dictionary with family, size_str, and size_b (billions)
+    Raises:
+        ValueError: if the tag is not in MODEL_REGISTRY. Add new models there
+            rather than letting them fall into an "unknown" bucket.
     """
-    # Strip fine-tuning suffix before parsing
-    model_tag = model_tag.removesuffix("-board-ft")
-
-    # Map model prefixes to family names
-    family_map = {
-        "qwen": "qwen",
-        "llama": "llama",
-        "mistral": "mistral",
-        "phi": "phi",
-        "gemma": "gemma",
-    }
-
-    parts = model_tag.split(":")
-    model_name = parts[0]
-    size_str = parts[1] if len(parts) > 1 else ""
-
-    # Determine family
-    family = "unknown"
-    for prefix, fam in family_map.items():
-        if model_name.lower().startswith(prefix):
-            family = fam
-            break
-
-    # Parse size (e.g., "7b" -> 7, "14b" -> 14)
-    size_b = 0
-    if size_str:
-        size_clean = size_str.lower().replace("b", "")
-        try:
-            size_b = int(size_clean)
-        except ValueError:
-            try:
-                size_b = float(size_clean)
-            except ValueError:
-                pass
-
+    fine_tuned = model_tag.endswith(FINE_TUNED_SUFFIX)
+    base_tag = model_tag.removesuffix(FINE_TUNED_SUFFIX)
+    if base_tag not in MODEL_REGISTRY:
+        raise ValueError(
+            f"Unknown model tag {model_tag!r}: add it to MODEL_REGISTRY in src/utils.py"
+        )
+    family, size_b, active_b = MODEL_REGISTRY[base_tag]
     return {
         "family": family,
-        "size_str": size_str,
+        "size_str": base_tag.split(":", 1)[1],
         "size_b": size_b,
-        "full_tag": model_tag,
+        "active_b": active_b,
+        "is_moe": active_b < size_b,
+        "fine_tuned": fine_tuned,
+        "full_tag": base_tag,
     }
 
 
