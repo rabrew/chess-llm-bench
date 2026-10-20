@@ -268,7 +268,7 @@ def score_t2(
     # Calculate CPL if engine is available.
     #
     # Both endpoints are clamped to ±EVAL_CLAMP_CP before subtraction so that
-    # mate-encoded scores (which can reach ±16,000 cp in this dataset) don't
+    # mate-encoded scores (which reach about ±10,000 cp) don't
     # leak into the difference. See module docstring on EVAL_CLAMP_CP.
     cpl = None
     if engine is not None:

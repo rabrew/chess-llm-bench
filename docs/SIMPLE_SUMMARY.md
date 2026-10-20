@@ -27,7 +27,7 @@ For every position, each model was asked three questions:
 2. **T2 — Move:** "What's the best move here?"
 3. **T3 — Explanation:** "Why is this side better?"
 
-I scored each answer against the strongest engines available — **Stockfish 17 at depth 22** for evaluation truth, and **Lc0 (a neural-network engine) at 800 nodes** for move quality. Both are far stronger than any human grandmaster.
+I scored each answer against **Lc0**, a neural-network chess engine far stronger than any human. For the evaluation question, the correct answer is Lc0's network's direct judgement of the position, without searching ahead. For move quality, Lc0 searches 800 positions per move. I used Lc0 because it runs on the graphics card, which on my PC is much faster than running Stockfish on the processor.
 
 Each position was tested with 6 different prompt formats (to make sure the result wasn't just an artefact of how the question was phrased), giving a total of **526,662 evaluations** across 22 models × 4,000 positions × 6 prompt formats.
 

@@ -7,7 +7,7 @@
 
 ### 1.1 Research Question
 
-How accurately do locally run open-source LLMs evaluate chess positions, identify best moves, and explain positional advantages — compared to Stockfish 17 as ground truth — and does this vary systematically across model families and parameter scales?
+How accurately do locally run open-source LLMs evaluate chess positions, identify best moves, and explain positional advantages — compared to the Lc0 chess engine as ground truth — and does this vary systematically across model families and parameter scales?
 
 ### 1.2 Tasks
 
@@ -127,7 +127,7 @@ Each dataset file is a **JSON array**:
 | `stockfish_eval` | integer | Stockfish centipawn evaluation (pre-computed) |
 | `stockfish_best_move` | string | Stockfish best move in SAN (pre-computed) |
 
-> **Note:** `stockfish_eval` and `stockfish_best_move` are pre-computed at dataset creation time at depth 22. This avoids repeated Stockfish calls during benchmarking and ensures consistent ground truth across all runs.
+> **Note:** `stockfish_eval` and `stockfish_best_move` are legacy names. `stockfish_eval` holds a precomputed Lc0 network evaluation (single forward pass, capped at ±10,000), and `stockfish_best_move` is empty in the shipped data (D9). This avoids repeated Stockfish calls during benchmarking and ensures consistent ground truth across all runs.
 
 ### 2.4 Difficulty Tiers
 

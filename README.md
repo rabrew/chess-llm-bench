@@ -2,7 +2,7 @@
 
 **Research question:** How accurately do locally-run open-source LLMs evaluate chess positions and select legal, high-quality moves — and does performance scale with model size?
 
-Benchmarks 22 local models via Ollama on **4,000 stratified Lichess puzzle positions** (1,000 per difficulty tier × 4 tiers). Each position is probed with 6 prompt formats per model, giving **~526k total evaluations**. Ground truth: Stockfish 17 @ depth 22 for evaluation truth, and Lc0 (GPU-accelerated) for move-quality / centipawn-loss truth.
+Benchmarks 22 local models via Ollama on **4,000 stratified Lichess puzzle positions** (1,000 per difficulty tier × 4 tiers). Each position is probed with 6 prompt formats per model, giving **~526k total evaluations**. Ground truth: for evaluation, a single forward pass of the Lc0 neural network (no search), with its win/draw/loss output converted to centipawns and capped at ±10,000; for move quality / centipawn loss, Lc0 @ 800 nodes. Lc0 was chosen because it runs on the GPU, which on this machine is far faster than CPU Stockfish. (Fields named `stockfish_*` are legacy names and hold Lc0 values.)
 
 For the headline findings see [docs/FINDINGS.md](docs/FINDINGS.md). For a non-technical summary see [docs/SIMPLE_SUMMARY.md](docs/SIMPLE_SUMMARY.md).
 
@@ -66,7 +66,7 @@ Each position is evaluated on three tasks:
 ## Hardware
 
 - GPU: RTX 5080 (Lc0 ONNX batch inference for CPL ground truth)
-- CPU: Stockfish-17 @ depth 22 for T1 ground truth (precomputed once into the dataset)
+- GPU: Lc0 network (single forward pass, `scripts/precompute_lc0_batch_v2.py`) for T1 ground truth, precomputed once into the dataset
 - Models split across main SSD and shared NTFS partition via symlinks
 
 ---

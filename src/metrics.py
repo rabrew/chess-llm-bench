@@ -164,7 +164,7 @@ def load_results_df(
         )
         # T1 absolute error with mate-truth rows excluded. Mate-truth rows
         # contribute ~9966 cp of "error" automatically because the model's
-        # output is itself clamped to ±2000 and the truth can be ±16000.
+        # output is itself clamped to ±2000 and the truth can be ±10000.
         if "t1_absolute_error" in df.columns:
             mate_truth = (
                 df["t1_stockfish_eval"].notna()

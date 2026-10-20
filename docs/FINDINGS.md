@@ -3,7 +3,7 @@
 **Ryan Brew · Chess LLM Benchmark · May 2026**
 **Dataset:** 4,000 unique chess positions (1,000 per tier) × 22 models × 6 prompt formats = 526,662 evaluations
 **Ground truth:**
-- T1 evaluation: Stockfish 17 @ depth 22
+- T1 evaluation: a single forward pass of the Lc0 neural network (no search), with its win/draw/loss output converted to centipawns and capped at ±10,000 (`scripts/precompute_lc0_batch_v2.py`; stored in fields with the legacy name `stockfish_eval`)
 - T2 best-move and CPL: Lc0 @ 800 nodes (GPU-accelerated post-hoc enrichment)
 - T3 explanation: rule-based scorer comparing model output to Lichess theme tags
 
@@ -225,7 +225,7 @@ This section documents five measurement artefacts identified during a two-pass p
 
 ### A1 — CPL inflation by mate-encoded scores
 
-The engine wrapper encodes mate-in-N as a centipawn value: `±10000 - mate_in_plies × 10`. For long mating sequences this produces values up to ±16,000 cp in the dataset. Without clamping, those values leak into the CPL difference whenever either endpoint of the move is mate-encoded:
+The engine wrapper encodes mate-in-N as a centipawn value: `±10000 - mate_in_plies × 10`. Mate scores therefore reach about ±10,000 cp, so a single move's CPL could approach 20,000. Without clamping, those values leak into the CPL difference whenever either endpoint of the move is mate-encoded:
 
 | Encoding case | % of evaluations |
 |---|---|
@@ -239,7 +239,7 @@ The `t2_cpl` column in the raw JSONL is preserved for transparency. The headline
 
 ### A2 — T1 absolute error inflated by mate-truth rows
 
-The model's eval output is clamped to ±2000 cp. The Stockfish ground-truth eval is not clamped and ranges to ±16,000 cp on mate-encoded positions. So whenever the truth is mate-encoded, the model's error is ~9,966 cp on average, **regardless of any reasoning**.
+The model's eval output is clamped to ±2000 cp. The ground-truth eval is not clamped, and on decided positions it sits at the Lc0 conversion's cap of exactly ±10,000 cp (the only two values above 9,000 in all 526,662 records). So whenever the truth is mate-encoded, the model's error is ~9,966 cp on average, **regardless of any reasoning**.
 
 | Truth type | Mean abs error | Median |
 |---|---|---|
@@ -305,10 +305,10 @@ Documented but not fixed — would require re-running the benchmark with worker.
 
 ### Other audited issues (no inflation, but worth recording)
 
-- **Two engines.** T1 ground truth is Stockfish 17 @ depth 22 (precomputed). T2 best-move and CPL ground truth is Lc0 @ 800 nodes (post-hoc enrichment via `scripts/enrich_cpl.py`). On the small overlap where both are populated, the two engines disagree on the best move on ~67% of positions. This is the standard expected disagreement between a calculator-style engine and a neural-network engine; it does not affect the qualitative findings (a hung queen is ~900 CPL on either engine), but it does mean the documentation now distinguishes T1-truth from T2-truth.
+- **Engines (corrected 2026-10-20, D9).** Earlier drafts named Stockfish as the T1 engine. That was wrong: every record has an empty `stockfish_best_move`, the truth values cap at exactly ±10,000, and the committed config uses depth 15. T1 truth is a single forward pass of the Lc0 network (no search). T2 best-move and CPL truth is Lc0 @ 800 nodes (`scripts/enrich_cpl.py`). Both come from Lc0, chosen for GPU throughput. The earlier "two engines disagree on ~67% of positions" figure compared fields that were never from two engines and has been removed.
 - **side_claimed bias toward "White".** Models claim White is winning 55.5% of the time, Black 37.1%, Equal 7.4% — roughly a 7.5pp directional bias. Real ground-truth split is 48% White / 46% Black / 6% =0. Inflates side-correctness on White-favourable positions slightly.
 - **Theme/difficulty confound.** Most tactical theme labels concentrate in the `easy` tier (84% of `backRankMate`, 76% of `kingsideAttack`/`attackingF2F7`, 70% of `mate`, 64% of `endgame`). Per-theme analysis is therefore essentially per-difficulty analysis; theme-specific claims should be interpreted with this confound in mind.
-- **Bimodal eval distribution.** 92% of Stockfish ground-truth evals are within ±300 cp; 7% are mate-encoded (±9,000+); the 300–9,000 cp band is essentially empty. Lichess puzzles are tactical, so depth-22 Stockfish either has not yet "seen" the tactic (eval ≈ 0) or has resolved it to mate.
+- **Bimodal eval distribution.** 92% of ground-truth evals are within ±300 cp; 7% are mate-encoded (±9,000+); the 300–9,000 cp band is essentially empty. Lichess puzzles are tactical, so the Lc0 network either does not "see" the tactic without search (eval ≈ 0) or is already certain of the result (capped at ±10,000).
 - **No duplicate records.** 0 duplicate `(model, position_id, prompt_format)` keys; retry/correction jobs are not double-counted.
 - **Missing data: deepseek-r1:7b** is missing ~1,020 of 24,000 expected evaluations (~4%). Job-DB audit trail is empty so the failure mode is not recoverable, but inferred from inference-time outliers to be CoT-induced timeouts. Affects the deepseek-r1:7b numbers slightly; statistical impact is negligible.
 - **Correction loop is dead code.** The `correction_loop.enabled: True` config flag is set, but the trigger checks `t2_cpl > threshold` at job-completion time, when `t2_cpl` is always `None` (CPL is filled in post-hoc by `enrich_cpl.py`, not computed during job processing because the worker's `engine = None`). Result: 0 records have `job_type='correction'`. The correction-loop / learning-delta infrastructure exists but produced no data. **No claim in this report depends on correction-loop data.**

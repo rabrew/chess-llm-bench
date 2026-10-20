@@ -9,7 +9,7 @@ Benchmark **22 open-source local LLMs** (2B–70B parameters, 12 architecture fa
 ## Inputs / Outputs
 
 **Inputs:**
-- `data/{easy,medium,hard,extreme}.json` — 1,000 Lichess puzzle positions per tier (4,000 total). Each carries a precomputed Stockfish-17 evaluation at depth 22. The full Lichess puzzle CSV (~5.8M positions) is sampled down to 1,000 per tier in `dataset_builder.py`.
+- `data/{easy,medium,hard,extreme}.json` — 1,000 Lichess puzzle positions per tier (4,000 total). Each carries a precomputed Lc0 network evaluation (single forward pass, no search, capped at ±10,000), stored under the legacy field name `stockfish_eval`. The full Lichess puzzle CSV (~5.8M positions) is sampled down to 1,000 per tier in `dataset_builder.py`.
 - `config/config.yaml` — models, prompt formats, paths, thresholds, engine settings
 - Ollama instance with all 22 models pulled and running
 
@@ -22,7 +22,7 @@ Benchmark **22 open-source local LLMs** (2B–70B parameters, 12 architecture fa
 ## Steps / Logic
 
 1. **Build dataset** (`scripts/build_dataset.py`) — sample 1,000 puzzles per difficulty tier from the full Lichess CSV, validate, assign stable hash-based IDs.
-2. **Stockfish ground truth** (`scripts/precompute_stockfish.py`) — depth-22 Stockfish-17 evaluations stored alongside each position. Used as T1 truth.
+2. **T1 ground truth** (`scripts/precompute_lc0_batch_v2.py`) — Lc0 network evaluations (single forward pass on the GPU) stored alongside each position. `scripts/precompute_stockfish.py` exists but was not used for the shipped run (see D9).
 3. **Lc0 ground truth** (`scripts/enrich_cpl.py`) — Lc0 @ 800 nodes computes best-move and CPL post-hoc. Used as T2 truth. Runs after the LLM jobs complete.
 4. **Pull models** (`scripts/pull_models.py`) — ensure all 22 models in `config.models` are available locally via Ollama.
 5. **Generate jobs** (`scripts/generate_jobs.py`) — populate the SQLite job queue with one row per (position × model × prompt format). 4,000 × 22 × 6 = 528,000 jobs.
@@ -33,7 +33,7 @@ Benchmark **22 open-source local LLMs** (2B–70B parameters, 12 architecture fa
 
 | Task | Question | Truth |
 |---|---|---|
-| **T1 — Eval** | What is the centipawn evaluation of this position? | Stockfish-17 @ depth 22 |
+| **T1 — Eval** | What is the centipawn evaluation of this position? | Lc0 network, single forward pass |
 | **T2 — Move** | What is the best move? | Lc0 @ 800 nodes (post-hoc enrichment) |
 | **T3 — Explanation** | Who stands better, and why? | Rule-based scorer comparing model output against the Lichess theme tag |
 
