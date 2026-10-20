@@ -186,50 +186,29 @@ class TestGetRunId:
 class TestParseModelInfo:
     def test_qwen_model(self):
         info = parse_model_info("qwen2.5:7b")
-        assert info["family"] == "qwen"
+        assert info["family"] == "qwen2.5"
         assert info["size_b"] == 7
         assert info["size_str"] == "7b"
         assert info["full_tag"] == "qwen2.5:7b"
 
-    def test_llama_model(self):
-        info = parse_model_info("llama3.2:3b")
-        assert info["family"] == "llama"
-        assert info["size_b"] == 3
+    def test_llama_generations_share_family(self):
+        assert parse_model_info("llama3.2:3b")["family"] == "llama3"
+        assert parse_model_info("llama3.3:70b")["family"] == "llama3"
 
-    def test_mistral_model(self):
-        info = parse_model_info("mistral:7b")
-        assert info["family"] == "mistral"
-        assert info["size_b"] == 7
-
-    def test_phi_model(self):
-        info = parse_model_info("phi4:14b")
-        assert info["family"] == "phi"
-        assert info["size_b"] == 14
-
-    def test_gemma_model(self):
-        info = parse_model_info("gemma3:4b")
-        assert info["family"] == "gemma"
-        assert info["size_b"] == 4
-
-    def test_unknown_family(self):
-        info = parse_model_info("wizardlm2:7b")
-        assert info["family"] == "unknown"
-        assert info["size_b"] == 7
-
-    def test_no_tag(self):
-        info = parse_model_info("somemodel")
-        assert info["size_b"] == 0
-        assert info["size_str"] == ""
+    def test_gemma_generations_are_separate(self):
+        assert parse_model_info("gemma3:4b")["family"] == "gemma3"
+        assert parse_model_info("gemma4:e4b")["family"] == "gemma4"
 
     def test_float_size(self):
-        info = parse_model_info("solar:10.7b")
-        assert info["family"] == "unknown"
-        # 10.7b -> size_clean = "10.7" -> float(10.7)
-        assert info["size_b"] == pytest.approx(10.7)
+        assert parse_model_info("solar:10.7b")["size_b"] == pytest.approx(10.7)
 
-    def test_invalid_size(self):
-        info = parse_model_info("model:latest")
-        assert info["size_b"] == 0
+    def test_unknown_tag_raises(self):
+        with pytest.raises(ValueError, match="somemodel"):
+            parse_model_info("somemodel")
+
+    def test_unknown_size_raises(self):
+        with pytest.raises(ValueError):
+            parse_model_info("model:latest")
 
 
 class TestClamp:

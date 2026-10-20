@@ -97,7 +97,7 @@ class TestLoadResultsDf:
 
     def test_loads_records(self, tmp_path):
         f = tmp_path / "results.jsonl"
-        f.write_text('{"job_id": "j1", "model": "x"}\n{"job_id": "j2", "model": "y"}\n')
+        f.write_text('{"job_id": "j1", "model": "mistral:7b"}\n{"job_id": "j2", "model": "phi4:14b"}\n')
         df = load_results_df(str(f))
         assert len(df) == 2
 

@@ -287,7 +287,7 @@ def test_load_results_df_adds_derived_columns(tmp_path):
     # Build a tiny evaluations.jsonl
     rows = [
         # Non-mate row
-        {"job_id": "j1", "model": "m", "position_id": 1, "fen": WHITE_FEN,
+        {"job_id": "j1", "model": "mistral:7b", "position_id": 1, "fen": WHITE_FEN,
          "difficulty": "easy", "theme": "advancedPawn", "phase": "middlegame",
          "prompt_format": "fen_only", "model_family": "m", "model_size_b": 1,
          "t1_model_eval": 100, "t1_stockfish_eval": 50,
@@ -298,7 +298,7 @@ def test_load_results_df_adds_derived_columns(tmp_path):
          "t3_p2_theme_correct": 0, "t3_score": 1,
          "inference_ms": 100, "source": "x"},
         # Mate-truth row
-        {"job_id": "j2", "model": "m", "position_id": 1, "fen": WHITE_FEN,
+        {"job_id": "j2", "model": "mistral:7b", "position_id": 1, "fen": WHITE_FEN,
          "difficulty": "easy", "theme": "advancedPawn", "phase": "middlegame",
          "prompt_format": "fen_only", "model_family": "m", "model_size_b": 1,
          "t1_model_eval": 200, "t1_stockfish_eval": 9990,
