@@ -85,3 +85,16 @@ The Ollama model digest is recorded in each row.
 
 - Raw mode means base models don't get their usual chat wrapping. They are still told the exact answer format.
 - One run per model at temperature 0, so there are no run-to-run error bars, only intervals over positions.
+
+## Prompt-style check (added 2026-10-21)
+
+The main run adds a format description that the fine-tuned models never saw in training. To check
+it doesn't hold them back, `--prompt-style training` sends the **exact training prompt** (the
+instruction and the FEN only) and writes `board_t0_training_prompt.jsonl` and
+`board_t0_training_prompt_summary.csv`. The default, `--prompt-style format`, is unchanged.
+
+- Report both styles. Base models are expected to do worse without the format description, so the
+  fair "before" figure is the `format` run and the fine-tuned figure is the better of the two,
+  with the choice stated.
+- Tests: `build_prompt(position, "training")` equals the training prompt exactly, and the output
+  file names depend on the style.
