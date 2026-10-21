@@ -54,11 +54,13 @@ MAX_ATTEMPTS = 3
 RETRY_WAIT_S = 5.0
 Z_95 = 1.96
 
+# Placeholders only: a concrete example board gets copied verbatim by base models.
 FORMAT_HINT = (
-    " Answer in exactly this format, listing each side's pieces with their squares:\n"
-    "White: King e1, Queen d1, Rooks a1 h1, Bishops c1 f1, Knights b1 g1, Pawns a2 b2\n"
-    "Black: King e8, Queen d8, Rooks a8 h8, Bishops c8 f8, Knights b8 g8, Pawns a7 b7\n"
-    "Side to move: White"
+    " Answer in exactly this format, with no other text. Replace each <square> with a real square:\n"
+    "White: King <square>, Queen <square>, Rooks <square> <square>, Pawns <square> <square> ...\n"
+    "Black: King <square>, Knights <square> <square>, Pawns <square> ...\n"
+    "Side to move: <White or Black>\n"
+    "List only the piece types that are on the board."
 )
 
 

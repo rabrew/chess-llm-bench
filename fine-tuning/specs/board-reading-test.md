@@ -46,7 +46,7 @@ on the same 200 held-out positions, using the models as they actually run in Oll
 
 1. Held-out positions: `split_held_out(load_dataset_records(...), seed=42, n=200)`. These are the
    same 200 positions used during training, and they were never trained on.
-2. Prompt: the training instruction, a fixed description of the answer format, then the FEN,
+2. Prompt: the training instruction, a fixed description of the answer format **using `<square>` placeholders, with no real squares** (a trial run on 2026-10-21 showed base models copying a concrete example board word for word), then the FEN,
    wrapped in the Alpaca layout used in training. **Every model gets exactly the same prompt text.**
 3. Call `/api/generate` with `raw: true`, which skips each model's chat template. The fine-tuned
    models' Ollama templates are inconsistent: some pass the prompt through and Gemma 3 wraps it

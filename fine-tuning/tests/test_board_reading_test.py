@@ -106,3 +106,9 @@ def test_pairs_skip_missing_finetuned_models():
     ]}
     pairs, missing = brt.model_pairs(config, available={"a", "a-board-ft", "b"})
     assert pairs == [("a", "a-board-ft")] and missing == ["b-board-ft"]
+
+
+def test_format_hint_contains_no_real_squares():
+    """A concrete example board gets copied verbatim by base models (seen 2026-10-21)."""
+    import re
+    assert not re.search(r"\b[a-h][1-8]\b", brt.FORMAT_HINT)
