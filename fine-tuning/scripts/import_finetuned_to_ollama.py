@@ -48,22 +48,33 @@ def run(ollama_base: str, config_path: str, logger: Any) -> None:
     paths = config["paths"]
 
     ollama_ft_tag = entry["ollama_ft_tag"]
-    gguf_dir = Path(paths["gguf_output_dir"]) / ollama_ft_tag
-    gguf_path = gguf_dir / "model-q4_k_m.gguf"
+    gguf_base = Path(paths["gguf_output_dir"]) / ollama_ft_tag
     modelfiles_dir = Path(paths["ollama_modelfiles_dir"])
     modelfile_path = modelfiles_dir / f"{ollama_ft_tag.replace(':', '_')}.Modelfile"
+
+    # Unsloth appends _gguf to the output dir name; check _gguf variant first.
+    gguf_dir = gguf_base
+    gguf_files: list = []
+    for candidate in [Path(str(gguf_base) + "_gguf"), gguf_base]:
+        if candidate.exists():
+            found = sorted(candidate.glob("*.gguf"))
+            if found:
+                gguf_dir = candidate
+                gguf_files = found
+                break
+    if not gguf_files:
+        logger.error(
+            f"No .gguf file found in {gguf_dir}\n"
+            f"Run first: python fine-tuning/scripts/finetune_model.py {ollama_base}"
+        )
+        sys.exit(1)
+    if len(gguf_files) > 1:
+        logger.warning(f"Multiple .gguf files found — using: {gguf_files[0]}")
+    gguf_path = gguf_files[0]
 
     logger.info(f"Model tag  : {ollama_ft_tag}")
     logger.info(f"GGUF path  : {gguf_path}")
     logger.info(f"Modelfile  : {modelfile_path}")
-
-    # Verify GGUF exists
-    if not gguf_path.exists():
-        logger.error(
-            f"GGUF not found: {gguf_path}\n"
-            f"Run first: python fine-tuning/scripts/finetune_model.py {ollama_base}"
-        )
-        sys.exit(1)
 
     # Write Modelfile
     modelfiles_dir.mkdir(parents=True, exist_ok=True)

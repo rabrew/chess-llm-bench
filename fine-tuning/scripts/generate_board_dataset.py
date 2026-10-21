@@ -32,20 +32,48 @@ INSTRUCTION = (
 TIERS = ("easy", "medium", "hard", "extreme")
 SAMPLES_PER_TIER = 5000
 
+# When excluding benchmark FENs, load this many extra records per tier as buffer
+# (benchmark uses only 1,000 per tier from millions available, so 2,000 is plenty)
+EXCLUSION_BUFFER = 2000
+
+
+def load_benchmark_fens(results_path: str) -> set[str]:
+    """Load all unique FENs used in the benchmark from evaluations.jsonl."""
+    fens: set[str] = set()
+    path = Path(results_path)
+    if not path.exists():
+        return fens
+    with open(path) as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                rec = json.loads(line)
+                fen = rec.get("fen", "").strip()
+                if fen:
+                    fens.add(fen)
+            except json.JSONDecodeError:
+                continue
+    return fens
+
 
 def generate_records(
     raw_records: list[dict],
     seed: int = 42,
     max_samples: int | None = None,
+    exclude_fens: set[str] | None = None,
 ) -> Iterator[dict]:
     """Yield Alpaca JSONL records from a list of raw position dicts.
 
     Deduplicates on FEN. Shuffles with seed before yielding.
+    Skips any FEN present in exclude_fens (benchmark contamination prevention).
 
     Args:
         raw_records: List of position dicts with a 'fen' key.
         seed: Random seed for reproducible shuffling.
         max_samples: Cap on output records (None = no cap).
+        exclude_fens: Set of FENs to skip (e.g. benchmark positions).
 
     Yields:
         Dict with keys: instruction, input, output.
@@ -55,6 +83,7 @@ def generate_records(
     rng.shuffle(shuffled)
 
     seen_fens: set[str] = set()
+    excluded = exclude_fens or set()
     count = 0
 
     for record in shuffled:
@@ -62,7 +91,7 @@ def generate_records(
             break
 
         fen = record.get("fen", "").strip()
-        if not fen or fen in seen_fens:
+        if not fen or fen in seen_fens or fen in excluded:
             continue
         seen_fens.add(fen)
 
@@ -117,17 +146,36 @@ def main() -> None:
         "--dry-run", action="store_true",
         help="Print first 5 samples to stdout without writing any file",
     )
+    parser.add_argument(
+        "--exclude-benchmark", action="store_true",
+        help="Exclude FENs used in the main benchmark (prevents contamination)",
+    )
+    parser.add_argument(
+        "--results", default="results/evaluations.jsonl",
+        help="Benchmark results JSONL used for exclusion (default: results/evaluations.jsonl)",
+    )
     args = parser.parse_args()
 
     logger = setup_logging("generate_board_dataset")
     data_dir = Path(args.data_dir)
     per_tier = args.n_samples // len(TIERS)
 
-    logger.info(f"Loading {per_tier} samples per tier from {data_dir}/")
+    exclude_fens: set[str] = set()
+    if args.exclude_benchmark:
+        exclude_fens = load_benchmark_fens(args.results)
+        if not exclude_fens:
+            logger.warning(f"--exclude-benchmark set but no FENs loaded from {args.results}")
+        else:
+            logger.info(f"Excluding {len(exclude_fens)} benchmark FENs from training data.")
+
+    # Load extra records per tier when excluding, to ensure the target count is met
+    load_per_tier = per_tier + EXCLUSION_BUFFER if exclude_fens else per_tier
+
+    logger.info(f"Loading {load_per_tier} samples per tier from {data_dir}/")
     all_records: list[dict] = []
     for tier in TIERS:
         try:
-            records = load_tier(data_dir, tier, per_tier, args.seed)
+            records = load_tier(data_dir, tier, load_per_tier, args.seed)
             logger.info(f"  {tier}: {len(records)} records loaded")
             all_records.extend(records)
         except FileNotFoundError as e:
@@ -138,8 +186,14 @@ def main() -> None:
         sys.exit(1)
 
     logger.info(f"Generating records from {len(all_records)} positions...")
-    generated = list(generate_records(all_records, seed=args.seed))
-    logger.info(f"Generated {len(generated)} unique records after deduplication.")
+    generated = list(generate_records(
+        all_records,
+        seed=args.seed,
+        max_samples=args.n_samples,
+        exclude_fens=exclude_fens,
+    ))
+    logger.info(f"Generated {len(generated)} unique records after deduplication."
+                + (f" ({len(exclude_fens)} benchmark FENs excluded)" if exclude_fens else ""))
 
     if args.dry_run:
         for rec in generated[:5]:

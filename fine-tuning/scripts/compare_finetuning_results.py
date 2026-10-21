@@ -60,8 +60,8 @@ def load_jsonl(path: str) -> list[dict]:
                 continue
             try:
                 records.append(json.loads(line))
-            except json.JSONDecodeError:
-                pass  # skip malformed lines silently
+            except json.JSONDecodeError as e:
+                print(f"WARNING: skipping malformed JSON at line {lineno}: {e}", flush=True)
     return records
 
 
@@ -94,7 +94,7 @@ def aggregate_model_metrics(records: list[dict]) -> dict[str, dict]:
         buckets[model]["t2_legal"].append(1 if rec.get(T2_LEGAL_FIELD) else 0)
         cpl = rec.get(T2_CPL_FIELD)
         if cpl is not None:
-            buckets[model]["t2_cpl"].append(min(int(cpl), 2000))
+            buckets[model]["t2_cpl"].append(min(int(cpl), 1000))
         t3 = rec.get(T3_FIELD)
         if t3 is not None:
             buckets[model]["t3"].append(float(t3))
