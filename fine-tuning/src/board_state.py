@@ -202,7 +202,13 @@ def verify_board_description(fen: str, model_text: str) -> dict[str, Any]:
             'missing_pieces': [str],
             'extra_pieces': [str],
             'wrong_squares': [str],
-            'accuracy': float,
+            'accuracy': float,   # recall: correct pieces / real pieces
+            'recall': float,
+            'precision': float,  # correct pieces / pieces listed (F-8)
+            'total_pieces': int,
+            'missing_count': int,
+            'extra_count': int,
+            'side_to_move_correct': bool | None,
         }
     """
     ground_truth = _ground_truth_pieces(fen)
@@ -252,6 +258,8 @@ def verify_board_description(fen: str, model_text: str) -> dict[str, Any]:
                 errors.append(f"Extra {key} on {sq}")
 
     accuracy = correct_pieces / total_pieces if total_pieces > 0 else 0.0
+    listed_pieces = correct_pieces + len(extra)
+    precision = correct_pieces / listed_pieces if listed_pieces > 0 else 0.0
 
     return {
         "correct": len(errors) == 0,
@@ -260,7 +268,25 @@ def verify_board_description(fen: str, model_text: str) -> dict[str, Any]:
         "extra_pieces": extra,
         "wrong_squares": wrong,
         "accuracy": accuracy,
+        "recall": accuracy,
+        "precision": precision,
+        "total_pieces": total_pieces,
+        "missing_count": len(missing),
+        "extra_count": len(extra),
+        "side_to_move_correct": _side_to_move_correct(fen, model_text),
     }
+
+
+_SIDE_TO_MOVE_RE = re.compile(r"side to move\s*:\s*(white|black)", re.IGNORECASE)
+
+
+def _side_to_move_correct(fen: str, model_text: str) -> bool | None:
+    """True/False if the text states the side to move, None if it doesn't."""
+    match = _SIDE_TO_MOVE_RE.search(model_text or "")
+    if match is None:
+        return None
+    stated_white = match.group(1).lower() == "white"
+    return stated_white == (chess.Board(fen).turn == chess.WHITE)
 
 
 def build_correction(fen: str, model_text: str) -> str:
