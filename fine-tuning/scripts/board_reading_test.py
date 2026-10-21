@@ -39,7 +39,8 @@ from finetune_model import (  # noqa: E402
 from src.utils import setup_logging  # noqa: E402
 
 DEFAULT_CONFIG = "fine-tuning/config/finetune_config.yaml"
-DEFAULT_OUT = "results/finetuning_experiment/board_t0.jsonl"
+OUT_DIR = Path("results/finetuning_experiment")
+PROMPT_STYLES = ("format", "training")
 DEFAULT_OLLAMA = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
 if not DEFAULT_OLLAMA.startswith("http"):
     DEFAULT_OLLAMA = f"http://{DEFAULT_OLLAMA}"
@@ -64,9 +65,21 @@ FORMAT_HINT = (
 )
 
 
-def build_prompt(position: dict) -> str:
-    """Same prompt text for every model: training instruction + answer format + FEN."""
-    return format_alpaca_prompt(INSTRUCTION + FORMAT_HINT, position["input"])
+def build_prompt(position: dict, style: str = "format") -> str:
+    """Same prompt text for every model.
+
+    "format": training instruction + answer-format description + FEN (main run).
+    "training": the exact training prompt, instruction + FEN only.
+    """
+    if style not in PROMPT_STYLES:
+        raise ValueError(f"prompt style must be one of {PROMPT_STYLES}, got {style!r}")
+    instruction = INSTRUCTION + FORMAT_HINT if style == "format" else INSTRUCTION
+    return format_alpaca_prompt(instruction, position["input"])
+
+
+def output_paths(style: str) -> tuple[Path, Path]:
+    stem = "board_t0" if style == "format" else "board_t0_training_prompt"
+    return OUT_DIR / f"{stem}.jsonl", OUT_DIR / f"{stem}_summary.csv"
 
 
 def build_payload(model: str, prompt: str) -> dict[str, Any]:
@@ -201,14 +214,14 @@ def ollama_models() -> dict[str, str]:
     return models
 
 
-def run_model(model, base, fine_tuned, held_out, out_path, done, host, digest, logger) -> None:
+def run_model(model, base, fine_tuned, held_out, out_path, done, host, digest, style, logger) -> None:
     todo = [(i, p) for i, p in enumerate(held_out) if (model, i) not in done]
     logger.info(f"{model}: {len(todo)} of {len(held_out)} positions to run")
     with open(out_path, "a") as out:
         for i, position in todo:
             fen = position["input"].replace("FEN: ", "").strip()
             started = time.monotonic()
-            response = query_ollama(model, build_prompt(position), host)
+            response = query_ollama(model, build_prompt(position, style), host)
             row = score_row(model, base, fine_tuned, i, fen, response, time.monotonic() - started, digest)
             out.write(json.dumps(row) + "\n")
             out.flush()
@@ -226,7 +239,7 @@ def write_summary(rows: list[dict], path: Path) -> list[dict]:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     parser.add_argument("--config", default=DEFAULT_CONFIG)
-    parser.add_argument("--out", default=DEFAULT_OUT)
+    parser.add_argument("--prompt-style", choices=PROMPT_STYLES, default="format")
     parser.add_argument("--host", default=DEFAULT_OLLAMA)
     parser.add_argument("--models", nargs="*", help="Base model tags to test (default: every pair in Ollama)")
     args = parser.parse_args()
@@ -241,17 +254,20 @@ def main() -> None:
         pairs = [p for p in pairs if p[0] in args.models]
 
     _, held_out = split_held_out(load_dataset_records(config["training"]["dataset_path"]), seed=SEED, n=HELD_OUT_N)
-    out_path = Path(args.out)
+    out_path, summary_path = output_paths(args.prompt_style)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     done = load_done_keys(out_path)
 
     for base, ft in pairs:
         for model, fine_tuned in ((base, False), (ft, True)):
-            run_model(model, base, fine_tuned, held_out, out_path, done, args.host, installed[model], logger)
+            run_model(
+                model, base, fine_tuned, held_out, out_path, done, args.host, installed[model],
+                args.prompt_style, logger,
+            )
 
     with open(out_path) as handle:
         rows = [json.loads(line) for line in handle if line.strip()]
-    summary = write_summary(rows, out_path.with_name("board_t0_summary.csv"))
+    summary = write_summary(rows, summary_path)
     for s in summary:
         logger.info(
             f"{s['model']:28s} perfect {s['perfect_rate']:.1%} "
