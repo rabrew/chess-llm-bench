@@ -150,7 +150,7 @@ MODEL_REGISTRY: dict[str, tuple[str, float, float]] = {
     "gemma3:12b": ("gemma3", 12.0, 12.0),
     "gemma4:e2b": ("gemma4", 2.0, 2.0),  # "effective" 2B
     "gemma4:e4b": ("gemma4", 4.0, 4.0),  # "effective" 4B
-    "gemma4:26b": ("gemma4", 26.0, 26.0),
+    "gemma4:26b": ("gemma4", 26.0, 4.0),  # mixture of experts: HF name gemma-4-26B-A4B
     "gemma4:31b": ("gemma4", 31.0, 31.0),
     "qwen2.5:7b": ("qwen2.5", 7.0, 7.0),
     "qwen2.5:14b": ("qwen2.5", 14.0, 14.0),

@@ -30,6 +30,8 @@ def test_effective_and_moe_sizes():
     assert mixtral["active_b"] == pytest.approx(12.9)
     assert mixtral["is_moe"] is True
     assert parse_model_info("mistral:7b")["is_moe"] is False
+    gemma26 = parse_model_info("gemma4:26b")
+    assert (gemma26["size_b"], gemma26["active_b"], gemma26["is_moe"]) == (26, 4, True)
 
 
 def test_codellama_not_matched_as_llama():

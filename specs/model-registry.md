@@ -43,6 +43,8 @@ recompute family and size from the tag when loading results.
    | single-model families | mistral:7b, wizardlm2:7b, phi4:14b, solar:10.7b, codellama:34b, yi:34b, command-r:35b |
    | `mixtral` (MoE) | mixtral:8x7b: 46.7B total, 12.9B active, `is_moe=True` |
 
+   gemma4:26b is also MoE: 26B total, 4B active (HuggingFace name `gemma-4-26B-A4B`, added 2026-10-21).
+
 2. `parse_model_info` strips `-board-ft` (setting `fine_tuned=True`), then looks up the
    base tag. An unknown tag raises `ValueError` naming the tag and the registry location.
 3. `load_results_df` recomputes `model_family` and `model_size_b` from `model` for every
