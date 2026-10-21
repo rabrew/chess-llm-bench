@@ -112,3 +112,26 @@ def test_format_hint_contains_no_real_squares():
     """A concrete example board gets copied verbatim by base models (seen 2026-10-21)."""
     import re
     assert not re.search(r"\b[a-h][1-8]\b", brt.FORMAT_HINT)
+
+
+def test_training_style_prompt_matches_training_exactly():
+    from finetune_model import INSTRUCTION, format_alpaca_prompt
+    assert brt.build_prompt(POSITION, "training") == format_alpaca_prompt(INSTRUCTION, POSITION["input"])
+    assert brt.build_prompt(POSITION, "format") == brt.build_prompt(POSITION)
+
+
+def test_unknown_prompt_style_rejected():
+    with pytest.raises(ValueError):
+        brt.build_prompt(POSITION, "chatty")
+
+
+def test_output_paths_depend_on_style():
+    from pathlib import Path
+    assert brt.output_paths("format") == (
+        Path("results/finetuning_experiment/board_t0.jsonl"),
+        Path("results/finetuning_experiment/board_t0_summary.csv"),
+    )
+    assert brt.output_paths("training") == (
+        Path("results/finetuning_experiment/board_t0_training_prompt.jsonl"),
+        Path("results/finetuning_experiment/board_t0_training_prompt_summary.csv"),
+    )
