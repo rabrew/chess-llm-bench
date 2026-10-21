@@ -146,3 +146,51 @@ class TestSideToMoveInOutput:
         fen = "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1"
         desc = fen_to_board_description(fen)
         assert "Side to move: Black" in desc
+
+
+class TestBenchmarkExclusion:
+    """F-1: training positions must never be benchmark positions."""
+
+    def test_excluded_fens_are_skipped(self):
+        from generate_board_dataset import generate_records
+
+        records = list(generate_records(
+            make_fake_records(SAMPLE_FENS), seed=42, exclude_fens={STARTING_FEN, ITALIAN_FEN},
+        ))
+        fens = {r["input"].replace("FEN: ", "") for r in records}
+        assert fens == set(SAMPLE_FENS) - {STARTING_FEN, ITALIAN_FEN}
+
+    def test_load_benchmark_fens_reads_fen_field(self, tmp_path):
+        from generate_board_dataset import load_benchmark_fens
+
+        results = tmp_path / "evaluations.jsonl"
+        results.write_text(
+            json.dumps({"fen": STARTING_FEN}) + "\n\n"
+            + json.dumps({"fen": f"  {ITALIAN_FEN}  "}) + "\n"
+            + json.dumps({"fen": STARTING_FEN}) + "\n"
+        )
+        assert load_benchmark_fens(str(results)) == {STARTING_FEN, ITALIAN_FEN}
+
+    def test_load_benchmark_fens_missing_file(self, tmp_path):
+        from generate_board_dataset import load_benchmark_fens
+
+        assert load_benchmark_fens(str(tmp_path / "missing.jsonl")) == set()
+
+    def test_real_training_data_has_no_benchmark_fens(self):
+        """data/*.json is the 5.8M-position pool; the benchmarked FENs are those in evaluations.jsonl."""
+        from generate_board_dataset import load_benchmark_fens
+
+        dataset = REPO_ROOT / "data" / "board_dataset.jsonl"
+        results = REPO_ROOT / "results" / "evaluations.jsonl"
+        if not dataset.exists() or not results.exists():
+            pytest.skip("real training data or benchmark results not present")
+
+        benchmark_fens = load_benchmark_fens(str(results))
+        with open(dataset) as handle:
+            training_fens = {
+                json.loads(line)["input"].replace("FEN: ", "").strip()
+                for line in handle if line.strip()
+            }
+        assert training_fens, "training dataset is empty"
+        assert benchmark_fens, "no benchmark FENs loaded"
+        assert not training_fens & benchmark_fens
