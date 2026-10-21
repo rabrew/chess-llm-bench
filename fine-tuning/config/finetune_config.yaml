@@ -5,7 +5,7 @@
 #   30-35B — gradient_checkpointing=True
 #   70B   — CPU offload (slow, run overnight)
 #
-# HF IDs marked "# VERIFY" may differ from Ollama naming.
+# HF IDs checked against huggingface.co on 2026-10-21.
 # Confirm at huggingface.co before downloading.
 
 models:
@@ -16,6 +16,7 @@ models:
   - ollama_base: "gemma3:4b"
     hf_id: "google/gemma-3-4b-it"
     ollama_ft_tag: "gemma3:4b-board-ft"
+    attn_implementation: "eager"
 
   - ollama_base: "qwen2.5:7b"
     hf_id: "Qwen/Qwen2.5-7B-Instruct"
@@ -34,12 +35,14 @@ models:
     ollama_ft_tag: "deepseek-r1:7b-board-ft"
 
   - ollama_base: "gemma4:e2b"
-    hf_id: "google/gemma-4e-2b-it"  # VERIFY
+    hf_id: "google/gemma-4-E2B-it"
     ollama_ft_tag: "gemma4:e2b-board-ft"
+    attn_implementation: "eager"
 
   - ollama_base: "gemma4:e4b"
-    hf_id: "google/gemma-4e-4b-it"  # VERIFY
+    hf_id: "google/gemma-4-E4B-it"
     ollama_ft_tag: "gemma4:e4b-board-ft"
+    attn_implementation: "eager"
 
   - ollama_base: "llama3.1:8b"
     hf_id: "meta-llama/Llama-3.1-8B-Instruct"
@@ -52,6 +55,7 @@ models:
   - ollama_base: "gemma3:12b"
     hf_id: "google/gemma-3-12b-it"
     ollama_ft_tag: "gemma3:12b-board-ft"
+    attn_implementation: "eager"
 
   - ollama_base: "qwen2.5:14b"
     hf_id: "Qwen/Qwen2.5-14B-Instruct"
@@ -82,12 +86,14 @@ models:
     ollama_ft_tag: "command-r:35b-board-ft"
 
   - ollama_base: "gemma4:26b"
-    hf_id: "google/gemma-4-27b-it"  # VERIFY
+    hf_id: "google/gemma-4-26B-A4B-it"
     ollama_ft_tag: "gemma4:26b-board-ft"
+    attn_implementation: "eager"
 
   - ollama_base: "gemma4:31b"
-    hf_id: "google/gemma-4-32b-it"  # VERIFY
+    hf_id: "google/gemma-4-31B-it"
     ollama_ft_tag: "gemma4:31b-board-ft"
+    attn_implementation: "eager"
 
   - ollama_base: "mixtral:8x7b"
     hf_id: "mistralai/Mixtral-8x7B-Instruct-v0.1"
