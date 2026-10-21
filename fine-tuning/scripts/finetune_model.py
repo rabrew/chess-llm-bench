@@ -143,7 +143,8 @@ def evaluate_held_out(model: Any, tokenizer: Any, held_out: list[dict]) -> float
     for rec in held_out:
         fen = rec["input"].replace("FEN: ", "").strip()
         prompt = format_alpaca_prompt(rec["instruction"], rec["input"])
-        inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
+        # text= keyword: multimodal processors (Gemma 4) treat a positional argument as images
+        inputs = tokenizer(text=prompt, return_tensors="pt").to(model.device)
         with torch.no_grad():
             output_ids = model.generate(
                 **inputs,
@@ -173,14 +174,36 @@ class EpochAccuracyCallback(TrainerCallback):
         self.logger = logger
 
     def on_epoch_end(self, args: Any, state: Any, control: Any, **kwargs: Any) -> None:
-        acc = evaluate_held_out(self.model, self.tokenizer, self.held_out)
+        # Progress indicator only (F-9 is the real measurement), so a failure here must not end training.
+        try:
+            acc = evaluate_held_out(self.model, self.tokenizer, self.held_out)
+        except Exception as exc:
+            self.logger.error(f"[Epoch {state.epoch:.1f}] Held-out accuracy check failed: {exc}", exc_info=True)
+            return
         self.logger.info(f"[Epoch {state.epoch:.1f}] Held-out board accuracy: {acc:.3f}")
+
+
+def ensure_outputs_free(dirs: list[Path], resume: bool) -> None:
+    """Refuse to start over existing outputs, so failure cleanup can only remove this run's folders."""
+    if resume:
+        return
+    existing = [str(d) for d in dirs if d.exists()]
+    if existing:
+        raise FileExistsError(
+            "Output folders from an earlier run already exist: "
+            + ", ".join(existing)
+            + ". Delete or move them first, or pass --resume."
+        )
+
+
+def _output_dirs(checkpoint_dir: Path, gguf_dir: Path) -> list[Path]:
+    return [checkpoint_dir, gguf_dir, Path(str(gguf_dir) + "_gguf")]
 
 
 def _cleanup_dirs(checkpoint_dir: Path, gguf_dir: Path, logger: Any) -> None:
     """Remove partial checkpoint and GGUF dirs after a failed run."""
     import shutil
-    for d in [checkpoint_dir, gguf_dir, Path(str(gguf_dir) + "_gguf")]:
+    for d in _output_dirs(checkpoint_dir, gguf_dir):
         if d.exists():
             shutil.rmtree(d)
             logger.warning(f"Cleaned up partial directory: {d}")
@@ -240,6 +263,8 @@ def run_finetuning(
         logger.info("[dry-run] Dataset validated. No training will run.")
         logger.info(f"[dry-run] First record input: {records[0]['input']}")
         return
+
+    ensure_outputs_free(_output_dirs(checkpoint_dir, gguf_dir), resume)
 
     # --- Imports deferred so dry-run works without GPU deps installed ---
     try:

@@ -42,6 +42,28 @@ def find_model_entry(config: dict, ollama_base: str) -> dict:
     )
 
 
+def find_model_gguf(dirs: list[Path], quantization: str) -> Path:
+    """Return the language-model GGUF from the first folder that has one.
+
+    Skips multimodal vision projectors (*mmproj*). Among several model files,
+    picks the one whose name contains the quantization method.
+    """
+    for folder in dirs:
+        if not folder.exists():
+            continue
+        models = sorted(f for f in folder.glob("*.gguf") if "mmproj" not in f.name.lower())
+        if len(models) == 1:
+            return models[0]
+        matching = [f for f in models if quantization.lower() in f.name.lower()]
+        if len(matching) == 1:
+            return matching[0]
+        if models:
+            raise FileNotFoundError(
+                f"Cannot pick one model GGUF in {folder}: {[f.name for f in models]}"
+            )
+    raise FileNotFoundError(f"No language-model .gguf file found in {[str(d) for d in dirs]}")
+
+
 def run(ollama_base: str, config_path: str, logger: Any) -> None:
     config = load_ft_config(config_path)
     entry = find_model_entry(config, ollama_base)
@@ -52,25 +74,12 @@ def run(ollama_base: str, config_path: str, logger: Any) -> None:
     modelfiles_dir = Path(paths["ollama_modelfiles_dir"])
     modelfile_path = modelfiles_dir / f"{ollama_ft_tag.replace(':', '_')}.Modelfile"
 
-    # Unsloth appends _gguf to the output dir name; check _gguf variant first.
-    gguf_dir = gguf_base
-    gguf_files: list = []
-    for candidate in [Path(str(gguf_base) + "_gguf"), gguf_base]:
-        if candidate.exists():
-            found = sorted(candidate.glob("*.gguf"))
-            if found:
-                gguf_dir = candidate
-                gguf_files = found
-                break
-    if not gguf_files:
-        logger.error(
-            f"No .gguf file found in {gguf_dir}\n"
-            f"Run first: python fine-tuning/scripts/finetune_model.py {ollama_base}"
-        )
+    quantization = config["training"].get("gguf_quantization", "q4_k_m")
+    try:
+        gguf_path = find_model_gguf([Path(str(gguf_base) + "_gguf"), gguf_base], quantization)
+    except FileNotFoundError as exc:
+        logger.error(f"{exc}\nRun first: python fine-tuning/scripts/finetune_model.py {ollama_base}")
         sys.exit(1)
-    if len(gguf_files) > 1:
-        logger.warning(f"Multiple .gguf files found — using: {gguf_files[0]}")
-    gguf_path = gguf_files[0]
 
     logger.info(f"Model tag  : {ollama_ft_tag}")
     logger.info(f"GGUF path  : {gguf_path}")
