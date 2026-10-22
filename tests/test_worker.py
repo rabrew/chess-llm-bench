@@ -222,6 +222,41 @@ class TestProcessJob:
         result = w.process_job(SAMPLE_JOB)
         assert result is None
 
+    @pytest.mark.parametrize("prompt_format, reply", [
+        ("pgn+fen", LLM_LEGAL_RESPONSE["response"]),
+        ("fen_only", LLM_LEGAL_RESPONSE["response"]),
+        ("cot", LLM_LEGAL_RESPONSE["response"]),
+        ("eval_only", "45"),
+        ("move_only", "Nf6"),
+        ("explanation_only", "Explanation: Equal — Both sides equal."),
+    ])
+    def test_raw_response_stored_for_every_format(self, worker_config, prompt_format, reply):
+        job = {**SAMPLE_JOB, "prompt_format": prompt_format}
+        llm_response = {"response": reply, "inference_ms": 300, "success": True, "model": "llama3.2:3b"}
+        w = self._setup_worker(worker_config, llm_response=llm_response)
+        result = w.process_job(job)
+        assert result["raw_response"] == reply
+        assert "raw_move_retry_response" not in result
+
+    def test_move_retry_reply_stored(self, worker_config):
+        first = {"response": "Eval: 45\nMove: Qz9\nExplanation: Equal — quiet.",
+                 "inference_ms": 300, "success": True, "model": "llama3.2:3b"}
+        retry = {"response": "Nf6", "inference_ms": 100, "success": True, "model": "llama3.2:3b"}
+        w = self._setup_worker(worker_config)
+        w.llm_client.chat.side_effect = [first, retry]
+        result = w.process_job(SAMPLE_JOB)
+        assert result["raw_response"] == first["response"]
+        assert result["raw_move_retry_response"] == "Nf6"
+
+    def test_rescued_move_makes_no_retry_reply(self, worker_config):
+        first = {"response": "Eval: 45\nMove: Nf7\nExplanation: Equal — Nf6 is natural.",
+                 "inference_ms": 300, "success": True, "model": "llama3.2:3b"}
+        w = self._setup_worker(worker_config, llm_response=first)
+        result = w.process_job(SAMPLE_JOB)
+        assert w.llm_client.chat.call_count == 1
+        assert result["raw_response"] == first["response"]
+        assert "raw_move_retry_response" not in result
+
     def test_does_not_write_in_dry_run(self, worker_config):
         w = self._setup_worker(worker_config)
         w.dry_run = True

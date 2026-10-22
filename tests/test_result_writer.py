@@ -125,6 +125,23 @@ class TestBuildResultRecord:
         record = build_result_record(sample_job, sample_parsed, sample_scores, 500)
         assert "parse_errors" not in record
 
+    def test_raw_responses_copied_into_record(self, sample_job, sample_scores, sample_parsed):
+        raw = {"raw_response": "Eval: 45\nMove: Nf6", "raw_move_retry_response": "Nf6"}
+        record = build_result_record(sample_job, sample_parsed, sample_scores, 500, raw_responses=raw)
+        assert record["raw_response"] == "Eval: 45\nMove: Nf6"
+        assert record["raw_move_retry_response"] == "Nf6"
+
+    def test_none_raw_response_omitted_but_empty_string_kept(self, sample_job, sample_scores, sample_parsed):
+        raw = {"raw_response": "", "raw_move_retry_response": None}
+        record = build_result_record(sample_job, sample_parsed, sample_scores, 500, raw_responses=raw)
+        assert record["raw_response"] == ""
+        assert "raw_move_retry_response" not in record
+
+    def test_no_raw_fields_by_default(self, sample_job, sample_scores, sample_parsed):
+        record = build_result_record(sample_job, sample_parsed, sample_scores, 500)
+        assert "raw_response" not in record
+        assert "raw_move_retry_response" not in record
+
     def test_optional_job_fields(self, sample_scores, sample_parsed):
         minimal_job = {
             "job_id": "test_job",
