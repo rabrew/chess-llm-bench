@@ -42,6 +42,10 @@ MATE_SCORE_THRESHOLD_CP = 9000
 # with Stockfish much more often.
 DIRECTION_THRESHOLDS_CP = (0, 50, 100, 200)
 
+# Prompt formats that ask the model for a move (T2). eval_only and
+# explanation_only do not.
+MOVE_PROMPT_FORMATS = ("fen_only", "pgn+fen", "cot", "move_only")
+
 
 def compute_relative_error(
     model_eval: float, stockfish_eval: float, floor: int = RELATIVE_ERROR_FLOOR_CP
@@ -225,15 +229,21 @@ def load_results_df(
                 + pd.to_numeric(df["t3_p2_theme_correct_v2"], errors="coerce")
             )
 
-    # ----- T2 legal-move rate, computed only on move-asking attempts -----
-    # `score_t2` returns t2_legal=False when t2_move is None, conflating
-    # "model produced an illegal move" with "this prompt didn't ask for a
-    # move at all" (eval_only and explanation_only prompts). The corrected
-    # column is True/False only when the model attempted a move; NaN when
-    # no move was attempted, so pandas .mean() automatically skips it.
+    # ----- T2 legal-move rate, computed only on move-asking prompts -----
+    # `score_t2` returns t2_legal=False for eval_only / explanation_only
+    # prompts, which never ask for a move; those rows are NaN here so .mean()
+    # skips them. The attempt is defined by the prompt, not by t2_move: the
+    # worker nulls any move it could not make legal, so a null move on a
+    # move-asking prompt IS an illegal move and must count as one.
     if "t2_legal" in df.columns and "t2_move" in df.columns:
-        attempted = df["t2_move"].notna()
-        df["t2_legal_attempted"] = np.where(attempted, df["t2_legal"], np.nan)
+        if "prompt_format" in df.columns:
+            attempted = df["prompt_format"].isin(MOVE_PROMPT_FORMATS)
+            legal = df["t2_legal"].astype("boolean").fillna(False).astype(float)
+        else:
+            logger.warning("No prompt_format column; t2_legal_attempted skips null moves (undercounts illegal moves)")
+            attempted = df["t2_move"].notna()
+            legal = df["t2_legal"]
+        df["t2_legal_attempted"] = np.where(attempted, legal, np.nan)
 
     # ----- T1 direction accuracy at multiple thresholds -----
     # The headline `t1_direction_correct` field uses ±50 cp, which empirically

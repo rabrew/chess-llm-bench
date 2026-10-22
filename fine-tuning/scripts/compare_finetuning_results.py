@@ -36,6 +36,7 @@ sys.path.insert(0, str(REPO_ROOT))
 from src.metrics import (  # noqa: E402
     EVAL_CLAMP_CP,
     MATE_SCORE_THRESHOLD_CP,
+    MOVE_PROMPT_FORMATS,
     compute_direction_agreement,
     compute_eval_error_vs_zero,
     compute_eval_rank_correlation,
@@ -53,7 +54,6 @@ DATA_DIR = str(REPO_ROOT / "data")
 FT_SUFFIX = "-board-ft"
 STANDARD_JOB = "standard"
 KEY_COLS = ["position_id", "prompt_format"]
-MOVE_FORMATS = ("fen_only", "pgn+fen", "cot", "move_only")
 KAPPA_THRESHOLD_CP = 50
 CPL_CLAMP_CP = EVAL_CLAMP_CP
 
@@ -120,7 +120,7 @@ def side_metrics(rows: pd.DataFrame) -> dict[str, float]:
     if not agreement.empty:
         agreement = agreement[agreement["threshold"] == KAPPA_THRESHOLD_CP]
     error = compute_eval_error_vs_zero(rows)
-    move_rows = rows[rows["prompt_format"].isin(MOVE_FORMATS)]
+    move_rows = rows[rows["prompt_format"].isin(MOVE_PROMPT_FORMATS)]
     return {
         "t1_spearman": _first_value(compute_eval_rank_correlation(rows), "spearman_rho"),
         "t1_kappa_t50": _first_value(agreement, "cohen_kappa"),
