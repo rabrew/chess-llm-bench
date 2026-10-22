@@ -155,6 +155,7 @@ class Worker:
         prompt_format = job.get("prompt_format", "pgn+fen")
         fen = job["fen"]
         pgn_moves = job.get("pgn_moves")
+        move_retry_reply = None
 
         def _is_legal(fen: str, san: str | None) -> bool:
             if not san:
@@ -214,6 +215,7 @@ class Worker:
                 else:
                     move_prompt = build_move_prompt(fen)
                     move_result = self.llm_client.chat(job["model"], move_prompt, system_prompt=MOVE_SYSTEM_PROMPT, temperature=0)
+                    move_retry_reply = move_result.get("response", "")
                     extracted = None
                     if move_result["success"] and move_result["response"].strip():
                         extracted = extract_move_from_text(fen, move_result["response"])
@@ -246,6 +248,10 @@ class Worker:
             parsed_response=parsed,
             scores=scores,
             inference_ms=llm_result["inference_ms"],
+            raw_responses={
+                "raw_response": llm_result["response"],
+                "raw_move_retry_response": move_retry_reply,
+            },
         )
 
         # Write result

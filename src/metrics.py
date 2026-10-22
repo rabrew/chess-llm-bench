@@ -409,6 +409,54 @@ def compute_eval_rank_correlation(df: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(records)
 
 
+def _non_mate_t1_rows(df: pd.DataFrame) -> pd.DataFrame:
+    valid = _valid_t1_rows(df)
+    if valid.empty:
+        return valid
+    return valid[valid["t1_stockfish_eval"].abs() < MATE_SCORE_THRESHOLD_CP]
+
+
+def _error_vs_zero(rows: pd.DataFrame) -> dict[str, Any]:
+    truth = rows["t1_stockfish_eval"].astype(float)
+    abs_error = (rows["t1_model_eval"].astype(float) - truth).abs()
+    mae, zero_mae = float(abs_error.mean()), float(truth.abs().mean())
+    return {
+        "n": len(rows),
+        "mae": mae,
+        "zero_mae": zero_mae,
+        "mae_ratio": mae / zero_mae if zero_mae > 0 else float("nan"),
+        "median_abs_error": float(abs_error.median()),
+        "zero_median_abs_error": float(truth.abs().median()),
+    }
+
+
+def compute_eval_error_vs_zero(df: pd.DataFrame) -> pd.DataFrame:
+    """Per-model T1 error next to the error of always answering 0 cp, on the same rows.
+
+    Most positions are near level, so a constant small answer scores a low error
+    without reading the board; mae_ratio < 1 is the bar for real skill.
+    Mate-truth rows are excluded, as for t1_abs_error_excl_mate.
+    """
+    rows = _non_mate_t1_rows(df)
+    if rows.empty:
+        return pd.DataFrame()
+    for model in set(df["model"]) - set(rows["model"]):
+        logger.warning(f"{model}: no non-mate rows with both T1 evals; omitted from zero baseline")
+    records = [
+        {"model": model, **_error_vs_zero(model_rows)}
+        for model, model_rows in rows.groupby("model")
+    ]
+    return pd.DataFrame(records)
+
+
+def _overall_zero_baseline(df: pd.DataFrame) -> dict[str, Any] | None:
+    rows = _non_mate_t1_rows(df)
+    if rows.empty:
+        return None
+    pooled = _error_vs_zero(rows)
+    return {key: pooled[key] for key in ("n", "mae", "zero_mae", "mae_ratio")}
+
+
 def _overall_direction_chance_metrics(df: pd.DataFrame) -> dict[str, Any]:
     """Pooled (all-model) baseline, κ and ρ for summary.json."""
     valid = _valid_t1_rows(df)
@@ -971,6 +1019,7 @@ def generate_summary(df: pd.DataFrame) -> dict[str, Any]:
                 for thresh in DIRECTION_THRESHOLDS_CP
             },
             **_overall_direction_chance_metrics(df),
+            "t1_zero_baseline": _overall_zero_baseline(df),
             "t2_legal_rate_buggy_includes_no_move_prompts": df["t2_legal"].mean(),
             "t2_legal_rate": (
                 df["t2_legal_attempted"].mean()
@@ -1021,6 +1070,7 @@ def _save_direction_chance_tables(df: pd.DataFrame, output_path: Path) -> None:
         "direction_baselines.csv": compute_direction_baselines(df),
         "direction_agreement.csv": compute_direction_agreement(df),
         "t1_rank_correlation.csv": compute_eval_rank_correlation(df),
+        "t1_error_vs_zero.csv": compute_eval_error_vs_zero(df),
     }
     for name, table in tables.items():
         _write_or_remove(table, output_path / name)

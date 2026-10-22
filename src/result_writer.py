@@ -73,6 +73,7 @@ def build_result_record(
     parsed_response: dict[str, Any],
     scores: dict[str, Any],
     inference_ms: int,
+    raw_responses: dict[str, str | None] | None = None,
 ) -> dict[str, Any]:
     """Build a complete result record for storage.
 
@@ -81,6 +82,8 @@ def build_result_record(
         parsed_response: Parsed LLM response
         scores: T1/T2/T3 scoring results
         inference_ms: Inference time in milliseconds
+        raw_responses: Raw model reply text by field name (e.g. raw_response);
+            None entries are left out of the record
 
     Returns:
         Complete result record
@@ -143,6 +146,10 @@ def build_result_record(
     # Add parse errors if any
     if parsed_response.get("parse_errors"):
         record["parse_errors"] = parsed_response["parse_errors"]
+
+    for field, text in (raw_responses or {}).items():
+        if text is not None:
+            record[field] = text
 
     return record
 

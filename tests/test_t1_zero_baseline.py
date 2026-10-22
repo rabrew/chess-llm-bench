@@ -19,7 +19,7 @@ MATE_TRUTH = MATE_SCORE_THRESHOLD_CP + 990
 
 def _df(model_evals_by_model: dict[str, list[float | None]], truth=TRUTH_EVALS) -> pd.DataFrame:
     rows = []
-    for model, evals in model_evals_by_model.items():
+    for size_b, (model, evals) in enumerate(model_evals_by_model.items(), start=1):
         for i, (me, sf) in enumerate(zip(evals, truth)):
             rows.append({
                 "model": model,
@@ -30,7 +30,7 @@ def _df(model_evals_by_model: dict[str, list[float | None]], truth=TRUTH_EVALS) 
                 "phase": "middlegame",
                 "source": "lichess_puzzles",
                 "model_family": "x",
-                "model_size_b": 3,
+                "model_size_b": size_b,
                 "t1_model_eval": me,
                 "t1_stockfish_eval": sf,
                 "t1_absolute_error": None if me is None else abs(me - sf),
