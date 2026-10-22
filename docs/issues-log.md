@@ -110,6 +110,54 @@ This document covers every technical problem encountered during development and 
 
 ---
 
+## Issue 14 — T1 Eval Error Rewards Guessing Near Zero; No Model Beats "Always 0"
+**Date:** October 22
+**Symptom:** The first fine-tuned results (llama3.2:3b-board-ft, gemma3:4b-board-ft) seemed to show a large T1 gain: llama's median error fell 88 → 54 cp and its direction accuracy rose 42% → 51%. Checking whether the fine-tuned answers (mostly 1–4) were in pawns instead of centipawns showed they were not. Multiplying by 100 made the error 5–8× worse.
+**Root cause:** Most positions are near level. The median |engine eval| on non-mate rows is about 50 cp, so a model that answers a small constant gets a low error and many "Equal" direction matches without reading the board. The fine-tuned models simply answer smaller numbers. The board-reading training data contained no evals at all.
+- **Rank correlation** (Spearman ρ, model eval vs engine eval) is about 0 for both fine-tuned models and their bases.
+- **Every one of the 22 base models has a higher MAE than answering 0 cp on every position:** the MAE/zero ratio runs from 1.31 to 7.03.
+- **The best ρ is weak:** llama3.3:70b 0.25, gemma4:31b 0.24, qwen2.5:14b 0.21. Most models under 10B are near 0.
+- So T1 error and direction accuracy as reported in FINDINGS mostly measure how close a model's guesses are to 0.
+
+**Fix:** Branch `t1-baselines`, spec `specs/t1-zero-baseline-and-ft-comparison.md`.
+- `compute_eval_error_vs_zero` writes `t1_error_vs_zero.csv` and the summary key `t1_zero_baseline`.
+- Raw model replies are now stored (`raw_response`, `raw_move_retry_response`), so questions like this can be answered from the data.
+- **Still to do:** rewrite the FINDINGS T1 section around ρ, κ and the zero baseline. In particular, the "best T1 direction accuracy" claim for deepseek-r1:14b needs re-checking: its ρ is 0.06 and its MAE/zero ratio is 1.45.
+
+---
+
+## Issue 15 — Fine-Tune Comparison Script Reported Nothing Real
+**Date:** October 22
+**Symptom:** `fine-tuning/scripts/compare_finetuning_results.py` would have reported ΔT1 = 0 for every model and diluted legal rates.
+**Root cause:**
+- It read `t1_correct`, a field no record has.
+- It defaulted to `evaluations.jsonl` when the run writes `evaluations_ft.jsonl`.
+- It averaged all 526k base records (other runs included) against the fine-tuned subset, without pairing positions.
+- It counted T2 legality over `eval_only` / `explanation_only` rows.
+- It computed T0 inside `except Exception: return None`.
+
+**Fix:** Rewritten on `t1-baselines`.
+- It pairs standard jobs on (model, position, format) and reads its paths from the configs.
+- It reports T1 ρ, κ and MAE/zero, plus T2 legality over move-asking prompts only.
+- T0 was dropped; `board_reading_test.py` measures it.
+- It includes a regression test for the Issue 14 artefact.
+
+---
+
+## Issue 16 — T2 Legal Rate Skipped Blanked Illegal Moves
+**Date:** October 22
+**Symptom:** `t2_legal_attempted` was exactly 1.000 for both fine-tuned models, while the true share of move prompts ending in a legal move was 57.5% (gemma3:4b-board-ft) and 71.7% (llama3.2:3b-board-ft).
+**Root cause:**
+- The metric counted only rows where `t2_move` is not null.
+- The current worker nulls any move it cannot make legal, so that an illegal move never reaches the scorer. Illegal moves therefore became null and were skipped.
+- The older base records still contain illegal moves, so they were mostly counted. As a result base and fine-tuned legality were measured by different rules.
+
+**Fix:** Branch `t1-baselines`. The attempt is now defined by the prompt format (`MOVE_PROMPT_FORMATS`), so a null move on a move-asking prompt counts as illegal.
+- Base legal rates drop by 0.02–3.4 points (pooled 97.9% → 97.0%). The largest drops are wizardlm2:7b, deepseek-r1:14b and mixtral:8x7b.
+- FINDINGS legality numbers need regenerating, but the base conclusions do not change.
+
+---
+
 ## Summary Table
 
 | # | Date | Component | Impact | Fix |
@@ -127,3 +175,6 @@ This document covers every technical problem encountered during development and 
 | 11 | Mar 19 | llm_client.py parser | Moves failed legality check | Strip backticks from move value |
 | 12 | Mar 19 | jobs.db / workers | Workers stalled on restart | Reset in_progress → pending manually |
 | 13 | Mar 19 | Worker process | Fix not applied to live run | Force-killed old process to reload code |
+| 14 | Oct 22 | T1 metrics | Eval "skill" is mostly guessing near 0; no model beats always-0 | Zero-answer baseline, ρ; FINDINGS rewrite pending |
+| 15 | Oct 22 | compare_finetuning_results.py | Wrong field, wrong path, unpaired averages | Rewritten with pairing and T1 baselines |
+| 16 | Oct 22 | metrics.py T2 legality | Illegal moves skipped; FT legality showed 100% | Attempt defined by prompt format |
