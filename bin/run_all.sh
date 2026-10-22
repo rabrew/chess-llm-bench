@@ -3,7 +3,15 @@ set -eo pipefail
 # Exit on error is intentional for setup steps (venv, dataset build).
 # Worker runs use explicit retry loops and '|| true' to survive Ollama crashes.
 
-cd /home/rabrew/Desktop/chess-llm-bench
+cd "$(dirname "$0")/.." || exit 1
+
+# BENCH_CONFIG selects the run (default: the base benchmark). Results file and
+# jobs DB come from its paths section. SKIP_INSTALL=1 skips the pip install,
+# which would otherwise reinstall unpinned unsloth from git.
+BENCH_CONFIG="${BENCH_CONFIG:-config/config.yaml}"
+cfg_path() { python3 -c "import yaml, sys; print(yaml.safe_load(open(sys.argv[1]))['paths'][sys.argv[2]])" "$BENCH_CONFIG" "$1"; }
+RESULTS_FILE=$(cfg_path results_file) || exit 1
+JOBS_DB=$(cfg_path jobs_db) || exit 1
 
 # Colors
 GREEN='\033[0;32m'
@@ -44,9 +52,13 @@ fi
 # Activate venv
 source venv/bin/activate
 
-print_step "[1/7] Installing dependencies..."
-pip install -r requirements.txt -q
-print_info "Done"
+if [ "${SKIP_INSTALL:-0}" = "1" ]; then
+    print_step "[1/7] Installing dependencies... SKIPPED (SKIP_INSTALL=1)"
+else
+    print_step "[1/7] Installing dependencies..."
+    pip install -r requirements.txt -q
+    print_info "Done"
+fi
 
 print_header "STEP 2/7: BUILDING DATASET"
 # Skip if dataset already exists with stockfish evals
@@ -64,7 +76,7 @@ print_header "STEP 3/7: LC0 GPU EVALUATION"
 print_info "SKIPPED — lc0_eval unused by evaluator; stockfish_eval+stockfish_best_move already present in dataset"
 
 print_header "STEP 4/7: PULLING OLLAMA MODELS"
-CONFIGURED_MODELS=$(python3 -c "import yaml; c=yaml.safe_load(open('config/config.yaml')); print('\n'.join(c['models']))" 2>/dev/null)
+CONFIGURED_MODELS=$(python3 -c "import yaml; c=yaml.safe_load(open('$BENCH_CONFIG')); print('\n'.join(c['models']))" 2>/dev/null)
 AVAILABLE_MODELS=$(curl -s http://localhost:11434/api/tags | python3 -c "import json,sys; print('\n'.join(m['name'] for m in json.load(sys.stdin).get('models',[])))" 2>/dev/null)
 MISSING=$(comm -23 <(echo "$CONFIGURED_MODELS" | sort) <(echo "$AVAILABLE_MODELS" | sort))
 if [ -z "$MISSING" ]; then
@@ -78,7 +90,7 @@ fi
 
 print_header "STEPS 5+6/7: GENERATING JOBS AND RUNNING BENCHMARK (MODEL BY MODEL, ALL TIERS)"
 print_info "Processing all tiers for one model at a time to maximise RAM usage..."
-MODELS=$(python3 -c "import yaml; c=yaml.safe_load(open('config/config.yaml')); print('\n'.join(c['models']))" 2>/dev/null)
+MODELS=$(python3 -c "import yaml; c=yaml.safe_load(open('$BENCH_CONFIG')); print('\n'.join(c['models']))" 2>/dev/null)
 echo ""
 
 # Restart Ollama with NUM_PARALLEL tuned to the model's VRAM footprint.
@@ -147,9 +159,8 @@ restart_ollama_for_model() {
     print_info "Ollama ready (NUM_PARALLEL=$num_parallel, workers=$workers, PID=$OLLAMA_BG_PID)"
 }
 
-RESULTS_FILE="results/evaluations.jsonl"
 JOBS_PER_TIER=5900  # 6000 jobs per tier; skip if >= this many results already saved
-SKIPPED_TIERS="jobs/db/skipped_tiers.txt"  # persistent record of tiers abandoned due to exhausted queue
+SKIPPED_TIERS="$(dirname "$JOBS_DB")/skipped_tiers.txt"  # persistent record of tiers abandoned due to exhausted queue
 
 tier_done() {
     local model="$1" tier="$2"
@@ -158,10 +169,9 @@ tier_done() {
         return 0
     fi
     local count
-    count=$(python3 - "$model" "$tier" <<'PYEOF' 2>/dev/null || echo 0
+    count=$(python3 - "$model" "$tier" "$RESULTS_FILE" <<'PYEOF' 2>/dev/null || echo 0
 import json, sys
-model, tier = sys.argv[1], sys.argv[2]
-results_file = "results/evaluations.jsonl"
+model, tier, results_file = sys.argv[1], sys.argv[2], sys.argv[3]
 n = 0
 try:
     with open(results_file) as f:
@@ -200,16 +210,16 @@ while IFS= read -r model; do
         fi
 
         print_info "Model: $model | Tier: $tier — generating jobs..."
-        python scripts/generate_jobs.py --tier "$tier" --model "$model" || true
+        python scripts/generate_jobs.py --config "$BENCH_CONFIG" --tier "$tier" --model "$model" || true
 
         print_info "Running workers for $model ($tier)..."
         until tier_done "$model" "$tier"; do
             # Reset stale in_progress jobs left by any previous crash
-            python3 - <<'PYEOF' 2>/dev/null || true
+            python3 - "$BENCH_CONFIG" <<'PYEOF' 2>/dev/null || true
 import sys, yaml
 sys.path.insert(0, '.')
 from src.job_queue import JobQueue
-config = yaml.safe_load(open('config/config.yaml'))
+config = yaml.safe_load(open(sys.argv[1]))
 jq = JobQueue(config['paths']['jobs_db'])
 n = jq.reset_stale_jobs(0)
 if n:
@@ -220,13 +230,13 @@ PYEOF
                 echo "  → Waiting for Ollama to come back up..."
                 sleep 15
             done
-            python scripts/run_workers.py --workers "$WORKERS" --model "$model" || true
+            python scripts/run_workers.py --config "$BENCH_CONFIG" --workers "$WORKERS" --model "$model" || true
 
             # If no pending jobs remain but tier still not done, nothing left to process — move on
             PENDING=$(python3 -c "
 import sqlite3, sys
 try:
-    conn = sqlite3.connect('jobs/db/jobs.db', timeout=3)
+    conn = sqlite3.connect('$JOBS_DB', timeout=3)
     cur  = conn.cursor()
     cur.execute(\"SELECT COUNT(*) FROM jobs WHERE model=? AND status IN ('pending','in_progress')\", ('$model',))
     print(cur.fetchone()[0])
@@ -243,7 +253,7 @@ except Exception:
         done
 
         print_info "$model/$tier complete. Wiping job DB..."
-        DB_PATH=$(python3 -c "import yaml; c=yaml.safe_load(open('config/config.yaml')); print(c['paths']['jobs_db'])" 2>/dev/null || echo "jobs/db/jobs.db")
+        DB_PATH="$JOBS_DB"
         rm -f "$DB_PATH" "${DB_PATH}-shm" "${DB_PATH}-wal"
         echo ""
     done
@@ -252,25 +262,25 @@ done <<< "$MODELS"
 print_header "STEP 7/7: RETRYING ILLEGAL MOVES"
 print_info "Re-prompting models with legal move list for all illegal/missing moves..."
 echo ""
-python scripts/retry_illegal_moves.py
+python scripts/retry_illegal_moves.py --input "$RESULTS_FILE" --output "${RESULTS_FILE%.jsonl}_retried.jsonl"
 echo ""
 
 print_header "STEP 8/9: ENRICHING CPL (Lc0 GPU)"
 print_info "Computing centipawn loss for all legal moves..."
 echo ""
-python scripts/enrich_cpl.py
+python scripts/enrich_cpl.py --results "$RESULTS_FILE" --config "$BENCH_CONFIG"
 echo ""
 
 print_header "STEP 9/9: GENERATING RESULTS"
 print_info "Creating plots and metrics..."
 echo ""
-python scripts/generate_plots.py --save-metrics
+python scripts/generate_plots.py --config "$BENCH_CONFIG" --save-metrics
 
 print_header "COMPLETE!"
 echo -e "  Finished: $(date)"
 echo ""
-echo -e "  ${GREEN}Results:${NC}       results/evaluations.jsonl"
-echo -e "  ${GREEN}Retried moves:${NC} results/evaluations_retried.jsonl"
+echo -e "  ${GREEN}Results:${NC}       $RESULTS_FILE"
+echo -e "  ${GREEN}Retried moves:${NC} ${RESULTS_FILE%.jsonl}_retried.jsonl"
 echo -e "  ${GREEN}Plots:${NC}         results/plots/"
 echo -e "  ${GREEN}Metrics:${NC}       results/metrics/"
 echo ""

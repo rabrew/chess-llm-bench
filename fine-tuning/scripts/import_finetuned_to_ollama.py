@@ -20,11 +20,60 @@ sys.path.insert(0, str(FT_SRC))
 
 from src.utils import setup_logging
 
-MODELFILE_TEMPLATE = """\
-FROM {gguf_path}
-PARAMETER num_ctx 1024
-PARAMETER num_predict 400
-"""
+BLOCK_QUOTE = '"""'
+
+
+def _top_level_lines(text: str) -> list[tuple[str, bool]]:
+    """Pair each line with whether it starts outside a triple-quoted block."""
+    lines, inside = [], False
+    for line in text.splitlines():
+        lines.append((line, not inside))
+        if line.count(BLOCK_QUOTE) % 2 == 1:
+            inside = not inside
+    return lines
+
+
+def _is_from(line: str, top_level: bool) -> bool:
+    return top_level and line.startswith("FROM ")
+
+
+def build_ft_modelfile(base_modelfile: str, gguf_path: Path) -> str:
+    """The base model's Modelfile with its FROM line(s) pointing at the fine-tuned GGUF.
+
+    TEMPLATE, SYSTEM, PARAMETER, RENDERER and PARSER are kept, so base and
+    fine-tuned models are prompted and sampled identically.
+    """
+    out, replaced = [], False
+    for line, top_level in _top_level_lines(base_modelfile):
+        if not _is_from(line, top_level):
+            out.append(line)
+        elif not replaced:
+            out.append(f"FROM {gguf_path}")
+            replaced = True
+    if not replaced:
+        raise ValueError("Base Modelfile has no FROM line")
+    return "\n".join(out) + "\n"
+
+
+def modelfile_settings(modelfile: str) -> str:
+    """Everything that affects prompting and sampling: the Modelfile minus FROM, comments and blanks.
+
+    Directives are sorted, because Ollama may reorder PARAMETER lines when it saves a model.
+    """
+    directives: list[list[str]] = []
+    for line, top_level in _top_level_lines(modelfile):
+        if not top_level:
+            directives[-1].append(line)
+        elif not (_is_from(line, top_level) or line.startswith("#") or not line.strip()):
+            directives.append([line])
+    return "\n".join(sorted("\n".join(lines) for lines in directives))
+
+
+def base_modelfile(ollama_base: str) -> str:
+    result = subprocess.run(["ollama", "show", ollama_base, "--modelfile"], capture_output=True, text=True)
+    if result.returncode != 0:
+        raise RuntimeError(f"ollama show {ollama_base} failed: {result.stderr.strip()}")
+    return result.stdout
 
 
 def load_ft_config(config_path: str) -> dict[str, Any]:
@@ -87,7 +136,7 @@ def run(ollama_base: str, config_path: str, logger: Any) -> None:
 
     # Write Modelfile
     modelfiles_dir.mkdir(parents=True, exist_ok=True)
-    modelfile_path.write_text(MODELFILE_TEMPLATE.format(gguf_path=gguf_path))
+    modelfile_path.write_text(build_ft_modelfile(base_modelfile(ollama_base), gguf_path))
     logger.info(f"Wrote Modelfile: {modelfile_path}")
 
     # Create Ollama model

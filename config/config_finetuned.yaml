@@ -1,0 +1,73 @@
+# Chess LLM Benchmark Configuration — fine-tuned models (specs/finetuned-benchmark-run.md)
+
+stockfish:
+  path: /usr/games/stockfish
+  depth: 15  # Reduced from 22 for ~4x speedup
+  threads: 1
+  workers: 24  # Parallel Stockfish instances
+
+lc0:
+  binary: /home/rabrew/lc0-src/build/release/lc0
+  weights: /home/rabrew/lc0-nets/network.pb
+  onnx_model: /home/rabrew/lc0-nets/network.onnx
+  nodes: 800  # Search budget per position for CPL ground truth (enrich_cpl.py)
+
+ollama:
+  base_url: http://localhost:11434
+  timeout: 600
+  max_retries: 3
+
+models:
+  # Batch-1 fine-tuned models. Everything except models and paths must match
+  # config/config.yaml (checked by scripts/check_ft_run.py).
+  - llama3.2:3b-board-ft
+  - gemma3:4b-board-ft
+  - qwen2.5:7b-board-ft
+  - mistral:7b-board-ft
+  - deepseek-r1:7b-board-ft
+  # gemma4:e2b-board-ft excluded: llama.cpp/Ollama do not reproduce its HF behaviour
+  # (specs/finetuned-benchmark-run.md, "Gemma 4 exclusion"). Checkpoint kept for a retry.
+
+dataset:
+  lichess_source: local  # "api" or "local"
+  lichess_csv_path: data/lichess_puzzles.csv
+  pgn_path: data/games.pgn
+
+benchmark:
+  max_positions_per_tier: 1000  # 1000 x 4 tiers = 4,000 total positions
+  random_seed: 42
+  prompt_formats:
+    - fen_only
+    - pgn+fen
+    - cot
+    - eval_only
+    - move_only
+    - explanation_only
+
+evaluation:
+  cpl_threshold: 50
+  centipawn_eval_range:
+    min: -2000
+    max: 2000
+
+workers:
+  count: 1
+
+correction_loop:
+  # DISABLED — dead code. The trigger checks t2_cpl > threshold at the
+  # end of each job, but the worker runs with engine=None so t2_cpl is
+  # never computed inline (CPL is filled in post-hoc by enrich_cpl.py).
+  # Result: 0 correction jobs were ever produced. See FINDINGS.md
+  # methodology for details. Setting `enabled: false` to be honest about
+  # what's actually running.
+  enabled: false
+  control_group: true
+  max_attempts: 2
+
+paths:
+  data_dir: data
+  jobs_db: jobs/db/jobs_ft.db
+  results_file: results/finetuning_experiment/evaluations_ft.jsonl
+  logs_dir: results/finetuning_experiment/logs
+  plots_dir: results/finetuning_experiment/plots
+  metrics_dir: results/finetuning_experiment/metrics
