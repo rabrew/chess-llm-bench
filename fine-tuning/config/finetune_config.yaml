@@ -126,3 +126,5 @@ paths:
   checkpoints_dir: "/home/rabrew/finetuned_checkpoints"
   gguf_output_dir: "/home/rabrew/finetuned_gguf"
   ollama_modelfiles_dir: "/home/rabrew/ollama_modelfiles"
+  merge_work_dir: "/mnt/shared/merge_work"     # reexport_gguf.py scratch (~20 GB for a 4B model)
+  llama_cpp_dir: "~/.unsloth/llama.cpp"        # convert_hf_to_gguf.py and llama-quantize
