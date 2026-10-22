@@ -143,6 +143,30 @@ Existing records are unchanged, and readers must treat both fields as optional.
 | A raw reply is an empty string | Stored as `""`; only `None` is left out |
 | Combined format, move rescued from the first reply | No retry call is made, so `raw_move_retry_response` is absent |
 
+## 4. T2 legal rate counts illegal moves (added 2026-10-22)
+
+**Defect.** `load_results_df` sets `t2_legal_attempted` only where `t2_move` is not null. But the worker
+blanks out any move it cannot make legal, which it must do so that an illegal move never reaches the
+scorer. So an illegal move is stored as `t2_move = None`, and is then skipped. The column is
+therefore 1.000 for every model; the fine-tuned run measured it on 2026-10-22, and zero rows had an
+illegal move recorded. The legal rates in FINDINGS that come from `t2_legal_attempted` are inflated.
+
+**Fix.** Define the attempt by the prompt, not by the answer:
+
+- `MOVE_PROMPT_FORMATS = ("fen_only", "pgn+fen", "cot", "move_only")`
+- `t2_legal_attempted` = `t2_legal` (with a missing value treated as False) on move-asking rows, and NaN
+  on `eval_only` / `explanation_only` rows.
+- The column name stays the same, so `by_model.csv`, `summary.json`, the hypothesis tests and
+  `generate_plots.py` pick up the corrected value with no other change.
+- If there is no `prompt_format` column (an old hand-built frame), fall back to the old rule and log a
+  warning.
+
+**Tests (`tests/test_t2_legal_rate.py`):**
+- A move-asking row with no move counts as illegal
+- `eval_only` / `explanation_only` rows are NaN
+- A legal move counts as legal
+- The fallback without `prompt_format` keeps the old behaviour
+
 ## Rollout constraint
 
 `bin/run_all.sh` starts a new `run_workers.py` process for every tier, and that process imports
