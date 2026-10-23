@@ -162,6 +162,18 @@ def test_t3_mean_and_cpl_clamp(tmp_path):
     assert row["delta_t3_mean"] == pytest.approx(-2)
 
 
+def test_t3_uses_whole_word_score(tmp_path):
+    """'opinion' must not count as naming the 'pin' theme (F-3, T3-1)."""
+    def explained(model, text):
+        record = _record(model, 0, "explanation_only", t3=2)
+        return {**record, "theme": "pin", "t3_explanation": text, "t3_p1_side_correct": 1}
+    base = [explained(BASE, "White — in my opinion the bishop is strong.")]
+    ft = [explained(FT, "White — the pin on the knight wins material.")]
+    row = _only_row(_compare(tmp_path, base, ft))
+    assert row["base_t3_mean"] == pytest.approx(1)
+    assert row["ft_t3_mean"] == pytest.approx(2)
+
+
 def test_undefined_metric_gives_nan_delta_not_zero(tmp_path):
     base = [_record(BASE, 0, "explanation_only", t3=1)]
     ft = [_record(FT, 0, "explanation_only", t3=1)]

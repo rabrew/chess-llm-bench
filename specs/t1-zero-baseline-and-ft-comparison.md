@@ -92,7 +92,7 @@ to the console. The columns are:
 | `t1_mae_ratio` | `t1_mae / zero_mae` on that side's own valid rows |
 | `t2_legal_rate` | share of move-asking rows (`fen_only, pgn+fen, cot, move_only`) whose final `t2_move` is legal |
 | `t2_mean_cpl_clamped` | mean CPL capped at 1000, over rows with a CPL |
-| `t3_mean` | mean `t3_score` over rows with one |
+| `t3_mean` | mean `t3_score_v2`, the whole-word theme match from [t3-whole-word-matching.md](t3-whole-word-matching.md), over rows with one. If the column is missing (records without `theme` / `t3_explanation`), fall back to `t3_score` and log a warning. Before 2026-10-23 this used `t3_score`, whose substring matcher credits "mate" in "material" (checklist F-3). |
 
 `zero_mae` is also written once per row. It is the zero-answer MAE on the rows where **both** sides gave
 an eval, so the reader has one common reference figure.
