@@ -190,6 +190,31 @@ This document covers every technical problem encountered during development and 
 
 ---
 
+## Issue 19 — Fine-Tune Comparison Scored T3 With the Old Substring Matcher
+**Date:** October 23
+**Symptom:** The rewritten comparison (Issue 15) reported T3 improving for 4 of 5 fine-tuned models.
+**Root cause:**
+- It averaged `t3_score`, which uses the substring theme matcher retired by T3-1. That matcher credits
+  "mate" inside "material" and "pin" inside "opinion".
+- `t3_score_v2`, the whole-word matcher (which also maps Lichess theme labels to words), was available
+  but unused. This is checklist item F-3.
+
+**Fix:** The comparison uses `t3_score_v2`, falling back to `t3_score` with a warning when it is
+missing. Corrected base → fine-tuned:
+
+| Model | Base → fine-tuned |
+|---|---|
+| deepseek-r1:7b | 0.48 → 0.39 |
+| gemma3:4b | 0.40 → 0.35 |
+| llama3.2:3b | 0.41 → 0.46 |
+| mistral:7b | 0.57 → 0.47 |
+| qwen2.5:7b | 0.35 → 0.34 |
+
+The finding flips: T3 falls for 3 models, is flat for qwen, and rises only for llama. These figures are
+still against the pre-rescue base records; the base re-run (Issue 18) gives the like-for-like version.
+
+---
+
 ## Summary Table
 
 | # | Date | Component | Impact | Fix |
@@ -212,3 +237,4 @@ This document covers every technical problem encountered during development and 
 | 16 | Oct 22 | metrics.py T2 legality | Illegal moves skipped; FT legality showed 100% | Attempt defined by prompt format |
 | 17 | Oct 23 | run_all.sh | Completed tiers marked abandoned; DB errors read as 0 pending | Check completion first; read-only pending count that fails loudly |
 | 18 | Oct 23 | FT comparison design | Base legality pre-rescue, FT post-rescue (F-4 broken) | Re-run the 5 base models on current code (pending) |
+| 19 | Oct 23 | compare_finetuning_results.py T3 | Substring T3 showed gains; whole-word T3 shows losses for 3 of 5 | Use t3_score_v2 |
