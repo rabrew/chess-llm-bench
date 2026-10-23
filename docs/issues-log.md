@@ -158,6 +158,24 @@ This document covers every technical problem encountered during development and 
 
 ---
 
+## Issue 17 — run_all.sh Recorded Every Completed Tier as Abandoned
+**Date:** October 23
+**Symptom:** The fine-tuned run finished all 20 model × tier combinations, each with 6,000 records, yet `jobs/db/skipped_tiers.txt` listed all 20 as "abandoned due to exhausted queue".
+**Root cause:**
+- After each worker pass, the loop counted pending jobs *before* re-checking `tier_done`. A finished tier also has 0 pending jobs, so it was recorded as abandoned.
+- `tier_done` trusts that file before it counts results, so a re-run after moving the results file would have silently skipped every tier.
+- The inline pending count also turned any DB error into "0 pending" (`except Exception: print(0)` plus `|| echo 0`).
+- Separately, the closing summary hard-coded `results/plots/` and `results/metrics/`.
+
+**Fix:** Spec `specs/run-all-tier-tracking.md`.
+- `tier_done` is now checked first.
+- The pending count moved to `scripts/pending_jobs.py`, which opens the DB read-only and exits 1 on error; the run stops instead of marking the tier.
+- The summary paths now come from the config.
+- `run_workers.py` no longer uses the deprecated `utcnow()`.
+- The false `skipped_tiers.txt` was deleted.
+
+---
+
 ## Summary Table
 
 | # | Date | Component | Impact | Fix |
@@ -178,3 +196,4 @@ This document covers every technical problem encountered during development and 
 | 14 | Oct 22 | T1 metrics | Eval "skill" is mostly guessing near 0; no model beats always-0 | Zero-answer baseline, ρ; FINDINGS rewrite pending |
 | 15 | Oct 22 | compare_finetuning_results.py | Wrong field, wrong path, unpaired averages | Rewritten with pairing and T1 baselines |
 | 16 | Oct 22 | metrics.py T2 legality | Illegal moves skipped; FT legality showed 100% | Attempt defined by prompt format |
+| 17 | Oct 23 | run_all.sh | Completed tiers marked abandoned; DB errors read as 0 pending | Check completion first; read-only pending count that fails loudly |
