@@ -133,3 +133,31 @@ Batch 2's Gemma 4 E4B will probably hit the same problem; `verify_export` will c
 
 From the base runs' active hours: llama3.2 2.0, gemma3 2.5, qwen 1.7, mistral 2.5, deepseek 4.2 and
 gemma4 1.3. That is about 14 h, plus the retry and CPL enrichment.
+
+## Base re-run on current code (added 2026-10-23, issues-log Issue 18)
+
+**Why:** the base records for the five batch-1 models (March and April) predate the move rescue, so base
+T2 legality is first-attempt while fine-tuned T2 legality is after rescue. The claim above, that base and
+fine-tuned share the same illegal-move retry, was wrong, and F-4 is not met. Re-running the bases on the
+current code gives both sides:
+- the same worker, rescue, prompts and Modelfiles
+- stored raw replies (`raw_response`)
+
+**Config:** `config/config_base_rerun.yaml` is identical to `config/config.yaml` except for:
+- `models`: `llama3.2:3b`, `gemma3:4b`, `qwen2.5:7b`, `mistral:7b`, `deepseek-r1:7b` (the bases of the
+  fine-tuned tags)
+- `paths`: `jobs/db/jobs_base_rerun.db` and
+  `results/finetuning_experiment/evaluations_base_rerun.jsonl`, with logs, plots and metrics under
+  `results/finetuning_experiment/base_rerun/`
+
+`results/evaluations.jsonl` is never written. The original base records stay as the published 22-model
+benchmark. The fine-tuning comparison uses
+`compare_finetuning_results.py --base results/finetuning_experiment/evaluations_base_rerun.jsonl`.
+
+**Run:** `BENCH_CONFIG=config/config_base_rerun.yaml SKIP_INSTALL=1 bin/run_all.sh`. It is the same size
+as the fine-tuned run: 120k jobs, about 8 h, plus retry and CPL enrichment (about 10 h).
+
+**Tests** (`tests/test_ft_run_setup.py`):
+- The re-run config matches the base config except for `models` and `paths`
+- Its models are exactly the bases of the batch-1 fine-tuned tags
+- Every output path differs from both the base and the fine-tuned configs, and `data_dir` is shared
