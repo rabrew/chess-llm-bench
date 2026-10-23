@@ -232,18 +232,17 @@ PYEOF
             done
             python scripts/run_workers.py --config "$BENCH_CONFIG" --workers "$WORKERS" --model "$model" || true
 
-            # If no pending jobs remain but tier still not done, nothing left to process — move on
-            PENDING=$(python3 -c "
-import sqlite3, sys
-try:
-    conn = sqlite3.connect('$JOBS_DB', timeout=3)
-    cur  = conn.cursor()
-    cur.execute(\"SELECT COUNT(*) FROM jobs WHERE model=? AND status IN ('pending','in_progress')\", ('$model',))
-    print(cur.fetchone()[0])
-    conn.close()
-except Exception:
-    print(0)
-" 2>/dev/null || echo 0)
+            # A finished tier also has no pending jobs, so check completion first;
+            # otherwise every finished tier gets recorded as abandoned.
+            if tier_done "$model" "$tier"; then
+                break
+            fi
+
+            # Tier still short of results: if nothing is left to run, failures exhausted the queue
+            if ! PENDING=$(python3 scripts/pending_jobs.py --db "$JOBS_DB" --model "$model"); then
+                echo "  ✗ Cannot read pending jobs for $model/$tier — stopping" >&2
+                exit 1
+            fi
             if [ "$PENDING" -eq 0 ]; then
                 print_info "No pending jobs remain for $model/$tier (failures exhausted queue) — skipping"
                 mkdir -p "$(dirname "$SKIPPED_TIERS")"
@@ -281,7 +280,7 @@ echo -e "  Finished: $(date)"
 echo ""
 echo -e "  ${GREEN}Results:${NC}       $RESULTS_FILE"
 echo -e "  ${GREEN}Retried moves:${NC} ${RESULTS_FILE%.jsonl}_retried.jsonl"
-echo -e "  ${GREEN}Plots:${NC}         results/plots/"
-echo -e "  ${GREEN}Metrics:${NC}       results/metrics/"
+echo -e "  ${GREEN}Plots:${NC}         $(cfg_path plots_dir)"
+echo -e "  ${GREEN}Metrics:${NC}       $(cfg_path metrics_dir)"
 echo ""
 echo -e "${BLUE}════════════════════════════════════════════════════════════════${NC}"

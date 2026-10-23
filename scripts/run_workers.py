@@ -8,7 +8,7 @@ import multiprocessing
 import signal
 import sqlite3
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 # Add src to path
@@ -44,7 +44,7 @@ def write_run_log(config: dict, run_id: str, log_dir: str) -> None:
     ensure_dir(log_dir)
 
     metadata = {
-        "timestamp": datetime.utcnow().isoformat() + "Z",
+        "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
         "run_id": run_id,
         "models": config.get("models", []),
         "prompt_formats": config.get("benchmark", {}).get("prompt_formats", []),
@@ -167,7 +167,7 @@ def main():  # pragma: no cover
     signal.signal(signal.SIGTERM, signal_handler)
 
     # Write run log
-    run_id = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+    run_id = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
     write_run_log(config, run_id, log_dir)
 
     print(f"\nStarting {num_workers} workers...")
