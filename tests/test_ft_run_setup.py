@@ -97,3 +97,25 @@ def test_launcher_is_config_driven():
 @pytest.mark.parametrize("step", ["retry_illegal_moves.py --input", "enrich_cpl.py --results"])
 def test_launcher_passes_paths_to_post_steps(step):
     assert step in (REPO / "bin" / "run_all.sh").read_text()
+
+
+# --- base re-run on current code (Issue 18) -----------------------------------
+
+RERUN_CFG = REPO / "config" / "config_base_rerun.yaml"
+OUTPUT_PATHS = ("jobs_db", "results_file", "logs_dir", "plots_dir", "metrics_dir")
+
+
+def test_rerun_config_matches_base_except_models_and_paths():
+    assert chk.config_differences(_load(BASE_CFG), _load(RERUN_CFG)) == []
+
+
+def test_rerun_config_lists_the_bases_of_batch_one():
+    assert set(_load(RERUN_CFG)["models"]) == {tag.removesuffix("-board-ft") for tag in BATCH_1}
+
+
+def test_rerun_config_writes_to_its_own_files():
+    rerun = _load(RERUN_CFG)["paths"]
+    for other in (_load(BASE_CFG)["paths"], _load(FT_CFG)["paths"]):
+        for key in OUTPUT_PATHS:
+            assert rerun[key] != other[key], key
+        assert rerun["data_dir"] == other["data_dir"]
