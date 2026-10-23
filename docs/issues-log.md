@@ -176,6 +176,20 @@ This document covers every technical problem encountered during development and 
 
 ---
 
+## Issue 18 — Base and Fine-Tuned Moves Collected Under Different Rescue Rules
+**Date:** October 23
+**Symptom:** The fine-tuned comparison put base T2 legality (90.7–98.8%) next to fine-tuned legality (58.0–95.1%) as if they were measured the same way.
+**Root cause:**
+- The base records for the five batch-1 models (collected 25–26 March, and 13–14 April for deepseek-r1:7b) predate the move rescue. Every base run kept storing illegal moves until its last record.
+- The fine-tuned run (22–23 October) used the current worker. It rescues a legal move from the reply text, then re-asks with an isolated move-only prompt.
+- So base legality is first-attempt, and fine-tuned legality is after rescue. `specs/finetuned-benchmark-run.md` claimed the same illegal-move retry on both sides, which was not true. This breaks checklist item F-4.
+- The direction of the finding is safe: the fine-tuned models had help the base models did not and still scored up to 41 points lower. But the size of the gap is not measured like for like.
+- It cannot be fixed from stored data, because the fine-tuned run predates raw-reply logging (Issue 14).
+
+**Fix:** Re-run the five base models on the current code, which is what F-4 prescribes. That gives the same worker, rescue, prompts and raw replies on both sides. The run is 120k jobs, about 8 h of benchmark plus CPL enrichment. Until then, quote the T2 gap only as a lower bound.
+
+---
+
 ## Summary Table
 
 | # | Date | Component | Impact | Fix |
@@ -197,3 +211,4 @@ This document covers every technical problem encountered during development and 
 | 15 | Oct 22 | compare_finetuning_results.py | Wrong field, wrong path, unpaired averages | Rewritten with pairing and T1 baselines |
 | 16 | Oct 22 | metrics.py T2 legality | Illegal moves skipped; FT legality showed 100% | Attempt defined by prompt format |
 | 17 | Oct 23 | run_all.sh | Completed tiers marked abandoned; DB errors read as 0 pending | Check completion first; read-only pending count that fails loudly |
+| 18 | Oct 23 | FT comparison design | Base legality pre-rescue, FT post-rescue (F-4 broken) | Re-run the 5 base models on current code (pending) |
