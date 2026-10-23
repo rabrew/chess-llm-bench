@@ -128,8 +128,16 @@ def side_metrics(rows: pd.DataFrame) -> dict[str, float]:
         "t1_mae_ratio": _first_value(error, "mae_ratio"),
         "t2_legal_rate": _mean(move_rows["t2_legal"].fillna(False).astype(float)),
         "t2_mean_cpl_clamped": _mean(pd.to_numeric(rows["t2_cpl_clamped"], errors="coerce")),
-        "t3_mean": _mean(pd.to_numeric(rows["t3_score"], errors="coerce")),
+        "t3_mean": _mean(pd.to_numeric(rows[_t3_column(rows)], errors="coerce")),
     }
+
+
+def _t3_column(rows: pd.DataFrame) -> str:
+    """Whole-word T3 score; the old substring score only when it is unavailable."""
+    if "t3_score_v2" in rows.columns:
+        return "t3_score_v2"
+    logger.warning("No t3_score_v2 (records lack theme/t3_explanation); T3 falls back to substring-matched t3_score")
+    return "t3_score"
 
 
 def shared_zero_mae(base_rows: pd.DataFrame, ft_rows: pd.DataFrame) -> float:
