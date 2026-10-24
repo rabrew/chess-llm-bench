@@ -227,3 +227,24 @@ def test_compute_by_prompt_format():
 
 def test_default_docs_cover_findings_and_summary():
     assert rf.DEFAULT_DOCS == ("docs/FINDINGS.md", "docs/SIMPLE_SUMMARY.md")
+
+
+def test_finetune_legal_table(tmp_path):
+    sources = _sources(tmp_path)
+    assert "not available" in rf.render_all(sources)["finetune_legal"]
+    comparison = tmp_path / "comparison_legal.csv"
+    pd.DataFrame({"base_model": ["qwen2.5:7b"], "ft_model": ["qwen2.5:7b-board-legal-ft"],
+                  "base_t1_spearman": [0.14], "ft_t1_spearman": [0.15],
+                  "base_t2_legal_rate": [0.984], "ft_t2_legal_rate": [0.99],
+                  "base_t2_first_attempt_legal_rate": [0.103], "ft_t2_first_attempt_legal_rate": [0.31],
+                  "base_t2_blunder_rate": [0.42], "ft_t2_blunder_rate": [0.41]}).to_csv(comparison, index=False)
+    board = tmp_path / "board_legal.csv"
+    pd.DataFrame({"model": ["qwen2.5:7b", "qwen2.5:7b-board-legal-ft"], "base_model": ["qwen2.5:7b"] * 2,
+                  "fine_tuned": [False, True], "mean_legal_recall": [0.02, 0.95],
+                  "mean_legal_precision": [0.1, 0.97]}).to_csv(board, index=False)
+    legal_sources = rf.Sources(sources.metrics, sources.rerun_metrics, sources.comparison, sources.board_test,
+                               legal_comparison=comparison, legal_board_test=board)
+    table = rf.render_all(legal_sources)["finetune_legal"]
+    assert "2.0% → 95.0%" in table  # criterion 0
+    assert "10.3% → 31.0%" in table  # criterion 1
+    assert "98.4% → 99.0%" in table
