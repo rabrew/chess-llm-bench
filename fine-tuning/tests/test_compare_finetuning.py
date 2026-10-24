@@ -169,6 +169,18 @@ def test_first_attempt_rate_nan_without_raw_replies(tmp_path):
     assert math.isnan(row["delta_t2_first_attempt_legal_rate"])
 
 
+def test_blunder_rate_compared(tmp_path):
+    """T2-1 in F-3: share of legal moves with clamped CPL >= 1000."""
+    base = [_record(BASE, 0, "fen_only", move="Nf6", legal=True, cpl=5000),
+            _record(BASE, 1, "fen_only", move="Nf6", legal=True, cpl=100)]
+    ft = [_record(FT, 0, "fen_only", move="Nf6", legal=True, cpl=100),
+          _record(FT, 1, "fen_only", move="Nf6", legal=True, cpl=100)]
+    row = _only_row(_compare(tmp_path, base, ft))
+    assert row["base_t2_blunder_rate"] == pytest.approx(0.5)
+    assert row["ft_t2_blunder_rate"] == pytest.approx(0.0)
+    assert row["delta_t2_blunder_rate"] == pytest.approx(-0.5)
+
+
 def test_t3_mean_and_cpl_clamp(tmp_path):
     base = [_record(BASE, 0, "fen_only", move="Nf6", legal=True, cpl=5000, t3=2)]
     ft = [_record(FT, 0, "fen_only", move="Nf6", legal=True, cpl=100, t3=0)]
