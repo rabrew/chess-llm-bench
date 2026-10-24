@@ -81,6 +81,7 @@ this limit.
 | A record with `t2_cpl` but an illegal or missing move | Not possible (CPL is only set on legal moves); the backfill still only needs the FEN |
 | `t2_cpl == 0` | The backfill still stores "before"; "after" = "before"; the clamped CPL is 0 |
 | An engine failure on a FEN | The field is left missing; `load_results_df` falls back and counts it |
+| The results path is a symlink (`results/evaluations.jsonl` on the PC points into the original checkout) | Resolve it first, so the target file is updated and the link is kept; the backup sits next to the target |
 | The backfill is re-run | Records that already have `t2_eval_before` are skipped (idempotent) |
 | Old results files never backfilled | They behave as today, plus one warning |
 | A mate-score "before" (±10,000) | Clamped to ±1,000 by `compute_clamped_cpl`, so the clamped CPL is ≤ 2,000 by construction and ≤ 1,000 whenever "before" and "after" have the same sign |

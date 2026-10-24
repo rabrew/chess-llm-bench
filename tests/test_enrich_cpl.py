@@ -343,3 +343,14 @@ class TestRunBackfill:
         path = self._write(tmp_path, [make_record(t2_cpl=40)])
         run(str(path), str(tmp_path), engine=_engine(), dry_run=False, backfill=True, backup=False)
         assert not list(tmp_path.glob("*.bak-*"))
+
+    def test_symlinked_results_updates_target_and_keeps_link(self, tmp_path):
+        target_dir = tmp_path / "original"
+        target_dir.mkdir()
+        target = self._write(target_dir, [make_record(t2_cpl=40)])
+        link = tmp_path / "evaluations.jsonl"
+        link.symlink_to(target)
+        run(str(link), str(tmp_path), engine=_engine(eval_cp=55), dry_run=False, backfill=True)
+        assert link.is_symlink()
+        assert json.loads(target.read_text())["t2_eval_before"] == 55
+        assert len(list(target_dir.glob("evaluations.jsonl.bak-*"))) == 1
