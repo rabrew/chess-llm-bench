@@ -811,6 +811,14 @@ def _overall_zero_baseline(df: pd.DataFrame) -> dict[str, Any] | None:
     return {key: pooled[key] for key in ("n", "mae", "zero_mae", "mae_ratio")}
 
 
+def _t1_headline(df: pd.DataFrame) -> dict[str, Any] | None:
+    """Pooled Spearman ρ, the headline T1 number (specs/t1-headline-rho.md)."""
+    valid = _valid_t1_rows(df)
+    if valid.empty:
+        return None
+    return {"metric": "spearman_rho", "value": _spearman(valid), "n": int(len(valid))}
+
+
 def _overall_direction_chance_metrics(df: pd.DataFrame) -> dict[str, Any]:
     """Pooled (all-model) baseline, κ and ρ for summary.json."""
     valid = _valid_t1_rows(df)
@@ -929,8 +937,13 @@ def aggregate_by_model(df: pd.DataFrame) -> pd.DataFrame:
 
     # Flatten column names
     agg.columns = ["_".join(col).strip("_") for col in agg.columns]
+    agg = agg.reset_index()
 
-    return agg.reset_index()
+    # Headline T1 measure: threshold-free rank correlation (T1-4)
+    rho = compute_eval_rank_correlation(df)
+    rho_by_model = rho.set_index("model")["spearman_rho"] if not rho.empty else pd.Series(dtype=float)
+    agg["t1_spearman_rho"] = agg["model"].map(rho_by_model)
+    return agg
 
 
 def aggregate_by_difficulty(df: pd.DataFrame) -> pd.DataFrame:
@@ -1373,6 +1386,7 @@ def generate_summary(df: pd.DataFrame) -> dict[str, Any]:
                 for thresh in DIRECTION_THRESHOLDS_CP
             },
             **_overall_direction_chance_metrics(df),
+            "t1_headline": _t1_headline(df),
             "t1_zero_baseline": _overall_zero_baseline(df),
             "t2_first_attempt_combined": _overall_first_attempt_combined(df),
             "t2_blunder_rate": _overall_blunder_rate(df),

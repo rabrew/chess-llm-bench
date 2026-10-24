@@ -20,35 +20,27 @@ import numpy as np
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from src.utils import load_config, setup_logging, ensure_dir
+from src.utils import ensure_dir, load_config, parse_model_info, setup_logging
 
 # ---------------------------------------------------------------------------
-# Model metadata — family and parameter count
+# Model metadata: family and size come from MODEL_REGISTRY (src/utils.py);
+# this only maps registry families to display labels.
 # ---------------------------------------------------------------------------
 
-MODEL_META = {
-    "llama3.2:3b":     {"family": "LLaMA 3",    "size": 3},
-    "llama3.1:8b":     {"family": "LLaMA 3",    "size": 8},
-    "llama3.3:70b":    {"family": "LLaMA 3",    "size": 70},
-    "gemma3:4b":       {"family": "Gemma 3",    "size": 4},
-    "gemma3:12b":      {"family": "Gemma 3",    "size": 12},
-    "gemma4:e2b":      {"family": "Gemma 4",    "size": 2},
-    "gemma4:e4b":      {"family": "Gemma 4",    "size": 4},
-    "gemma4:26b":      {"family": "Gemma 4",    "size": 26},
-    "gemma4:31b":      {"family": "Gemma 4",    "size": 31},
-    "qwen2.5:7b":      {"family": "Qwen 2.5",   "size": 7},
-    "qwen2.5:14b":     {"family": "Qwen 2.5",   "size": 14},
-    "qwen2.5:32b":     {"family": "Qwen 2.5",   "size": 32},
-    "deepseek-r1:7b":  {"family": "DeepSeek-R1","size": 7},
-    "deepseek-r1:14b": {"family": "DeepSeek-R1","size": 14},
-    "mistral:7b":      {"family": "Mistral",    "size": 7},
-    "mixtral:8x7b":    {"family": "Mistral",    "size": 47},
-    "solar:10.7b":     {"family": "Solar",      "size": 11},
-    "phi4:14b":        {"family": "Phi-4",      "size": 14},
-    "wizardlm2:7b":    {"family": "WizardLM",   "size": 7},
-    "codellama:34b":   {"family": "CodeLlama",  "size": 34},
-    "yi:34b":          {"family": "Yi",         "size": 34},
-    "command-r:35b":   {"family": "Command-R",  "size": 35},
+FAMILY_DISPLAY = {
+    "llama3": "LLaMA 3",
+    "gemma3": "Gemma 3",
+    "gemma4": "Gemma 4",
+    "qwen2.5": "Qwen 2.5",
+    "deepseek-r1": "DeepSeek-R1",
+    "mistral": "Mistral",
+    "mixtral": "Mistral",
+    "solar": "Solar",
+    "phi4": "Phi-4",
+    "wizardlm2": "WizardLM",
+    "codellama": "CodeLlama",
+    "yi": "Yi",
+    "command-r": "Command-R",
 }
 
 FAMILY_ORDER = [
@@ -73,6 +65,7 @@ FAMILY_COLORS = {
 }
 
 DIFFICULTY_ORDER = ["easy", "medium", "hard", "extreme"]
+NO_RELATION_LABEL = "No relation (ρ = 0)"
 
 # Short display names for models (strip redundant tag info)
 def short_name(m: str) -> str:
@@ -95,9 +88,17 @@ def load_model_df(metrics_dir: Path) -> pd.DataFrame:
     if not path.exists():
         raise FileNotFoundError(f"Metrics not found at {path}. Run with --save-metrics first.")
     df = pd.read_csv(path)
-    df["family"] = df["model"].map(lambda m: MODEL_META.get(m, {}).get("family", "Other"))
-    df["size_b"] = df["model"].map(lambda m: MODEL_META.get(m, {}).get("size", 0))
+    df["family"] = df["model"].map(_display_family)
+    df["size_b"] = df["model"].map(_model_size)
     df["display"] = df["model"].map(short_name)
+    # Headline T1: threshold-free Spearman ρ (T1-4); direction accuracy only
+    # for metrics files written before ρ was added to by_model.csv.
+    if "t1_spearman_rho" in df.columns:
+        df["t1_headline_mean"] = df["t1_spearman_rho"]
+        df["t1_headline_label"] = "Spearman ρ (model eval vs engine)"
+    else:
+        df["t1_headline_mean"] = df["t1_direction_correct_mean"]
+        df["t1_headline_label"] = "Direction accuracy (±50 cp, legacy)"
     # Headline legality: prefer t2_legal_attempted (only counts move-asking
     # prompts) when available; falls back to legacy column for older files.
     df["t2_legal_headline_mean"] = df.get(
@@ -119,13 +120,21 @@ def load_model_df(metrics_dir: Path) -> pd.DataFrame:
     return df
 
 
+def _model_size(model: str) -> float:
+    return parse_model_info(model)["size_b"]
+
+
+def _display_family(model: str) -> str:
+    return FAMILY_DISPLAY[parse_model_info(model)["family"]]
+
+
 def load_difficulty_df(metrics_dir: Path) -> pd.DataFrame:
     """Load by_difficulty.csv, annotate with family/size."""
     path = metrics_dir / "by_difficulty.csv"
     if not path.exists():
         raise FileNotFoundError(f"Metrics not found at {path}.")
     df = pd.read_csv(path)
-    df["family"] = df["model"].map(lambda m: MODEL_META.get(m, {}).get("family", "Other"))
+    df["family"] = df["model"].map(_display_family)
     df["difficulty"] = pd.Categorical(df["difficulty"], categories=DIFFICULTY_ORDER, ordered=True)
     return df
 
@@ -135,7 +144,7 @@ def load_difficulty_df(metrics_dir: Path) -> pd.DataFrame:
 # ---------------------------------------------------------------------------
 
 def plot_overview_rankings(mdf: pd.DataFrame, output_dir: Path) -> None:
-    """Three horizontal bar charts: T1 direction acc, T2 CPL, T3 score.
+    """Three horizontal bar charts: T1 Spearman ρ, T2 CPL, T3 score.
 
     T2 uses clamped CPL (±1000 cp, Lichess convention). T3 uses the v2 theme
     matcher (handles camelCase Lichess labels). See specs/artefact-fixes.md.
@@ -150,8 +159,8 @@ def plot_overview_rankings(mdf: pd.DataFrame, output_dir: Path) -> None:
     mdf["t2_quality_score"] = max_cpl - mdf[cpl_col]
 
     metrics = [
-        ("t1_direction_correct_mean", "T1: Direction Accuracy\n(who is winning?)", True,
-         "Higher = better  ↑", 0.33, "Chance (33%)"),
+        ("t1_headline_mean", "T1: Eval follows the position?\n(Spearman ρ vs engine)", True,
+         "Higher = better  ↑", 0.0, NO_RELATION_LABEL),
         ("t2_quality_score",          "T2: Move Quality\n(higher bar = fewer centipawns lost)", True,
          "Higher = better  ↑  (clamped CPL shown on bar)", None, None),
         (t3_col,                      "T3: Explanation Score\n(verbal reasoning quality)", True,
@@ -180,8 +189,8 @@ def plot_overview_rankings(mdf: pd.DataFrame, output_dir: Path) -> None:
             if col == "t2_quality_score":
                 raw = row[cpl_col]
                 fmt = f"{raw:.0f} CPL"
-            elif col == "t1_direction_correct_mean":
-                fmt = f"{row[col]:.1%}"
+            elif col == "t1_headline_mean":
+                fmt = f"ρ={row[col]:.2f}"
             else:
                 fmt = f"{row[col]:.3f}"
             ax.text(
@@ -200,10 +209,10 @@ def plot_overview_rankings(mdf: pd.DataFrame, output_dir: Path) -> None:
         ax.tick_params(axis="x", labelsize=8)
         ax.spines[["top", "right"]].set_visible(False)
 
-        if higher_better:
-            ax.set_xlim(0, data[col].max() * 1.18)
-        else:
-            ax.set_xlim(0, data[col].max() * 1.12)
+        # ρ can be negative, so the axis must reach below 0 when it is.
+        low = min(0.0, data[col].min() * 1.18)
+        high = max(0.0, data[col].max()) * (1.18 if higher_better else 1.12)
+        ax.set_xlim(low, high if high > low else low + 1)
 
     fig.legend(
         handles=legend_patches, title="Model Family", title_fontsize=9,
@@ -226,7 +235,7 @@ def plot_family_scaling(mdf: pd.DataFrame, output_dir: Path) -> None:
     """Performance vs parameter count, one line per model family."""
 
     panels = [
-        ("t1_direction_correct_mean", "T1 Direction Accuracy",       True,  0.33, "Chance (33%)"),
+        ("t1_headline_mean",          "T1 Spearman ρ",               True,  0.0,  NO_RELATION_LABEL),
         ("t2_cpl_headline_mean",      "T2 Move Quality (clamped CPL)", False, None, None),
         ("t3_score_headline_mean",    "T3 Explanation Score",        True,  None, None),
     ]
@@ -442,13 +451,13 @@ def plot_summary_heatmap(mdf: pd.DataFrame, output_dir: Path) -> None:
     """
 
     cols = {
-        "t1_direction_correct_mean": "T1\nDirection\nAccuracy",
+        "t1_headline_mean":          "T1\nSpearman ρ",
         "t2_legal_headline_mean":             "T2\nLegal Move\nRate",
         "t2_cpl_headline_mean":      "T2 Move\nQuality\n(clamped CPL)",
         "t3_score_headline_mean":    "T3\nExplanation\nScore",
     }
     higher_better = {
-        "t1_direction_correct_mean": True,
+        "t1_headline_mean":          True,
         "t2_legal_headline_mean":             True,
         "t2_cpl_headline_mean":      False,
         "t3_score_headline_mean":    True,
@@ -492,7 +501,7 @@ def plot_summary_heatmap(mdf: pd.DataFrame, output_dir: Path) -> None:
 
     # Annotate cells with raw values
     fmt_fns = {
-        "t1_direction_correct_mean": lambda v: f"{v:.1%}",
+        "t1_headline_mean":          lambda v: f"{v:.2f}",
         "t2_legal_headline_mean":             lambda v: f"{v:.1%}",
         "t2_cpl_headline_mean":      lambda v: f"{v:.0f}",
         "t3_score_headline_mean":    lambda v: f"{v:.3f}",
@@ -570,7 +579,7 @@ def plot_per_family(ddf: pd.DataFrame, mdf: pd.DataFrame, output_dir: Path) -> N
     for family_name in sorted(ddf["plot_family"].unique()):
         fam_diff = ddf[ddf["plot_family"] == family_name]
         fam_model = mdf[mdf["plot_family"] == family_name]
-        models = sorted(fam_diff["model"].unique(), key=lambda m: MODEL_META.get(m, {}).get("size", 0))
+        models = sorted(fam_diff["model"].unique(), key=_model_size)
 
         if not models:
             continue
@@ -581,7 +590,7 @@ def plot_per_family(ddf: pd.DataFrame, mdf: pd.DataFrame, output_dir: Path) -> N
         axes = axes.flatten()
 
         subtitle = "  ·  ".join(
-            f"{short_name(m)}  ({MODEL_META.get(m, {}).get('size', '?')}B)"
+            f"{short_name(m)}  ({_model_size(m):g}B)"
             for m in models
         )
         fig.suptitle(
@@ -597,7 +606,7 @@ def plot_per_family(ddf: pd.DataFrame, mdf: pd.DataFrame, output_dir: Path) -> N
                     if d in row_data["difficulty"].values else float("nan")
                     for d in DIFFICULTY_ORDER
                 ]
-                size_b = MODEL_META.get(model, {}).get("size", 0)
+                size_b = _model_size(model)
                 ax.plot(
                     DIFFICULTY_ORDER, ys,
                     marker="o", linewidth=2.2, markersize=7,
