@@ -154,6 +154,21 @@ def test_legal_rate_ignores_prompts_that_ask_for_no_move(tmp_path):
     assert row["delta_t2_legal_rate"] == pytest.approx(-0.5)
 
 
+def test_first_attempt_rate_nan_without_raw_replies(tmp_path):
+    """Base re-run saves replies; the fine-tuned run did not (specs/t2-move-source.md)."""
+    base = [
+        {**_record(BASE, 0, "fen_only", move="Nf6", legal=True),
+         "raw_response": "Eval: 0\nMove: Nf6\nExplanation: Equal — level."},
+        {**_record(BASE, 1, "fen_only", move="Nf6", legal=True),
+         "raw_response": "Eval: 0\nMove: e4\nExplanation: Equal — level.", "raw_move_retry_response": "Nf6"},
+    ]
+    ft = [_record(FT, 0, "fen_only", move="Nf6", legal=True), _record(FT, 1, "fen_only", move="Nf6", legal=True)]
+    row = _only_row(_compare(tmp_path, base, ft))
+    assert row["base_t2_first_attempt_legal_rate"] == pytest.approx(0.5)
+    assert math.isnan(row["ft_t2_first_attempt_legal_rate"])
+    assert math.isnan(row["delta_t2_first_attempt_legal_rate"])
+
+
 def test_t3_mean_and_cpl_clamp(tmp_path):
     base = [_record(BASE, 0, "fen_only", move="Nf6", legal=True, cpl=5000, t3=2)]
     ft = [_record(FT, 0, "fen_only", move="Nf6", legal=True, cpl=100, t3=0)]
