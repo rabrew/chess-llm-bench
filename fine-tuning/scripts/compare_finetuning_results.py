@@ -46,7 +46,7 @@ from src.metrics import (  # noqa: E402
     compute_eval_rank_correlation,
     load_results_df,
 )
-from src.utils import load_config, setup_logging  # noqa: E402
+from src.utils import FINE_TUNED_SUFFIXES, base_model_tag, load_config, setup_logging  # noqa: E402
 
 logger = logging.getLogger("chess_llm_bench")
 
@@ -55,7 +55,6 @@ FT_CONFIG = "config/config_finetuned.yaml"
 OUTPUT_CSV = "results/finetuning_experiment/comparison.csv"
 DATA_DIR = str(REPO_ROOT / "data")
 
-FT_SUFFIX = "-board-ft"
 STANDARD_JOB = "standard"
 KEY_COLS = ["position_id", "prompt_format"]
 KAPPA_THRESHOLD_CP = 50
@@ -101,7 +100,7 @@ def _dedupe(rows: pd.DataFrame, model: str) -> pd.DataFrame:
 
 
 def _pair(base_df: pd.DataFrame, ft_df: pd.DataFrame, ft_model: str) -> tuple[pd.DataFrame, pd.DataFrame]:
-    base_model = ft_model.removesuffix(FT_SUFFIX)
+    base_model = base_model_tag(ft_model)
     base_rows = _dedupe(base_df[base_df["model"] == base_model], base_model)
     ft_rows = _dedupe(ft_df[ft_df["model"] == ft_model], ft_model)
     shared = base_rows[KEY_COLS].merge(ft_rows[KEY_COLS], on=KEY_COLS)
@@ -180,11 +179,11 @@ def compare(base_df: pd.DataFrame, ft_df: pd.DataFrame) -> pd.DataFrame:
     for ft_model in sorted(ft_df["model"].unique()):
         base_rows, ft_rows = _pair(base_df, ft_df, ft_model)
         if ft_rows.empty:
-            logger.warning(f"{ft_model}: no records pair with {ft_model.removesuffix(FT_SUFFIX)}; skipped")
+            logger.warning(f"{ft_model}: no records pair with {base_model_tag(ft_model)}; skipped")
             continue
         base_metrics, ft_metrics = side_metrics(base_rows), side_metrics(ft_rows)
         row: dict[str, Any] = {
-            "base_model": ft_model.removesuffix(FT_SUFFIX),
+            "base_model": base_model_tag(ft_model),
             "ft_model": ft_model,
             "n_pairs": len(ft_rows),
             "zero_mae": shared_zero_mae(base_rows, ft_rows),
@@ -242,7 +241,7 @@ def main() -> None:
 
     table = compare(base_df, ft_df)
     if table.empty:
-        logger.error(f"No model pairs found. Fine-tuned tags must be '<base>{FT_SUFFIX}'.")
+        logger.error(f"No model pairs found. Fine-tuned tags must be '<base><suffix>' with a suffix in {FINE_TUNED_SUFFIXES}.")
         sys.exit(1)
 
     Path(args.output).parent.mkdir(parents=True, exist_ok=True)

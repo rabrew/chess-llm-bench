@@ -21,13 +21,25 @@ FT_SRC = Path(__file__).resolve().parents[1] / "src"
 sys.path.insert(0, str(REPO_ROOT))
 sys.path.insert(0, str(FT_SRC))
 
-from board_state import fen_to_board_description
+from board_state import fen_to_board_and_legal_description, fen_to_board_description
 from src.utils import setup_logging
 
 INSTRUCTION = (
     "You are given a chess position in FEN notation. "
     "List every piece on the board and its exact square."
 )
+
+LEGAL_INSTRUCTION = (
+    "You are given a chess position in FEN notation. "
+    "List every piece on the board and its exact square, then list every legal move."
+)
+
+# task -> (instruction, target builder); see fine-tuning/specs/legal-moves-finetuning.md
+TASKS = {
+    "board": (INSTRUCTION, fen_to_board_description),
+    "board+legal": (LEGAL_INSTRUCTION, fen_to_board_and_legal_description),
+}
+FEN_PREFIX = "FEN: "
 
 TIERS = ("easy", "medium", "hard", "extreme")
 SAMPLES_PER_TIER = 5000
@@ -108,6 +120,35 @@ def generate_records(
         count += 1
 
 
+def records_from_dataset(dataset_path: str | Path, task: str) -> list[dict]:
+    """Rebuild targets for the FENs of an existing dataset, keeping their order.
+
+    Raises:
+        ValueError: on a FEN python-chess rejects, naming the line.
+    """
+    instruction, build_target = TASKS[task]
+    records = []
+    with open(dataset_path) as f:
+        for line_no, line in enumerate(f, 1):
+            if not line.strip():
+                continue
+            fen = json.loads(line)["input"].removeprefix(FEN_PREFIX).strip()
+            try:
+                output = build_target(fen)
+            except ValueError as exc:
+                raise ValueError(f"{dataset_path} line {line_no}: invalid FEN {fen!r} ({exc})") from exc
+            records.append({"instruction": instruction, "input": f"{FEN_PREFIX}{fen}", "output": output})
+    return records
+
+
+def write_records(records: list[dict], output: str) -> None:
+    output_path = Path(output)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(output_path, "w") as f:
+        for rec in records:
+            f.write(json.dumps(rec) + "\n")
+
+
 def load_tier(data_dir: Path, tier: str, n: int, seed: int) -> list[dict]:
     """Load up to n records from a tier JSON file."""
     path = data_dir / f"{tier}.json"
@@ -154,9 +195,30 @@ def main() -> None:
         "--results", default="results/evaluations.jsonl",
         help="Benchmark results JSONL used for exclusion (default: results/evaluations.jsonl)",
     )
+    parser.add_argument(
+        "--task", choices=sorted(TASKS), default="board",
+        help="Target: board description, or board + legal moves (default: board)",
+    )
+    parser.add_argument(
+        "--from-dataset", default=None,
+        help="Rebuild targets for the FENs of this dataset, same order (keeps the held-out split)",
+    )
     args = parser.parse_args()
 
     logger = setup_logging("generate_board_dataset")
+    if args.from_dataset:
+        try:
+            records = records_from_dataset(args.from_dataset, args.task)
+        except (OSError, ValueError) as exc:
+            logger.error(str(exc))
+            sys.exit(1)
+        if args.dry_run:
+            for rec in records[:5]:
+                print(json.dumps(rec, indent=2))
+            return
+        write_records(records, args.output)
+        logger.info(f"Wrote {len(records)} {args.task} records to {args.output} (from {args.from_dataset})")
+        return
     data_dir = Path(args.data_dir)
     per_tier = args.n_samples // len(TIERS)
 
@@ -201,14 +263,8 @@ def main() -> None:
         logger.info("[dry-run] No file written.")
         return
 
-    output_path = Path(args.output)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-
-    with open(output_path, "w") as f:
-        for rec in generated:
-            f.write(json.dumps(rec) + "\n")
-
-    logger.info(f"Wrote {len(generated)} records to {output_path}")
+    write_records(generated, args.output)
+    logger.info(f"Wrote {len(generated)} records to {args.output}")
 
 
 if __name__ == "__main__":

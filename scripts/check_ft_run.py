@@ -17,9 +17,8 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
 sys.path.insert(0, str(REPO_ROOT / "fine-tuning" / "scripts"))
 
-from src.utils import load_config, parse_model_info  # noqa: E402
+from src.utils import base_model_tag, load_config, parse_model_info  # noqa: E402
 
-FT_SUFFIX = "-board-ft"
 ALLOWED_DIFFERENCES = {"models", "paths"}
 TIERS = ("easy", "medium", "hard", "extreme")
 
@@ -33,15 +32,15 @@ def config_differences(base: dict, ft: dict) -> list[str]:
 def tag_problems(ft_tags: list[str], base_tags: list[str]) -> list[str]:
     problems = []
     for tag in ft_tags:
-        if not tag.endswith(FT_SUFFIX):
-            problems.append(f"{tag}: not a {FT_SUFFIX} tag")
+        if base_model_tag(tag) == tag:
+            problems.append(f"{tag}: not a fine-tuned tag")
             continue
         try:
             parse_model_info(tag)
         except ValueError as exc:
             problems.append(f"{tag}: {exc}")
             continue
-        base = tag.removesuffix(FT_SUFFIX)
+        base = base_model_tag(tag)
         if base not in base_tags:
             problems.append(f"{tag}: base {base} is not in the base config")
     return problems
@@ -72,7 +71,7 @@ def foreign_models(results_path: Path) -> set[str]:
         for line in handle:
             if line.strip():
                 found.add(json.loads(line)["model"])
-    return {model for model in found if not model.endswith(FT_SUFFIX)}
+    return {model for model in found if base_model_tag(model) == model}
 
 
 def recorded_fens(results_path: Path, models: set[str]) -> dict[tuple[str, str], set[str]]:
@@ -110,7 +109,7 @@ def modelfile_problems(ft_tags: list[str]) -> list[str]:
 
     problems = []
     for tag in ft_tags:
-        base = tag.removesuffix(FT_SUFFIX)
+        base = base_model_tag(tag)
         if modelfile_settings(base_modelfile(tag)) != modelfile_settings(base_modelfile(base)):
             problems.append(f"{tag}: Modelfile settings differ from {base} (re-import it)")
     return problems
@@ -124,7 +123,7 @@ def main() -> int:
 
     base_config, ft_config = load_config(args.base_config), load_config(args.ft_config)
     ft_tags = ft_config["models"]
-    bases = {tag.removesuffix(FT_SUFFIX) for tag in ft_tags}
+    bases = {base_model_tag(tag) for tag in ft_tags}
 
     problems = [f"config key differs: {key}" for key in config_differences(base_config, ft_config)]
     problems += tag_problems(ft_tags, base_config["models"])

@@ -78,6 +78,50 @@ def fen_to_board_description(fen: str) -> str:
     return f"{white_line}\n{black_line}\nSide to move: {side}"
 
 
+LEGAL_MOVES_PREFIX = "Legal moves:"
+NO_LEGAL_MOVES = "none"
+
+
+def legal_moves_san(fen: str) -> list[str]:
+    """Every legal move in SAN, sorted alphabetically."""
+    board = chess.Board(fen)
+    return sorted(board.san(move) for move in board.legal_moves)
+
+
+def fen_to_board_and_legal_description(fen: str) -> str:
+    """Board description followed by a 'Legal moves:' line (legal-moves-finetuning.md)."""
+    moves = legal_moves_san(fen)
+    listed = ", ".join(moves) if moves else NO_LEGAL_MOVES
+    return f"{fen_to_board_description(fen)}\n{LEGAL_MOVES_PREFIX} {listed}"
+
+
+def _claimed_legal_moves(text: str) -> list[str] | None:
+    """Moves on the model's 'Legal moves:' line, or None if there is no such line."""
+    for line in (text or "").split("\n"):
+        stripped = line.strip()
+        if stripped.lower().startswith(LEGAL_MOVES_PREFIX.lower()):
+            listed = stripped[len(LEGAL_MOVES_PREFIX):].strip()
+            if listed.lower() == NO_LEGAL_MOVES:
+                return []
+            return [move.strip() for move in listed.split(",") if move.strip()]
+    return None
+
+
+def verify_legal_moves(fen: str, model_text: str) -> dict[str, Any]:
+    """Compare the model's legal-move list with python-chess (as sets)."""
+    truth = set(legal_moves_san(fen))
+    claimed_list = _claimed_legal_moves(model_text)
+    claimed = set(claimed_list or [])
+    hits = len(truth & claimed)
+    return {
+        "found": claimed_list is not None,
+        "recall": hits / len(truth) if truth else float(claimed_list == []),
+        "precision": hits / len(claimed) if claimed else float(not truth and claimed_list == []),
+        "missing": sorted(truth - claimed),
+        "extra": sorted(claimed - truth),
+    }
+
+
 # ---------------------------------------------------------------------------
 # Parser — best-effort conversion of model output back to piece dict
 # ---------------------------------------------------------------------------
@@ -118,7 +162,7 @@ def parse_board_description(text: str) -> dict[str, list[str]]:
         elif line.lower().startswith("black:"):
             current_color = "Black"
             remainder = line[6:].strip()
-        elif line.lower().startswith("side to move"):
+        elif line.lower().startswith(("side to move", LEGAL_MOVES_PREFIX.lower())):
             continue
         else:
             remainder = line

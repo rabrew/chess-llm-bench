@@ -137,7 +137,9 @@ def get_run_id() -> str:
     return datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
 
 
-FINE_TUNED_SUFFIX = "-board-ft"
+# Fine-tuned tags are "<base><suffix>": pieces only, and pieces + legal moves
+# (fine-tuning/specs/legal-moves-finetuning.md).
+FINE_TUNED_SUFFIXES = ("-board-legal-ft", "-board-ft")
 
 # Exact Ollama tag -> (family, total params in billions, active params in billions).
 # Family is the model generation, so different generations never share a row in
@@ -169,17 +171,25 @@ MODEL_REGISTRY: dict[str, tuple[str, float, float]] = {
 }
 
 
+def base_model_tag(model_tag: str) -> str:
+    """The base Ollama tag of a fine-tuned tag; a base tag is returned unchanged."""
+    for suffix in FINE_TUNED_SUFFIXES:
+        if model_tag.endswith(suffix):
+            return model_tag.removesuffix(suffix)
+    return model_tag
+
+
 def parse_model_info(model_tag: str) -> dict[str, Any]:
     """Look up a model's family and size in MODEL_REGISTRY.
 
-    A "-board-ft" suffix (fine-tuned models) resolves like its base model.
+    A fine-tuned tag (any FINE_TUNED_SUFFIXES suffix) resolves like its base model.
 
     Raises:
         ValueError: if the tag is not in MODEL_REGISTRY. Add new models there
             rather than letting them fall into an "unknown" bucket.
     """
-    fine_tuned = model_tag.endswith(FINE_TUNED_SUFFIX)
-    base_tag = model_tag.removesuffix(FINE_TUNED_SUFFIX)
+    base_tag = base_model_tag(model_tag)
+    fine_tuned = base_tag != model_tag
     if base_tag not in MODEL_REGISTRY:
         raise ValueError(
             f"Unknown model tag {model_tag!r}: add it to MODEL_REGISTRY in src/utils.py"
