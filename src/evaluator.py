@@ -150,6 +150,15 @@ def _theme_candidates(theme: str) -> list[str]:
     return list(dict.fromkeys(c for c in candidates if c))
 
 
+def phrase_mentioned(phrase: str, text: str) -> bool:
+    """True if text contains phrase as a whole word or phrase (case-insensitive).
+
+    The single matching rule for T3 (specs/t3-whole-word-matching.md); also
+    used by scripts/find_t3_examples.py.
+    """
+    return re.search(rf"\b{re.escape(phrase)}{THEME_WORD_ENDINGS}\b", text, re.IGNORECASE) is not None
+
+
 def theme_mentioned(theme: str | None, explanation: str | None) -> bool:
     """True if the explanation names the theme as a whole word or phrase.
 
@@ -158,10 +167,7 @@ def theme_mentioned(theme: str | None, explanation: str | None) -> bool:
     """
     if not isinstance(theme, str) or not isinstance(explanation, str):
         return False
-    return any(
-        re.search(rf"\b{re.escape(phrase)}{THEME_WORD_ENDINGS}\b", explanation, re.IGNORECASE)
-        for phrase in _theme_candidates(theme)
-    )
+    return any(phrase_mentioned(phrase, explanation) for phrase in _theme_candidates(theme))
 
 
 def get_direction(eval_cp: int, threshold: int = 50) -> str:
