@@ -112,6 +112,23 @@ re-downloaded from HuggingFace (deleted 2026-10-23), about 87 GB, against 143 GB
 Seed 42 throughout. The dataset is a deterministic function of `board_dataset.jsonl`. A run record is
 written to `runs/` for every model (F-7).
 
+## Measuring criterion 0 (added 2026-10-24, before any results)
+
+`fine-tuning/scripts/board_reading_test.py --task board+legal --config fine-tuning/config/finetune_config_legal.yaml`
+runs the F-9 test on the 200 held-out positions for each base model and its `-board-legal-ft` version.
+
+- **Prompts:** the "training" style uses the legal-moves training instruction. The "format" style adds a
+  `Legal moves:` line with placeholders to the answer format.
+- **Answer length:** `num_predict` is 700, because the legal-move list makes answers about 250 tokens
+  longer.
+- **Scoring:** each row also gets `legal_found`, `legal_recall` and `legal_precision` from
+  `verify_legal_moves`, and the summary adds `mean_legal_recall` and `mean_legal_precision`.
+- **Outputs:** `results/finetuning_experiment/board_legal_t0*.{jsonl,csv}`, so the pieces-only results
+  are never overwritten.
+
+Training's own per-epoch check and `verify_export.py` keep scoring the board part only, since the
+board comes first in the target.
+
 ## Verification
 
 - `fine-tuning/tests/test_legal_moves_dataset.py`:
