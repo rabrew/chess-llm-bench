@@ -1,8 +1,9 @@
 #!/bin/bash
+REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # Persistent wrapper — restarts run_all.sh automatically if it crashes.
 # Only stops when run_all.sh exits 0 (fully complete).
 
-cd /home/rabrew/Desktop/chess-llm-bench
+cd "$REPO" || exit 1
 source venv/bin/activate 2>/dev/null || true
 
 LOG="results/logs/run_forever.log"
