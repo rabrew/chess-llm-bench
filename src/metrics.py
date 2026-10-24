@@ -68,6 +68,8 @@ CPL_BUCKETS = (
     ("blunder", BLUNDER_CPL_CP, math.inf),
 )
 BOOTSTRAP_RESAMPLES = 10_000
+SIDE_MARK_THRESHOLD_CP = 50  # score_t3 uses get_direction's default ±50 cp
+SIDE_CLAIM_LABELS = {"White": "W", "Black": "B", "Equal": "E"}
 PUZZLE_META_FILENAME = "puzzle_meta.json"  # written by scripts/build_puzzle_meta.py
 # T1-3: both sides' rank correlations must be at least this far from 0, with
 # opposite signs, before a model is flagged as reporting from the mover's view.
@@ -455,6 +457,46 @@ def _overall_best_move_vs_random(df: pd.DataFrame) -> dict[str, Any] | None:
         return None
     stats = _best_move_stats(rows)
     return {key: stats[key] for key in ("n", "best_move_rate", "random_best_move_rate", "ratio_vs_random")}
+
+
+def _side_mark_rows(df: pd.DataFrame) -> pd.DataFrame:
+    if not {"t3_side_claimed", "t1_stockfish_eval"} <= set(df.columns):
+        return pd.DataFrame()
+    return df[df["t3_side_claimed"].isin(SIDE_CLAIM_LABELS) & df["t1_stockfish_eval"].notna()]
+
+
+def _side_mark_stats(rows: pd.DataFrame) -> dict[str, Any]:
+    claimed = rows["t3_side_claimed"].map(SIDE_CLAIM_LABELS).to_numpy()
+    truth = _direction_labels(rows["t1_stockfish_eval"].astype(float), SIDE_MARK_THRESHOLD_CP)
+    majority_label, majority_share = _majority(_class_shares(truth))
+    return {
+        "n": int(len(rows)),
+        "accuracy": float(np.mean(claimed == truth)),
+        "majority_label": majority_label,
+        "majority_share": majority_share,
+        "cohen_kappa": cohen_kappa(claimed, truth),
+        "balanced_accuracy": balanced_accuracy(claimed, truth),
+        "equal_claim_share": float(np.mean(claimed == "E")),
+        "equal_truth_share": float(np.mean(truth == "E")),
+    }
+
+
+def compute_side_mark_agreement(df: pd.DataFrame) -> pd.DataFrame:
+    """Per model: T3 side mark with majority baseline, κ and balanced accuracy (T3-5)."""
+    rows = _side_mark_rows(df)
+    if rows.empty:
+        return pd.DataFrame()
+    return pd.DataFrame([
+        {"model": model, **_side_mark_stats(group)} for model, group in rows.groupby("model", sort=True)
+    ])
+
+
+def _overall_side_mark(df: pd.DataFrame) -> dict[str, Any] | None:
+    rows = _side_mark_rows(df)
+    if rows.empty:
+        return None
+    stats = _side_mark_stats(rows)
+    return {key: stats[key] for key in ("n", "accuracy", "majority_share", "cohen_kappa")}
 
 
 def _load_puzzle_meta(data_dir: str) -> dict[str, dict] | None:
@@ -1461,6 +1503,7 @@ def generate_summary(df: pd.DataFrame) -> dict[str, Any]:
             "t2_blunder_rate": _overall_blunder_rate(df),
             "t2_best_move_vs_random": _overall_best_move_vs_random(df),
             "puzzle_meta": _overall_puzzle_meta(df),
+            "t3_side_mark": _overall_side_mark(df),
             "t2_legal_rate_buggy_includes_no_move_prompts": df["t2_legal"].mean(),
             "t2_legal_rate": (
                 df["t2_legal_attempted"].mean()
@@ -1552,6 +1595,7 @@ def save_metrics(
     _write_or_remove(compute_blunder_rates(df), output_path / "t2_blunder_rate.csv")
     _write_or_remove(compute_best_move_vs_random(df), output_path / "t2_best_move_vs_random.csv")
     _write_or_remove(compute_puzzle_meta_metrics(df), output_path / "puzzle_meta_metrics.csv")
+    _write_or_remove(compute_side_mark_agreement(df), output_path / "t3_side_mark_agreement.csv")
 
     # Save learning deltas if available
     _write_or_remove(calculate_learning_deltas(df), output_path / "learning_deltas.csv")
