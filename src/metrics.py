@@ -394,6 +394,61 @@ def _overall_blunder_rate(df: pd.DataFrame) -> dict[str, Any] | None:
     return {"n": int(len(cpl)), "rate": blunders / len(cpl), "ci_low": ci_low, "ci_high": ci_high}
 
 
+def _legal_move_count(fen: Any) -> int | None:
+    """Number of legal moves, or None for an unparseable FEN."""
+    if not isinstance(fen, str):
+        return None
+    try:
+        return chess.Board(fen).legal_moves.count()
+    except ValueError:
+        return None
+
+
+def _best_move_rows(df: pd.DataFrame) -> pd.DataFrame:
+    """Move-asking rows with a known best move, plus each row's legal-move count."""
+    required = {"prompt_format", "fen", "t2_move", "t2_best_move"}
+    if not required <= set(df.columns):
+        return pd.DataFrame()
+    rows = df[df["prompt_format"].isin(MOVE_PROMPT_FORMATS) & df["t2_best_move"].notna()].copy()
+    counts = {fen: _legal_move_count(fen) for fen in rows["fen"].unique()}
+    rows["n_legal_moves"] = rows["fen"].map(counts)
+    unusable = rows["n_legal_moves"].isna() | (rows["n_legal_moves"] == 0)
+    if unusable.any():
+        logger.warning(f"{int(unusable.sum())} best-move rows have an unparseable or move-less FEN; dropped")
+    return rows[~unusable]
+
+
+def _best_move_stats(rows: pd.DataFrame) -> dict[str, Any]:
+    best_rate = float((rows["t2_move"] == rows["t2_best_move"]).mean())
+    random_rate = float((1 / rows["n_legal_moves"].astype(float)).mean())
+    return {
+        "n": int(len(rows)),
+        "best_move_rate": best_rate,
+        "random_best_move_rate": random_rate,
+        "mean_legal_moves": float(rows["n_legal_moves"].mean()),
+        "ratio_vs_random": best_rate / random_rate,
+    }
+
+
+def compute_best_move_vs_random(df: pd.DataFrame) -> pd.DataFrame:
+    """Per model: exact best-move rate vs a uniform random legal move on the same rows."""
+    rows = _best_move_rows(df)
+    if rows.empty:
+        return pd.DataFrame()
+    return pd.DataFrame([
+        {"model": model, **_best_move_stats(group)}
+        for model, group in rows.groupby("model", sort=True)
+    ])
+
+
+def _overall_best_move_vs_random(df: pd.DataFrame) -> dict[str, Any] | None:
+    rows = _best_move_rows(df)
+    if rows.empty:
+        return None
+    stats = _best_move_stats(rows)
+    return {key: stats[key] for key in ("n", "best_move_rate", "random_best_move_rate", "ratio_vs_random")}
+
+
 EVAL_BEFORE_SEARCH = "lc0_search"
 EVAL_BEFORE_NO_SEARCH = "no_search"
 
@@ -1282,6 +1337,7 @@ def generate_summary(df: pd.DataFrame) -> dict[str, Any]:
             "t1_zero_baseline": _overall_zero_baseline(df),
             "t2_first_attempt_combined": _overall_first_attempt_combined(df),
             "t2_blunder_rate": _overall_blunder_rate(df),
+            "t2_best_move_vs_random": _overall_best_move_vs_random(df),
             "t2_legal_rate_buggy_includes_no_move_prompts": df["t2_legal"].mean(),
             "t2_legal_rate": (
                 df["t2_legal_attempted"].mean()
@@ -1370,6 +1426,7 @@ def save_metrics(
     _write_or_remove(compute_move_source_breakdown(df), output_path / "t2_move_source.csv")
     _write_or_remove(compute_cpl_buckets(df), output_path / "cpl_buckets.csv")
     _write_or_remove(compute_blunder_rates(df), output_path / "t2_blunder_rate.csv")
+    _write_or_remove(compute_best_move_vs_random(df), output_path / "t2_best_move_vs_random.csv")
 
     # Save learning deltas if available
     _write_or_remove(calculate_learning_deltas(df), output_path / "learning_deltas.csv")
