@@ -1,127 +1,127 @@
 # Chess LLM Benchmark — Simple Summary
 
-**Ryan Brew · May 2026**
+**Ryan Brew · draft of 2026-10-24** (interim: one fine-tuning experiment is still running)
 
 ---
 
-## The Question
+## The question
 
-**Can today's open-source language models actually play chess, or do they just sound like they can?**
+**Do language models actually reason about a chess position, or do they just produce text that looks
+like chess?**
 
-Large language models are trained on enormous amounts of internet text, which includes a lot of chess: game records, articles, books, Wikipedia. So when you ask one a chess question, it produces output that *looks* like a chess answer. But is the model really thinking about the board, or is it just pattern-matching the words?
+Language models learn from huge amounts of internet text, which includes a lot of chess: game records,
+articles and puzzle solutions. Ask one a chess question and you get something that *sounds* right.
+Chess is a good way to check whether there is real reasoning underneath, because:
 
-Chess is a perfect testbed for this question because:
-- It has a single objective truth (Stockfish, the world's strongest engine, can tell you the right answer for any position).
-- The rules are completely formal — a move is either legal or illegal, no grey area.
-- It requires spatial reasoning that isn't reducible to language patterns.
+- every position has an objective answer that a chess engine can compute
+- a move is either legal or illegal, with no grey area
+- you have to keep track of where every piece is
+
+## The experiment
+
+- **22 open-source models**, from 2 billion to 70 billion parameters, all run on my own PC.
+- **4,000 positions** from Lichess puzzles, 1,000 in each of four difficulty tiers.
+- **Three questions per position:**
+  1. Who is winning, and by how much?
+  2. What is the best move?
+  3. Why is that side better?
+- **Six ways of asking.** One of them turned out to be an exact repeat of another (see below).
+- **526,662 answers** in total, all checked against **Lc0**, a neural-network chess engine far
+  stronger than any human.
+
+## What I found
+
+The numbers come straight from the results files (`results/metrics/summary.json`):
+
+<!-- table:headline -->
+| Measure | Value |
+|---|---|
+| Records / models / positions | 526,662 / 22 / 4,000 |
+| T1: Spearman ρ, model eval vs engine (pooled) | 0.11 |
+| T1: eval error ÷ error of always answering 0 | 3.04 |
+| T2: legal move, final (after re-asking with the legal-move list) | 97.0% |
+| T2: legal move, model's own first answer | 9.3% (5 re-run models, combined prompts) |
+| T2: blunder rate (clamped CPL ≥ 1000), 95% CI | 41.9% (41.7–42.0%) |
+| T2: plays the engine's best move | 10.2% vs 8.8% for a random legal move (1.16×) |
+| T2: plays the human setup move (the move that led into the puzzle) | 11.5% |
+| T3: names the better side | 30.3% vs 54.2% for always naming the usual side (κ = 0.07) |
+| T3: names a tactical theme of the puzzle | 6.0% |
+<!-- /table:headline -->
+
+### 1. On their own, the models almost never give a legal move
+
+When a model has to give an evaluation, a move and an explanation in one answer, its move is legal
+only about **1 time in 10**. The models mostly write a common opening move like "e4" or "Nf6",
+whatever the position. The final 97% legality only appears because the system asks again and hands
+the model a list of every legal move to choose from.
+
+### 2. Their moves are barely better than picking at random
+
+- **The engine's best move:** models play it about 10% of the time. A random legal move would hit it
+  about 9% of the time.
+- **The human's move:** models more often play the move a human actually played in that position,
+  usually the mistake that set up the puzzle.
+
+That looks like remembering familiar moves, not working out good ones.
+
+### 3. Moves are either perfect or disasters
+
+About 19% of moves are essentially perfect, and about 42% throw away the position. Very little falls
+in between.
+
+### 4. They can't judge who is winning
+
+- **The number they give** for "who is winning" barely follows the real position.
+- **A fixed guess does better:** "always say it's level" beats every model's estimate.
+- **Naming the better side:** models get it right less often than "always name the side that is
+  usually better" does.
+
+### 5. Bigger models are mostly not better
+
+From 2B to 70B the picture is the same for Llama, Qwen and DeepSeek-R1. The exception is Google's
+Gemma models, which do improve with size. That points to how a model was trained, not how big it is.
+
+### 6. Asking them to "think step by step" doesn't help
+
+The chain-of-thought prompt gives the same results as the plain one. And when I asked the *same*
+question twice, a model gave the same move only about 69% of the time. Model answers are not
+repeatable.
+
+## Can teaching the board fix it?
+
+**Experiment 1: done.**
+- I fine-tuned five of the models to list exactly where every piece is.
+- **What they learned:** board-reading went from almost nothing to about 90–99% correct.
+- **What didn't change:** nothing else got better. Their moves got slightly *worse*, and they gave
+  *more* illegal moves, even with the list of legal moves in front of them.
+- **What it means:** knowing where the pieces are didn't help them play.
+
+**Experiment 2: running now.**
+- The same five models are learning both the piece positions *and every legal move*.
+- I wrote down beforehand what would count as success.
+- If they learn the rules but still play badly, that is more evidence that the models learn patterns
+  rather than reason.
+
+## The conclusion so far
+
+These models have learned what chess **looks like** (the notation, the vocabulary, the usual moves),
+not how it **works**. On every measure the evidence is more consistent with pattern matching than
+with reasoning. Being bigger mostly doesn't change that.
+
+## Honest limits
+
+- **Scope:** only open-source models up to 70B, and only chess. This says nothing about commercial
+  models or about reasoning in general.
+- **Possibly seen before:** the puzzles are public, so models may have seen them in training. That
+  makes the failures more striking, not less.
+- **Setup position, not the puzzle:** the benchmark showed each puzzle's *starting* position, one move
+  before the puzzle begins. That affects the "name the tactic" mark and the difficulty tiers, but not
+  the move or evaluation scores.
+- **Not repeatable answer by answer:** the dataset and scoring can be reproduced exactly, but the
+  models' answers vary from run to run.
+- **Earlier numbers were wrong:** an audit found and fixed several measurement mistakes. Some numbers
+  in older drafts were wrong, and they are listed in `docs/FINDINGS.md`.
 
 ---
 
-## The Experiment
-
-I tested **22 open-source language models**, ranging from 2 billion parameters (small) to 70 billion (large), on **4,000 chess positions** from the Lichess puzzle database — 1,000 each at four difficulty tiers (easy, medium, hard, extreme).
-
-For every position, each model was asked three questions:
-
-1. **T1 — Evaluation:** "Who's winning, and by how much?" (in centipawns, where 100 = one pawn)
-2. **T2 — Move:** "What's the best move here?"
-3. **T3 — Explanation:** "Why is this side better?"
-
-I scored each answer against **Lc0**, a neural-network chess engine far stronger than any human. For the evaluation question, the correct answer is Lc0's network's direct judgement of the position, without searching ahead. For move quality, Lc0 searches 800 positions per move. I used Lc0 because it runs on the graphics card, which on my PC is much faster than running Stockfish on the processor.
-
-Each position was tested with 6 different prompt formats (to make sure the result wasn't just an artefact of how the question was phrased), giving a total of **526,662 evaluations** across 22 models × 4,000 positions × 6 prompt formats.
-
-The benchmark was run locally on consumer hardware (no API costs, no commercial models).
-
----
-
-## The Results
-
-### 1. When asked for a move, models produce a legal one ~98% of the time.
-
-When the prompt explicitly asks for a move, models produce a valid chess move on average **97.85% of the time**. The largest models do best (Qwen2.5-32B at 99.96%, Llama3.3-70B at 99.79%); the worst is the DeepSeek-R1 reasoning model at 92.7% (its long chain-of-thought output makes the move harder to extract).
-
-So **legality is mostly NOT the problem.** Models can do chess notation. The problem is move *quality*.
-
-### 2. The legal moves they play are wildly inconsistent.
-
-The legal moves models produce do not look like "weak but consistent" amateur play. The distribution is **bimodal**:
-
-- **About 18% of the time**, the model plays essentially the best move (top-3 engine choice)
-- **About 10% of the time**, the model plays *exactly* the engine's #1 move — ~3× better than random
-- **About 39% of the time**, the model plays a catastrophic blunder (equivalent to hanging a queen or walking into mate)
-- Mean centipawn loss is ~700, but that's the average of "occasionally brilliant" and "frequently catastrophic"
-
-Among non-catastrophic moves, mean centipawn loss is **449** — within the range of a weak amateur. The best architecture (Gemma 4) finds the engine's #1 move **14% of the time**, ~4× random chance.
-
-The headline issue isn't that models play uniformly badly — it's that they're **unreliable**. They flip between recognising the right move and walking into disaster, with no apparent middle ground.
-
-### 3. Models can tell when one side is *clearly* winning, but struggle on close positions.
-
-This depends heavily on what you mean by "winning":
-
-| Threshold | All-model accuracy | Random baseline |
-|---|---|---|
-| Exact agreement on direction | 44.5% | 33% |
-| Borderline: ±50 cp from neutral | 46.1% | 33% |
-| One-pawn advantage required | **61.6%** | 33% |
-| Two-pawn (clearly decisive) advantage | **78.9%** | 33% |
-
-So when one side has a *clear* (2-pawn) advantage, models agree with the engine on who's winning **79% of the time** — much better than the headline number of 46% (which used a poor centipawn threshold). On positions that are *near-equal* (under 1 pawn difference), models fail roughly half the time — which is what you'd expect if the model isn't actually evaluating the position, just guessing.
-
-Strikingly, **the largest model in the study (Llama3.3-70B) is wrong about who's winning even on clearly decisive positions** — at the 1-pawn threshold it agrees with the engine only 22% of the time, well *below* the 33% random baseline. It's somehow systematically *anti-correlated* with truth.
-
-### 4. Bigger models are not better.
-
-There's no consistent relationship between model size and chess ability:
-- A 7B-parameter model (Mistral) **outplays** a 70B-parameter model (LLaMA 3.3) on move quality.
-- The largest models (32B, 31B, 70B) are at the **bottom** of the rankings for understanding who's winning.
-- The best architecture in the study (Google's Gemma 4) tops the rankings at 26B and 31B, but its 2B variant is the *worst* model on move quality — proving it's the architecture, not the size, that matters.
-
-### 5. Reasoning ≠ Playing.
-
-The most interesting architecture-level finding: **the models that play best are NOT the models that reason best about chess.**
-
-- **Gemma 4 31B** picks the best move 14% of the time (highest in the study) — but is below-random at saying who's winning.
-- **DeepSeek-R1** (a chain-of-thought reasoning model) is best at saying who's winning (77% direction accuracy at the 1-pawn threshold) — but worst at producing legal moves and only middling at move quality.
-
-The two failure modes — "can't pick a good move" and "can't say who's winning" — are addressed by different architectural choices, suggesting they are mechanistically distinct kinds of failures.
-
-### 6. Talking about chess is easier than playing it.
-
-Some models can produce surprisingly good positional explanations — describing the right concepts, naming the right tactics — while still playing terribly. They've absorbed chess **vocabulary** from training text without acquiring the underlying spatial reasoning those words describe.
-
----
-
-## The Conclusion
-
-**Today's open-source language models, up to 70 billion parameters, do not play chess at a competent level — even though they can produce legal moves and recognise clearly-decisive positions.**
-
-They have learned the *surface form* of chess — the notation, the vocabulary, the way chess writing flows — and at the largest sizes they have learned it almost perfectly (99% legal-move rates). But the deeper task of consistently picking *good* moves is not learned at any scale.
-
-The fact that this failure is **uniform across two orders of magnitude of model size** is the key finding. It strongly suggests that scaling general-purpose language models on internet text is not, by itself, a path to chess competence. Whatever cognitive structure is needed for consistent spatial reasoning over a chess board is not emerging just by making the model bigger.
-
-The bimodal failure pattern — "occasionally brilliant, frequently catastrophic" — is consistent with the hypothesis that models are pattern-matching on familiar position shapes rather than maintaining a working board representation. When the position resembles something in training data, performance is decent. When it doesn't, the model walks into a forced mate.
-
-This is a small, controlled example of a much bigger question: *which kinds of intelligence can be acquired by next-token prediction on text, and which cannot?* Chess says: surface fluency is acquired easily; consistent grounded reasoning is not.
-
----
-
-## What this study does NOT show
-
-- **It doesn't show LLMs can't reason at all.** It shows that *these* models, on *this* task, fail.
-- **It doesn't include commercial models** (Claude, GPT-4o). Those may perform differently — that's the natural next step.
-- **It doesn't test chess-fine-tuned models.** A model trained specifically on chess data would almost certainly do better; the question this study answers is about general-purpose pre-training.
-- **It uses Lichess puzzles**, which are tactical by construction. Performance on quiet middlegame or endgame positions may differ.
-
----
-
-## Bottom line
-
-If you ever wondered whether ChatGPT and friends are *really* thinking or *just predicting words* — chess is a clean, specific, testable instance where you can watch the difference. They CAN produce legal chess moves. They CANNOT consistently choose good ones. They CAN tell when one side is overwhelmingly winning. They CANNOT distinguish a slight advantage from a slight disadvantage. They CAN talk about chess concepts. They CANNOT use those concepts to play.
-
-22 models. 70 billion parameters at the top end. 4,000 positions, half a million evaluations. None of them play chess like a human who actually understands the game.
-
----
-
-*Full data, code, and methodology: github.com/rabrew/chess-llm-bench*
+*Full details, data and code: `docs/FINDINGS.md` and github.com/rabrew/chess-llm-bench*
