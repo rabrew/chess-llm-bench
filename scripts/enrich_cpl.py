@@ -270,7 +270,8 @@ def run_backfill(results_path: Path, engine: Any, backup: bool = True) -> None:
 def run(results_file: str, data_dir: str, engine: Any, dry_run: bool,
         backfill: bool = False, backup: bool = True) -> None:
     """Main enrichment logic: read, enrich, write atomically."""
-    results_path = Path(results_file)
+    # Resolve symlinks: replacing the link itself would orphan the real file.
+    results_path = Path(results_file).resolve()
     if backfill:
         run_backfill(results_path, engine, backup=backup)
         return
