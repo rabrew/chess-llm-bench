@@ -12,6 +12,7 @@ import numpy as np
 import pandas as pd
 
 from .evaluator import theme_mentioned
+from .llm_client import parse_response
 from .result_writer import load_results
 from .utils import parse_model_info
 
@@ -45,6 +46,16 @@ DIRECTION_THRESHOLDS_CP = (0, 50, 100, 200)
 # Prompt formats that ask the model for a move (T2). eval_only and
 # explanation_only do not.
 MOVE_PROMPT_FORMATS = ("fen_only", "pgn+fen", "cot", "move_only")
+COMBINED_PROMPT_FORMATS = ("fen_only", "pgn+fen", "cot")
+ISOLATED_MOVE_FORMAT = "move_only"
+
+# Where the final move on a move-asking row came from (specs/t2-move-source.md).
+# "unknown": a combined-prompt row saved without its raw reply.
+FIRST_ANSWER = "first_answer"
+TEXT_RESCUE = "text_rescue"
+ISOLATED_RETRY = "isolated_retry"
+UNKNOWN_SOURCE = "unknown"
+KNOWN_MOVE_SOURCES = (FIRST_ANSWER, TEXT_RESCUE, ISOLATED_RETRY)
 
 
 def compute_relative_error(
@@ -144,6 +155,8 @@ def load_results_df(
             t2_cpl_clamped         CPL recomputed with ±EVAL_CLAMP_CP clamp
             t2_wp_loss             Δ win-probability × 1000 (bounded [0,1000])
             t3_p2_theme_correct_v2 theme-correctness rescored with new matcher
+            t2_move_source         where the final move came from (specs/t2-move-source.md)
+            t2_first_attempt_legal 1/0 when the model's own answer was legal; NaN if unknown
     """
     results = load_results(results_file)
     if not results:
@@ -245,6 +258,17 @@ def load_results_df(
             legal = df["t2_legal"]
         df["t2_legal_attempted"] = np.where(attempted, legal, np.nan)
 
+    # ----- T2 move source + first-attempt legality ------------------------
+    # The ~98% final legality is mostly the worker's isolated move retry; only
+    # rows with a saved raw reply show whether the model's own answer was legal.
+    if "t2_legal" in df.columns and "prompt_format" in df.columns:
+        if "fen" in df.columns:
+            fens = df["fen"]
+        else:
+            fens = _optional_column(df, "position_id").map(_build_fen_lookup(data_dir))
+        df["t2_move_source"] = _move_sources(df, fens)
+        df["t2_first_attempt_legal"] = _first_attempt_legal(df["t2_move_source"], df["t2_legal"])
+
     # ----- T1 direction accuracy at multiple thresholds -----
     # The headline `t1_direction_correct` field uses ±50 cp, which empirically
     # is the worst-case threshold for this dataset (forces the call right at
@@ -257,6 +281,99 @@ def load_results_df(
             )
 
     return df
+
+
+def _is_legal_san(fen: Any, san: Any) -> bool:
+    """Same rule as the worker: SAN that parses to a legal move on this FEN."""
+    if not isinstance(fen, str) or not isinstance(san, str) or not san:
+        return False
+    try:
+        board = chess.Board(fen)
+        return board.parse_san(san) in board.legal_moves
+    except ValueError:
+        return False
+
+
+def _move_source(prompt_format: Any, fen: Any, raw_reply: Any, retry_reply: Any) -> str | None:
+    if prompt_format == ISOLATED_MOVE_FORMAT:
+        return FIRST_ANSWER
+    if prompt_format not in COMBINED_PROMPT_FORMATS:
+        return None
+    if not isinstance(raw_reply, str):
+        return UNKNOWN_SOURCE
+    if _is_legal_san(fen, parse_response(raw_reply).get("move")):
+        return FIRST_ANSWER
+    # The worker makes the retry call only when the text rescue found nothing.
+    return ISOLATED_RETRY if isinstance(retry_reply, str) else TEXT_RESCUE
+
+
+def _optional_column(df: pd.DataFrame, name: str) -> pd.Series:
+    return df[name] if name in df.columns else pd.Series([None] * len(df), index=df.index)
+
+
+def _move_sources(df: pd.DataFrame, fens: pd.Series) -> pd.Series:
+    sources = [
+        _move_source(fmt, fen, raw, retry)
+        for fmt, fen, raw, retry in zip(
+            df["prompt_format"], fens,
+            _optional_column(df, "raw_response"), _optional_column(df, "raw_move_retry_response"),
+        )
+    ]
+    return pd.Series(sources, index=df.index, dtype=object)
+
+
+def _first_attempt_legal(sources: pd.Series, legal: pd.Series) -> np.ndarray:
+    first_and_legal = (sources == FIRST_ANSWER) & legal.astype("boolean").fillna(False)
+    return np.where(sources.isin(KNOWN_MOVE_SOURCES), first_and_legal.astype(float), np.nan)
+
+
+def _known_source_rows(df: pd.DataFrame, formats: tuple[str, ...]) -> pd.DataFrame:
+    if "t2_move_source" not in df.columns:
+        return df.iloc[0:0]
+    return df[df["prompt_format"].isin(formats) & df["t2_move_source"].isin(KNOWN_MOVE_SOURCES)]
+
+
+def _final_legal_rate(rows: pd.DataFrame) -> float:
+    return float(rows["t2_legal"].astype("boolean").fillna(False).astype(float).mean())
+
+
+def _move_source_row(model: str, prompt_format: str, known: pd.DataFrame, n_unknown: int) -> dict[str, Any]:
+    source = known["t2_move_source"]
+    return {
+        "model": model,
+        "prompt_format": prompt_format,
+        "n": len(known),
+        "n_unknown": n_unknown,
+        "first_attempt_legal_rate": float(known["t2_first_attempt_legal"].mean()),
+        "text_rescue_share": float((source == TEXT_RESCUE).mean()),
+        "isolated_retry_share": float((source == ISOLATED_RETRY).mean()),
+        "final_legal_rate": _final_legal_rate(known),
+    }
+
+
+def compute_move_source_breakdown(df: pd.DataFrame) -> pd.DataFrame:
+    """Per (model, move-asking format): first-attempt legality and where final moves came from."""
+    known = _known_source_rows(df, MOVE_PROMPT_FORMATS)
+    if known.empty:
+        return pd.DataFrame()
+    move_rows = df[df["prompt_format"].isin(MOVE_PROMPT_FORMATS)]
+    totals = move_rows.groupby(["model", "prompt_format"]).size()
+    records = [
+        _move_source_row(model, fmt, group, int(totals[(model, fmt)]) - len(group))
+        for (model, fmt), group in known.groupby(["model", "prompt_format"], sort=True)
+    ]
+    return pd.DataFrame(records)
+
+
+def _overall_first_attempt_combined(df: pd.DataFrame) -> dict[str, Any] | None:
+    rows = _known_source_rows(df, COMBINED_PROMPT_FORMATS)
+    if rows.empty:
+        return None
+    return {
+        "n": int(len(rows)),
+        "first_attempt_legal_rate": float(rows["t2_first_attempt_legal"].mean()),
+        "final_legal_rate": _final_legal_rate(rows),
+    }
 
 
 def _compute_direction_correct(
@@ -1030,6 +1147,7 @@ def generate_summary(df: pd.DataFrame) -> dict[str, Any]:
             },
             **_overall_direction_chance_metrics(df),
             "t1_zero_baseline": _overall_zero_baseline(df),
+            "t2_first_attempt_combined": _overall_first_attempt_combined(df),
             "t2_legal_rate_buggy_includes_no_move_prompts": df["t2_legal"].mean(),
             "t2_legal_rate": (
                 df["t2_legal_attempted"].mean()
@@ -1115,6 +1233,7 @@ def save_metrics(
         output_path / "hallucination_rate.csv", index=False
     )
     _save_direction_chance_tables(df, output_path)
+    _write_or_remove(compute_move_source_breakdown(df), output_path / "t2_move_source.csv")
 
     # Save learning deltas if available
     _write_or_remove(calculate_learning_deltas(df), output_path / "learning_deltas.csv")

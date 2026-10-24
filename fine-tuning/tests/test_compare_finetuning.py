@@ -154,12 +154,39 @@ def test_legal_rate_ignores_prompts_that_ask_for_no_move(tmp_path):
     assert row["delta_t2_legal_rate"] == pytest.approx(-0.5)
 
 
+def test_first_attempt_rate_nan_without_raw_replies(tmp_path):
+    """Base re-run saves replies; the fine-tuned run did not (specs/t2-move-source.md)."""
+    base = [
+        {**_record(BASE, 0, "fen_only", move="Nf6", legal=True),
+         "raw_response": "Eval: 0\nMove: Nf6\nExplanation: Equal — level."},
+        {**_record(BASE, 1, "fen_only", move="Nf6", legal=True),
+         "raw_response": "Eval: 0\nMove: e4\nExplanation: Equal — level.", "raw_move_retry_response": "Nf6"},
+    ]
+    ft = [_record(FT, 0, "fen_only", move="Nf6", legal=True), _record(FT, 1, "fen_only", move="Nf6", legal=True)]
+    row = _only_row(_compare(tmp_path, base, ft))
+    assert row["base_t2_first_attempt_legal_rate"] == pytest.approx(0.5)
+    assert math.isnan(row["ft_t2_first_attempt_legal_rate"])
+    assert math.isnan(row["delta_t2_first_attempt_legal_rate"])
+
+
 def test_t3_mean_and_cpl_clamp(tmp_path):
     base = [_record(BASE, 0, "fen_only", move="Nf6", legal=True, cpl=5000, t3=2)]
     ft = [_record(FT, 0, "fen_only", move="Nf6", legal=True, cpl=100, t3=0)]
     row = _only_row(_compare(tmp_path, base, ft))
     assert row["base_t2_mean_cpl_clamped"] <= cmp.CPL_CLAMP_CP
     assert row["delta_t3_mean"] == pytest.approx(-2)
+
+
+def test_t3_uses_whole_word_score(tmp_path):
+    """'opinion' must not count as naming the 'pin' theme (F-3, T3-1)."""
+    def explained(model, text):
+        record = _record(model, 0, "explanation_only", t3=2)
+        return {**record, "theme": "pin", "t3_explanation": text, "t3_p1_side_correct": 1}
+    base = [explained(BASE, "White — in my opinion the bishop is strong.")]
+    ft = [explained(FT, "White — the pin on the knight wins material.")]
+    row = _only_row(_compare(tmp_path, base, ft))
+    assert row["base_t3_mean"] == pytest.approx(1)
+    assert row["ft_t3_mean"] == pytest.approx(2)
 
 
 def test_undefined_metric_gives_nan_delta_not_zero(tmp_path):

@@ -99,33 +99,70 @@ Format: `Correction — <list of fixes>. Full board: <ground truth>`
 
 ---
 
-## Benchmark Re-run (ft-only)
+## Model Selection (F-5, recorded 2026-10-23)
 
-- Base model results already exist in `results/evaluations.jsonl` — NOT re-run
-- Fine-tuned models run with same `max_positions_per_tier: 1000` and `random_seed: 42`
-- Results stored separately: `results/finetuning_experiment/evaluations.jsonl`
-- Comparison joins on `(position_id, prompt_format)`
+The fine-tuned models are the benchmarked models that meet three conditions:
+
+- **They can be run.** They fit the available hardware for both inference and training.
+- **They are open source and trainable.** The weights are downloadable, and a LoRA adapter can be
+  trained and merged.
+- **They span many model families.** Llama, Gemma, Qwen, Mistral, DeepSeek-R1 and others, so a result
+  is not one family's quirk.
+
+Every fine-tuned model keeps its base model in the same comparison table.
+
+**Batch 1 (done):**
+- llama3.2:3b, gemma3:4b, qwen2.5:7b, mistral:7b and deepseek-r1:7b
+- gemma4:e2b, which is excluded from the benchmark: see `specs/finetuned-benchmark-run.md`, "Gemma 4
+  exclusion"
+
+**Batch 2 (decided 2026-10-23):** the remaining models are trained on a **cloud GPU**, not the local PC.
+- The local PC (RTX 5080, 16 GB VRAM, 32 GB RAM) cannot QLoRA-train the 26–35B models, mixtral:8x7b or
+  llama3.3:70b at the current settings.
+- The 70B merge-and-export would not fit on its disk either: a 16-bit merge needs about 140 GB, before
+  the BF16 GGUF.
+- Training, merging and GGUF export run in the cloud. The Q4_K_M GGUF and the LoRA adapter come back to
+  the PC, where they are imported into Ollama, checked with `verify_export.py`, and benchmarked
+  locally. This keeps inference settings identical to the base runs.
+
+---
+
+## Benchmark Runs
+
+- The fine-tuned models run with the same `max_positions_per_tier: 1000` and `random_seed: 42` as the
+  base models.
+- The results go to `results/finetuning_experiment/evaluations_ft.jsonl` (`config/config_finetuned.yaml`).
+- **The base models are re-run on the current code** (`config/config_base_rerun.yaml`, writing
+  `results/finetuning_experiment/evaluations_base_rerun.jsonl`). The original base records predate
+  the move rescue, so they are not comparable (issues-log Issue 18).
 
 ---
 
 ## Comparison Methodology
 
-For each (model_base, position_id, prompt_format):
-- Delta T1: direction accuracy improvement
-- Delta T2: move legality rate, clamped CPL change
-- Delta T3: explanation score change
-- T0 (new): board description accuracy from `verify_board_description()`
+`fine-tuning/scripts/compare_finetuning_results.py` (spec: `specs/t1-zero-baseline-and-ft-comparison.md`).
+It pairs first-attempt records on `(base model, position_id, prompt_format)` and reports base,
+fine-tuned and delta values for:
+
+- **T1:** Spearman ρ, Cohen's κ at ±50 cp, and MAE relative to always answering 0. Raw direction
+  accuracy is not used, because it rewards guessing near 0 (Issue 14).
+- **T2:** legal-move rate over move-asking prompts, and clamped CPL.
+- **T3:** mean whole-word T3 score.
+
+T0 (board-description accuracy) is measured separately by `board_reading_test.py`.
 
 ---
 
-## VRAM Constraints (RTX 4090, 24GB)
+## Hardware
 
-| Size | Strategy | Est. time |
+**Local PC:** RTX 5080 (16 GB VRAM), 32 GB RAM. This is the hardware batch 1 was trained on; the
+earlier "RTX 4090, 24 GB" table here was wrong.
+
+| Size | Where | Strategy |
 |---|---|---|
-| 3–14B | Standard 4-bit QLoRA | 30 min – 2 hr |
-| 30–35B | 4-bit + gradient checkpointing | 2–5 hr |
-| mixtral:8x7b | 4-bit QLoRA (~12B active) | 1–2 hr |
-| llama3.3:70b | 4-bit + CPU offload | Run overnight |
+| 3–8B | Local | 4-bit QLoRA (batch 1 took about 1.5–3.5 h per model) |
+| 10–14B | Local, if VRAM allows; otherwise cloud | 4-bit QLoRA + gradient checkpointing |
+| 26–35B, mixtral:8x7b, llama3.3:70b | Cloud GPU (batch 2) | 4-bit QLoRA |
 
 ---
 

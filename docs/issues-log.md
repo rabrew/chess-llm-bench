@@ -188,6 +188,61 @@ This document covers every technical problem encountered during development and 
 
 **Fix:** Re-run the five base models on the current code, which is what F-4 prescribes. That gives the same worker, rescue, prompts and raw replies on both sides. The run is 120k jobs, about 8 h of benchmark plus CPL enrichment. Until then, quote the T2 gap only as a lower bound.
 
+**Correction (October 24): the root cause above is wrong.** The base runs did have the rescue.
+- Storing an illegal move does not mean the rescue was missing. The 9-April code rescued, re-asked, and kept the illegal move only when both failed. The 28-April code (`3e129c0`) blanks it instead.
+- `move_only` stored zero illegal moves from 25 March onward. So the extract-a-legal-move code was already running at the start of the full benchmark, before it was committed.
+- The base re-run on current code matches the original legality to within 0.3 points for every model and format (14–16k paired rows per model):
+
+  | Model | Original base | Re-run base | Fine-tuned |
+  |---|---|---|---|
+  | deepseek-r1:7b | 90.7% | 90.5% | 69.4% |
+  | gemma3:4b | 98.8% | 98.7% | 58.0% |
+  | llama3.2:3b | 98.5% | 98.4% | 71.7% |
+  | mistral:7b | 93.5% | 93.4% | 90.0% |
+  | qwen2.5:7b | 98.3% | 98.4% | 95.1% |
+
+- The base vs fine-tuned legality gap was like for like all along; it is not a lower bound. The re-run is still the base side of the comparison, because it uses the same deepseek-r1 settings as the fine-tuned run (`think:false`, 1024 context; the April base used thinking mode) and it saved raw replies. Those replies led to Issue 20.
+
+---
+
+## Issue 19 — Fine-Tune Comparison Scored T3 With the Old Substring Matcher
+**Date:** October 23
+**Symptom:** The rewritten comparison (Issue 15) reported T3 improving for 4 of 5 fine-tuned models.
+**Root cause:**
+- It averaged `t3_score`, which uses the substring theme matcher retired by T3-1. That matcher credits
+  "mate" inside "material" and "pin" inside "opinion".
+- `t3_score_v2`, the whole-word matcher (which also maps Lichess theme labels to words), was available
+  but unused. This is checklist item F-3.
+
+**Fix:** The comparison uses `t3_score_v2`, falling back to `t3_score` with a warning when it is
+missing. Corrected base → fine-tuned:
+
+| Model | Base → fine-tuned |
+|---|---|
+| deepseek-r1:7b | 0.48 → 0.39 |
+| gemma3:4b | 0.40 → 0.35 |
+| llama3.2:3b | 0.41 → 0.46 |
+| mistral:7b | 0.57 → 0.47 |
+| qwen2.5:7b | 0.35 → 0.34 |
+
+The finding flips: T3 falls for 3 models, is flat for qwen, and rises only for llama. These figures are
+still against the pre-rescue base records; the base re-run (Issue 18) gives the like-for-like version.
+
+---
+
+## Issue 20 — "98% Legal Moves" Is Legality After a Re-Ask
+**Date:** October 24
+**Symptom:** T2 reports about 98% legal moves for most models, which reads as "models almost always play a legal move".
+**Root cause:**
+- On combined prompts (`fen_only`, `pgn+fen`, `cot`), the worker replaces an illegal `Move:` answer. It first looks for any legal move in the reply text, then makes a separate `move_only` call at temperature 0. Legality is scored on the final move.
+- The base re-run saved raw replies, so the first answer can be scored. Over 59,981 combined rows for the five models, **9.3%** of first answers were legal, against **96.0%** of final moves. The text rescue supplied 1–7% of final moves and the isolated retry 82–91%. The per-model first-answer rates are 6.5–13.4%.
+- The illegal first answers are mostly stock moves that ignore the position. llama3.2:3b answers "e4" 45% of the time, qwen2.5:7b "Nf6" 24% and gemma3:4b "d5" 20%, often for the wrong side or onto occupied squares.
+- Caveat: mistral:7b often writes long algebraic ("h4-h5"), which SAN parsing rejects even when the move itself is legal. Its first-answer rate is a lower bound on whether it read the board, though it is still a failure to follow the required format.
+- Asked for a move alone (`move_only`), the same models are 89–99% legal. `move_only` takes any legal move found in the reply, which is lenient.
+- Earlier records saved no replies, so first-attempt legality exists only for the re-run models. The fine-tuned run cannot be measured this way.
+
+**Fix:** `t2_move_source` and `t2_first_attempt_legal` columns, `t2_move_source.csv`, the summary key `t2_first_attempt_combined`, and a comparison column (`specs/t2-move-source.md`, replacing checklist T2-2). In the write-up, describe the ~98% as "legal after re-asking for a move", with the first-answer rate reported beside it.
+
 ---
 
 ## Summary Table
@@ -211,4 +266,6 @@ This document covers every technical problem encountered during development and 
 | 15 | Oct 22 | compare_finetuning_results.py | Wrong field, wrong path, unpaired averages | Rewritten with pairing and T1 baselines |
 | 16 | Oct 22 | metrics.py T2 legality | Illegal moves skipped; FT legality showed 100% | Attempt defined by prompt format |
 | 17 | Oct 23 | run_all.sh | Completed tiers marked abandoned; DB errors read as 0 pending | Check completion first; read-only pending count that fails loudly |
-| 18 | Oct 23 | FT comparison design | Base legality pre-rescue, FT post-rescue (F-4 broken) | Re-run the 5 base models on current code (pending) |
+| 18 | Oct 23 | FT comparison design | Base legality pre-rescue, FT post-rescue (F-4 broken). **Corrected Oct 24: wrong; all runs had the rescue, and the re-run matches to 0.3 pts** | Base re-run done; kept as base side (same deepseek settings, raw replies) |
+| 19 | Oct 23 | compare_finetuning_results.py T3 | Substring T3 showed gains; whole-word T3 shows losses for 3 of 5 | Use t3_score_v2 |
+| 20 | Oct 24 | T2 legality meaning | ~98% legal is after re-asking; first answers on combined prompts are 9.3% legal | Move-source labels + first-attempt legality (specs/t2-move-source.md) |
