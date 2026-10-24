@@ -1148,13 +1148,54 @@ def aggregate_by_model_family(df: pd.DataFrame) -> pd.DataFrame:
         if not merged.empty:
             raise ValueError(f"Family table would merge more than one model per row: {merged.to_dict()}")
 
-    return df.groupby(["model_family", "model_size_b"]).agg({
-        "t1_absolute_error": "mean",
-        "t2_cpl": "mean",
-        "t2_legal": "mean",
-        "t3_score": "mean",
-        "job_id": "count",
-    }).reset_index()
+    return pd.DataFrame([
+        {"model_family": family, "model_size_b": size, **_family_group_metrics(rows)}
+        for (family, size), rows in df.groupby(["model_family", "model_size_b"])
+    ])
+
+
+def _headline_columns(df: pd.DataFrame) -> dict[str, str]:
+    """Corrected T2/T3 source columns, with legacy fallbacks (specs/corrected-hypotheses-family.md)."""
+    return {
+        "t2_quality": "t2_cpl_clamped" if "t2_cpl_clamped" in df.columns else "t2_cpl",
+        "t2_legal": "t2_legal_attempted" if "t2_legal_attempted" in df.columns else "t2_legal",
+        "t3": "t3_score_v2" if "t3_score_v2" in df.columns else "t3_score",
+    }
+
+
+def _group_spearman(rows: pd.DataFrame) -> float:
+    valid = _valid_t1_rows(rows)
+    return _spearman(valid) if not valid.empty else math.nan
+
+
+def _group_blunder_rate(rows: pd.DataFrame, quality_col: str) -> float:
+    """Blunder rate from clamped CPL; the legacy mean CPL when only raw CPL exists."""
+    cpl = pd.to_numeric(rows[quality_col], errors="coerce").dropna()
+    if cpl.empty:
+        return math.nan
+    if quality_col == "t2_cpl_clamped":
+        return float((cpl >= BLUNDER_CPL_CP).mean())
+    return float(cpl.mean())
+
+
+def _group_mean(rows: pd.DataFrame, column: str) -> float:
+    if column not in rows.columns:
+        return math.nan
+    values = pd.to_numeric(rows[column], errors="coerce")
+    return float(values.mean()) if values.notna().any() else math.nan
+
+
+def _family_group_metrics(rows: pd.DataFrame) -> dict[str, Any]:
+    cols = _headline_columns(rows)
+    return {
+        "t1_spearman_rho": _group_spearman(rows),
+        "t1_abs_error_excl_mate": _group_mean(rows, "t1_abs_error_excl_mate"),
+        "t2_blunder_rate": _group_blunder_rate(rows, cols["t2_quality"]),
+        "t2_cpl_clamped_mean": _group_mean(rows, cols["t2_quality"]),
+        "t2_legal_rate": _group_mean(rows, cols["t2_legal"]),
+        "t3_score_v2_mean": _group_mean(rows, cols["t3"]),
+        "n_records": int(len(rows)),
+    }
 
 
 def calculate_hallucination_rate(df: pd.DataFrame) -> pd.DataFrame:
@@ -1245,6 +1286,52 @@ def calculate_learning_deltas(df: pd.DataFrame) -> pd.DataFrame:
         return pd.DataFrame()
 
     return pd.DataFrame(results)
+
+
+def _h4_family_result(family_df: pd.DataFrame, cols: dict[str, str]) -> dict[str, Any] | None:
+    sizes = sorted(family_df["model_size_b"].dropna().unique())
+    if len(sizes) < 2:
+        return None
+    by_size = {size: family_df[family_df["model_size_b"] == size] for size in (sizes[0], sizes[-1])}
+    small, large = (
+        {
+            "t1": _group_spearman(rows),
+            "t2": _group_blunder_rate(rows, cols["t2_quality"]),
+            "t3": _group_mean(rows, cols["t3"]),
+        }
+        for rows in by_size.values()
+    )
+    better_t1 = bool(large["t1"] > small["t1"])  # False when either ρ is NaN
+    better_t2 = bool(large["t2"] < small["t2"])
+    better_t3 = bool(large["t3"] > small["t3"])
+    return {
+        "sizes_compared": [float(sizes[0]), float(sizes[-1])],
+        "smaller": small,
+        "larger": large,
+        "better_t1": better_t1,
+        "better_t2": better_t2,
+        "better_t3": better_t3,
+        "all_better": better_t1 and better_t2 and better_t3,
+    }
+
+
+def _h4_larger_models_better(df: pd.DataFrame) -> dict[str, Any]:
+    cols = _headline_columns(df)
+    by_family = {}
+    for family in df["model_family"].dropna().unique():
+        result = _h4_family_result(df[df["model_family"] == family], cols)
+        if result is not None:
+            by_family[family] = result
+    return {
+        "description": "Larger models perform better within family",
+        "supported": bool(by_family) and all(r["all_better"] for r in by_family.values()),
+        "columns_used": {
+            "t1": "spearman_rho",
+            "t2": "blunder_rate" if cols["t2_quality"] == "t2_cpl_clamped" else "t2_cpl_mean",
+            "t3": cols["t3"],
+        },
+        "by_family": by_family,
+    }
 
 
 def compute_hypothesis_tests(df: pd.DataFrame) -> dict[str, Any]:
@@ -1355,8 +1442,9 @@ def compute_hypothesis_tests(df: pd.DataFrame) -> dict[str, Any]:
         "values": h2_metrics[primary_h2]["values"],
     }
 
-    # H3: T3 score decreases with difficulty
-    h3_data = df.groupby("difficulty")["t3_score"].mean()
+    # H3: T3 score decreases with difficulty (v2 whole-word score when present)
+    h3_col = _headline_columns(df)["t3"]
+    h3_data = df.groupby("difficulty")[h3_col].mean()
     h3_values = [h3_data.get(d) for d in difficulty_order if d in h3_data]
     h3_decreasing = len(h3_values) >= 2 and all(
         h3_values[i] >= h3_values[i + 1]
@@ -1365,51 +1453,14 @@ def compute_hypothesis_tests(df: pd.DataFrame) -> dict[str, Any]:
     )
     results["H3"] = {
         "description": "T3 score decreases with difficulty",
+        "metric": h3_col,
         "supported": h3_decreasing,
         "values": {d: h3_data.get(d) for d in difficulty_order},
     }
 
-    # H4: Larger models perform better (within family)
-    h4_results = {}
-    for family in df["model_family"].dropna().unique():
-        family_df = df[df["model_family"] == family]
-        if len(family_df["model_size_b"].dropna().unique()) < 2:
-            continue
-
-        size_metrics = family_df.groupby("model_size_b").agg({
-            "t1_absolute_error": "mean",
-            "t2_cpl": "mean",
-            "t3_score": "mean",
-        })
-
-        # Check if larger size has lower error, lower CPL, higher T3
-        sizes = sorted(size_metrics.index)
-        if len(sizes) >= 2:
-            smaller, larger = sizes[0], sizes[-1]
-            better_t1 = (
-                size_metrics.loc[larger, "t1_absolute_error"]
-                < size_metrics.loc[smaller, "t1_absolute_error"]
-            )
-            better_t2 = (
-                size_metrics.loc[larger, "t2_cpl"]
-                < size_metrics.loc[smaller, "t2_cpl"]
-            )
-            better_t3 = (
-                size_metrics.loc[larger, "t3_score"]
-                > size_metrics.loc[smaller, "t3_score"]
-            )
-            h4_results[family] = {
-                "better_t1": better_t1,
-                "better_t2": better_t2,
-                "better_t3": better_t3,
-                "all_better": better_t1 and better_t2 and better_t3,
-            }
-
-    results["H4"] = {
-        "description": "Larger models perform better within family",
-        "supported": all(r.get("all_better", False) for r in h4_results.values()),
-        "by_family": h4_results,
-    }
+    # H4: Larger models perform better (within family), on the headline
+    # measures: T1 ρ (higher), T2 blunder rate (lower), T3 v2 (higher).
+    results["H4"] = _h4_larger_models_better(df)
 
     # H5: Better T3 than T2 on openings, worse on endgames (relative performance).
     #
