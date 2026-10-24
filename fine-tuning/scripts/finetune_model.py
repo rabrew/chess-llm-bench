@@ -16,6 +16,7 @@ import argparse
 import json
 import random
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -28,7 +29,10 @@ sys.path.insert(0, str(REPO_ROOT))
 sys.path.insert(0, str(FT_SRC))
 
 from board_state import fen_to_board_description, verify_board_description
-from src.utils import setup_logging
+from src.utils import parse_model_info, setup_logging
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from run_record import DEFAULT_RUNS_DIR, build_run_record, write_run_record  # noqa: E402
 
 INSTRUCTION = (
     "You are given a chess position in FEN notation. "
@@ -40,6 +44,8 @@ GRAD_CKPT_SIZE_THRESHOLD_B = 30
 
 # 70B needs CPU offload on top of gradient checkpointing
 CPU_OFFLOAD_SIZE_THRESHOLD_B = 65
+
+TRAINER_LOGGING_STEPS = 50
 
 # Gemma's flex-attention generate path crashes mid-training (fine-tuning/specs/gemma-training-fixes.md)
 ALLOWED_ATTN_IMPLEMENTATIONS = {"eager", "sdpa", "flash_attention_2"}
@@ -58,25 +64,6 @@ def find_model_entry(config: dict, ollama_base: str) -> dict:
         f"Model '{ollama_base}' not found in config. "
         f"Available: {[m['ollama_base'] for m in config.get('models', [])]}"
     )
-
-
-def estimate_size_b(ollama_base: str) -> float:
-    """Rough size estimate from the Ollama tag name (billions of params)."""
-    tag = ollama_base.split(":")[1] if ":" in ollama_base else ""
-    tag = tag.lower().replace("b", "")
-    # mixtral:8x7b → treat as ~47B total but ~12B active; use 47 for memory planning
-    if "x" in tag:
-        parts = tag.split("x")
-        try:
-            return float(parts[0]) * float(parts[1])
-        except ValueError:
-            pass
-    # gemma4:e2b, e4b → strip leading 'e'
-    tag = tag.lstrip("e")
-    try:
-        return float(tag)
-    except ValueError:
-        return 0.0
 
 
 def build_load_kwargs(
@@ -180,6 +167,7 @@ class EpochAccuracyCallback(TrainerCallback):
         self.tokenizer = tokenizer
         self.held_out = held_out
         self.logger = logger
+        self.history: list[dict[str, float]] = []
 
     def on_epoch_end(self, args: Any, state: Any, control: Any, **kwargs: Any) -> None:
         # Progress indicator only (F-9 is the real measurement), so a failure here must not end training.
@@ -189,6 +177,7 @@ class EpochAccuracyCallback(TrainerCallback):
             self.logger.error(f"[Epoch {state.epoch:.1f}] Held-out accuracy check failed: {exc}", exc_info=True)
             return
         self.logger.info(f"[Epoch {state.epoch:.1f}] Held-out board accuracy: {acc:.3f}")
+        self.history.append({"epoch": float(state.epoch), "held_out_accuracy": acc})
 
 
 def ensure_outputs_free(dirs: list[Path], resume: bool) -> None:
@@ -217,106 +206,112 @@ def _cleanup_dirs(checkpoint_dir: Path, gguf_dir: Path, logger: Any) -> None:
             logger.warning(f"Cleaned up partial directory: {d}")
 
 
-def run_finetuning(
-    ollama_base: str,
-    config_path: str,
-    dry_run: bool,
-    resume: bool,
-    logger: Any,
-) -> None:
+@dataclass
+class RunPlan:
+    ollama_base: str
+    entry: dict
+    training: dict
+    ft_tag: str
+    dataset_path: str
+    gguf_dir: Path
+    checkpoint_dir: Path
+    size_b: float
+    use_grad_ckpt: bool
+    use_cpu_offload: bool
+
+
+def plan_run(ollama_base: str, config_path: str) -> RunPlan:
+    """Resolve the config entry, output paths and memory strategy for one model."""
     config = load_ft_config(config_path)
     entry = find_model_entry(config, ollama_base)
-    training = config["training"]
     paths = config["paths"]
+    ft_tag = entry["ollama_ft_tag"]
+    size_b = parse_model_info(ollama_base)["size_b"]
+    return RunPlan(
+        ollama_base=ollama_base,
+        entry=entry,
+        training=config["training"],
+        ft_tag=ft_tag,
+        dataset_path=config["training"]["dataset_path"],
+        gguf_dir=Path(paths["gguf_output_dir"]).expanduser() / ft_tag,
+        checkpoint_dir=Path(paths["checkpoints_dir"]).expanduser() / ft_tag,
+        size_b=size_b,
+        use_grad_ckpt=size_b >= GRAD_CKPT_SIZE_THRESHOLD_B,
+        use_cpu_offload=size_b >= CPU_OFFLOAD_SIZE_THRESHOLD_B,
+    )
 
-    hf_id = entry["hf_id"]
-    ollama_ft_tag = entry["ollama_ft_tag"]
-    dataset_path = training["dataset_path"]
-    gguf_dir = Path(paths["gguf_output_dir"]) / ollama_ft_tag
-    checkpoint_dir = Path(paths["checkpoints_dir"]) / ollama_ft_tag
 
-    size_b = estimate_size_b(ollama_base)
-    use_grad_ckpt = size_b >= GRAD_CKPT_SIZE_THRESHOLD_B
-    use_cpu_offload = size_b >= CPU_OFFLOAD_SIZE_THRESHOLD_B
+def _log_plan(plan: RunPlan, logger: Any) -> None:
+    logger.info(f"Model      : {plan.ollama_base} → {plan.entry['hf_id']}")
+    logger.info(f"FT tag     : {plan.ft_tag}")
+    logger.info(f"Size       : {plan.size_b}B params (MODEL_REGISTRY)")
+    logger.info(f"Grad ckpt  : {plan.use_grad_ckpt}")
+    logger.info(f"CPU offload: {plan.use_cpu_offload}")
+    logger.info(f"Dataset    : {plan.dataset_path}")
+    logger.info(f"GGUF out   : {plan.gguf_dir}")
 
-    logger.info(f"Model      : {ollama_base} → {hf_id}")
-    logger.info(f"FT tag     : {ollama_ft_tag}")
-    logger.info(f"Size est.  : {size_b}B params")
-    logger.info(f"Grad ckpt  : {use_grad_ckpt}")
-    logger.info(f"CPU offload: {use_cpu_offload}")
-    logger.info(f"Dataset    : {dataset_path}")
-    logger.info(f"GGUF out   : {gguf_dir}")
 
-    if not Path(dataset_path).exists():
+def _load_split(plan: RunPlan, dry_run: bool, logger: Any) -> tuple[list[dict], list[dict]] | None:
+    """Train/held-out records, or None when a dry run stops early."""
+    if not Path(plan.dataset_path).exists():
         if dry_run:
-            logger.info(
-                f"[dry-run] Dataset not found at {dataset_path} — "
-                "run 'python fine-tuning/scripts/generate_board_dataset.py' first."
-            )
+            logger.info(f"[dry-run] Dataset not found at {plan.dataset_path} — generate it first.")
             logger.info("[dry-run] Config and model lookup validated successfully.")
-            return
-        logger.error(
-            f"Dataset not found: {dataset_path}\n"
-            "Run: python fine-tuning/scripts/generate_board_dataset.py"
-        )
+            return None
+        logger.error(f"Dataset not found: {plan.dataset_path}\nGenerate it with fine-tuning/scripts/generate_board_dataset.py")
         sys.exit(1)
-
-    records = load_dataset_records(dataset_path)
+    records = load_dataset_records(plan.dataset_path)
     logger.info(f"Loaded {len(records)} training records.")
-
-    train_records, held_out = split_held_out(records, seed=training.get("seed", 42))
+    train_records, held_out = split_held_out(records, seed=plan.training.get("seed", 42))
     logger.info(f"Train: {len(train_records)} | Held-out: {len(held_out)}")
-
     if dry_run:
         logger.info("[dry-run] Dataset validated. No training will run.")
         logger.info(f"[dry-run] First record input: {records[0]['input']}")
-        return
+        return None
+    return train_records, held_out
 
-    ensure_outputs_free(_output_dirs(checkpoint_dir, gguf_dir), resume)
 
-    # --- Imports deferred so dry-run works without GPU deps installed ---
+def _import_training_deps(logger: Any) -> tuple[Any, Any, Any, Any]:
+    """Deferred so dry runs work without GPU dependencies installed."""
     try:
-        from unsloth import FastLanguageModel
-        from trl import SFTTrainer, SFTConfig
         from datasets import Dataset
+        from trl import SFTConfig, SFTTrainer
+        from unsloth import FastLanguageModel
     except ImportError as e:
         logger.error(f"Missing dependency: {e}")
         logger.error("Install with: pip install 'unsloth[colab-new] @ git+https://github.com/unslothai/unsloth.git' 'trl>=1.0' datasets")
         sys.exit(1)
+    return FastLanguageModel, SFTTrainer, SFTConfig, Dataset
 
-    # --- Load model ---
-    load_kwargs = build_load_kwargs(entry, training, use_grad_ckpt, use_cpu_offload)
-    logger.info(f"Loading {hf_id} in 4-bit...")
-    model, tokenizer = FastLanguageModel.from_pretrained(**load_kwargs)
 
-    model = FastLanguageModel.get_peft_model(
+def _load_model(plan: RunPlan, fast_language_model: Any, logger: Any) -> tuple[Any, Any]:
+    training = plan.training
+    load_kwargs = build_load_kwargs(plan.entry, training, plan.use_grad_ckpt, plan.use_cpu_offload)
+    logger.info(f"Loading {plan.entry['hf_id']} in 4-bit...")
+    model, tokenizer = fast_language_model.from_pretrained(**load_kwargs)
+    model = fast_language_model.get_peft_model(
         model,
         r=training["lora_rank"],
         lora_alpha=training["lora_alpha"],
         target_modules=training["lora_target_modules"],
         lora_dropout=0,
         bias="none",
-        use_gradient_checkpointing=use_grad_ckpt,
+        use_gradient_checkpointing=plan.use_grad_ckpt,
         random_state=training.get("seed", 42),
     )
+    return model, tokenizer
 
-    # --- Format dataset ---
-    def format_record(rec: dict) -> dict:
-        text = format_alpaca_prompt(rec["instruction"], rec["input"], rec["output"])
-        return {"text": text}
 
-    hf_dataset = Dataset.from_list([format_record(r) for r in train_records])
-
-    # --- Accuracy callback ---
-    accuracy_cb = EpochAccuracyCallback(model, tokenizer, held_out, logger)
-
-    # --- Train + Export GGUF (clean up partial artifacts on failure) ---
-    checkpoint_dir.mkdir(parents=True, exist_ok=True)
-    trainer = SFTTrainer(
+def _build_trainer(plan: RunPlan, deps: tuple, model: Any, tokenizer: Any,
+                   train_records: list[dict], callback: Any) -> Any:
+    _, sft_trainer, sft_config, dataset_cls = deps
+    training = plan.training
+    texts = [{"text": format_alpaca_prompt(r["instruction"], r["input"], r["output"])} for r in train_records]
+    return sft_trainer(
         model=model,
         processing_class=tokenizer,
-        train_dataset=hf_dataset,
-        args=SFTConfig(
+        train_dataset=dataset_cls.from_list(texts),
+        args=sft_config(
             dataset_text_field="text",
             max_length=training["max_seq_length"],
             per_device_train_batch_size=training["per_device_train_batch_size"],
@@ -325,43 +320,90 @@ def run_finetuning(
             learning_rate=training["learning_rate"],
             warmup_ratio=training["warmup_ratio"],
             bf16=True,
-            logging_steps=50,
-            output_dir=str(checkpoint_dir),
+            logging_steps=TRAINER_LOGGING_STEPS,
+            output_dir=str(plan.checkpoint_dir),
             seed=training.get("seed", 42),
             report_to="none",
         ),
-        callbacks=[accuracy_cb],
+        callbacks=[callback],
     )
+
+
+def _export_gguf(plan: RunPlan, model: Any, tokenizer: Any, logger: Any) -> Path | None:
+    plan.gguf_dir.mkdir(parents=True, exist_ok=True)
+    logger.info(f"Exporting GGUF to {plan.gguf_dir}...")
+    model.save_pretrained_gguf(
+        str(plan.gguf_dir), tokenizer, quantization_method=plan.training.get("gguf_quantization", "q4_k_m"),
+    )
+    # Unsloth may append _gguf to the output dir name; check both locations.
+    actual_dir = plan.gguf_dir if plan.gguf_dir.exists() else Path(str(plan.gguf_dir) + "_gguf")
+    gguf_files = sorted(actual_dir.glob("*.gguf")) if actual_dir.exists() else []
+    if not gguf_files:
+        logger.warning(f"No .gguf file found in {plan.gguf_dir} or {actual_dir} — check Unsloth output above.")
+        return None
+    logger.info(f"GGUF saved: {gguf_files[0]}")
+    return gguf_files[0]
+
+
+def training_metrics(log_history: list[dict], global_step: int, epoch: float,
+                     accuracy_history: list[dict]) -> dict[str, Any]:
+    """Loss curve and held-out accuracy for the run record."""
+    losses = [[entry["step"], entry["loss"]] for entry in log_history if "loss" in entry]
+    return {
+        "global_step": global_step,
+        "epoch": epoch,
+        "final_train_loss": losses[-1][1] if losses else None,
+        "loss_history": losses,
+        "held_out_accuracy": accuracy_history,
+    }
+
+
+def record_run(plan: RunPlan, config_path: str, metrics: dict, gguf_path: Path | None,
+               runs_dir: Path = DEFAULT_RUNS_DIR) -> Path:
+    record = build_run_record(
+        model=plan.ollama_base, config_path=config_path, metrics=metrics,
+        outputs={"checkpoint_dir": str(plan.checkpoint_dir), "gguf": str(gguf_path) if gguf_path else None},
+    )
+    return write_run_record(record, runs_dir)
+
+
+def _train_and_export(plan: RunPlan, split: tuple[list[dict], list[dict]], resume: bool,
+                      logger: Any) -> tuple[Any, Any, Path | None]:
+    deps = _import_training_deps(logger)
+    model, tokenizer = _load_model(plan, deps[0], logger)
+    train_records, held_out = split
+    callback = EpochAccuracyCallback(model, tokenizer, held_out, logger)
+    plan.checkpoint_dir.mkdir(parents=True, exist_ok=True)
+    trainer = _build_trainer(plan, deps, model, tokenizer, train_records, callback)
     logger.info("Starting training...")
     try:
         trainer.train(resume_from_checkpoint=True if resume else None)
-    except Exception as exc:
-        logger.error(f"Training failed: {exc}")
-        _cleanup_dirs(checkpoint_dir, gguf_dir, logger)
+        logger.info("Training complete.")
+        gguf_path = _export_gguf(plan, model, tokenizer, logger)
+    except Exception as exc:  # any failure: remove this run's partial outputs, then re-raise
+        logger.error(f"Training or GGUF export failed: {exc}")
+        _cleanup_dirs(plan.checkpoint_dir, plan.gguf_dir, logger)
         raise
+    return trainer, callback, gguf_path
 
-    logger.info("Training complete.")
 
-    gguf_dir.mkdir(parents=True, exist_ok=True)
-    logger.info(f"Exporting GGUF to {gguf_dir}...")
-    try:
-        model.save_pretrained_gguf(
-            str(gguf_dir),
-            tokenizer,
-            quantization_method=training.get("gguf_quantization", "q4_k_m"),
-        )
-    except Exception as exc:
-        logger.error(f"GGUF export failed: {exc}")
-        _cleanup_dirs(checkpoint_dir, gguf_dir, logger)
-        raise
-
-    # Unsloth may append _gguf to the output dir name; check both locations.
-    actual_gguf_dir = gguf_dir if gguf_dir.exists() else Path(str(gguf_dir) + "_gguf")
-    gguf_files = list(actual_gguf_dir.glob("*.gguf")) if actual_gguf_dir.exists() else []
-    if gguf_files:
-        logger.info(f"GGUF saved: {gguf_files[0]}")
-    else:
-        logger.warning(f"No .gguf file found in {gguf_dir} or {actual_gguf_dir} — check Unsloth output above.")
+def run_finetuning(
+    ollama_base: str,
+    config_path: str,
+    dry_run: bool,
+    resume: bool,
+    logger: Any,
+) -> None:
+    plan = plan_run(ollama_base, config_path)
+    _log_plan(plan, logger)
+    split = _load_split(plan, dry_run, logger)
+    if split is None:
+        return
+    ensure_outputs_free(_output_dirs(plan.checkpoint_dir, plan.gguf_dir), resume)
+    trainer, callback, gguf_path = _train_and_export(plan, split, resume, logger)
+    metrics = training_metrics(trainer.state.log_history, trainer.state.global_step,
+                               trainer.state.epoch, callback.history)
+    logger.info(f"Run record: {record_run(plan, config_path, metrics, gguf_path)}")
     logger.info(f"Done. Run: python fine-tuning/scripts/import_finetuned_to_ollama.py {ollama_base}")
 
 
