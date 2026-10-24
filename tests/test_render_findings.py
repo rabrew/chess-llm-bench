@@ -30,6 +30,11 @@ def _write_metrics(directory: Path) -> Path:
                             "n_tactical_explanations": 300},
             "t3_side_mark": {"n": 450, "accuracy": 0.30, "majority_share": 0.54, "cohen_kappa": 0.07},
         },
+        "hypothesis_tests": {
+            "H1": {"supported": False, "values": {"easy": 1.36, "medium": 1.37, "hard": 1.37, "extreme": 1.42}},
+            "H2": {"supported": False, "values": {"easy": 744.0, "medium": 810.0, "hard": 807.0, "extreme": 792.0}},
+            "H3": {"supported": False, "values": {"easy": 0.6, "medium": 0.5, "hard": 0.55, "extreme": 0.5}},
+        },
     }
     (directory / "summary.json").write_text(json.dumps(summary))
     pd.DataFrame({"model": MODELS, "n": [10, 10], "spearman_rho": [0.2, float("nan")]}).to_csv(
@@ -50,6 +55,10 @@ def _write_metrics(directory: Path) -> Path:
     for key, count in zip(rf.BUCKET_KEYS, [2, 1, 2, 1, 4]):
         buckets[f"{key}_count"] = [count, count]
     pd.DataFrame(buckets).to_csv(directory / "cpl_buckets.csv", index=False)
+    pd.DataFrame({"prompt_format": ["cot", "fen_only", "eval_only"], "n": [5, 5, 5],
+                  "t1_spearman_rho": [0.12, 0.10, 0.2], "t2_legal_rate": [0.97, 0.96, float("nan")],
+                  "t2_blunder_rate": [0.41, 0.43, float("nan")], "t3_score_v2_mean": [0.5, 0.4, float("nan")]}).to_csv(
+        directory / "by_prompt_format.csv", index=False)
     pd.DataFrame({"model_family": ["qwen2.5"], "model_size_b": [7.0], "t1_spearman_rho": [0.2],
                   "t2_blunder_rate": [0.5], "t2_legal_rate": [0.98], "t3_score_v2_mean": [0.35],
                   "n_records": [24000]}).to_csv(directory / "by_model_family.csv", index=False)
@@ -188,3 +197,29 @@ def test_missing_summary_exits_1(tmp_path, monkeypatch):
     with pytest.raises(SystemExit) as exc:
         rf.main()
     assert exc.value.code == 1
+
+
+def test_difficulty_and_formats_tables(tmp_path):
+    tables = rf.render_all(_sources(tmp_path))
+    assert "| easy | 1.36 | 744 | 0.60 |" in tables["difficulty"]
+    assert "not supported" in tables["difficulty"]
+    assert "| cot | 0.12 | 97.0% | 41.0% | 0.50 |" in tables["formats"]
+    assert "| eval_only | 0.20 | — | — | — |" in tables["formats"]
+
+
+def test_compute_by_prompt_format():
+    from src.metrics import compute_by_prompt_format
+    truth = [-300, -100, 0, 100, 300]
+    rows = []
+    for i, t in enumerate(truth):
+        rows.append({"prompt_format": "cot", "t1_model_eval": t, "t1_stockfish_eval": t,
+                     "t2_legal_attempted": 1.0, "t2_cpl_clamped": 1000.0 if i == 0 else 10.0, "t3_score_v2": 1.0})
+        rows.append({"prompt_format": "eval_only", "t1_model_eval": -t, "t1_stockfish_eval": t,
+                     "t2_legal_attempted": float("nan"), "t2_cpl_clamped": float("nan"), "t3_score_v2": float("nan")})
+    table = compute_by_prompt_format(pd.DataFrame(rows)).set_index("prompt_format")
+    assert table.loc["cot", "t1_spearman_rho"] == pytest.approx(1.0)
+    assert table.loc["eval_only", "t1_spearman_rho"] == pytest.approx(-1.0)
+    assert table.loc["cot", "t2_blunder_rate"] == pytest.approx(0.2)
+    assert table.loc["cot", "t2_legal_rate"] == pytest.approx(1.0)
+    assert math.isnan(table.loc["eval_only", "t2_legal_rate"])
+    assert table.loc["cot", "n"] == 5
