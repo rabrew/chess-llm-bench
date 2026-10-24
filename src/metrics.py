@@ -57,6 +57,20 @@ ISOLATED_RETRY = "isolated_retry"
 UNKNOWN_SOURCE = "unknown"
 KNOWN_MOVE_SOURCES = (FIRST_ANSWER, TEXT_RESCUE, ISOLATED_RETRY)
 
+# Move-quality buckets on clamped CPL, (key, lower inclusive, upper exclusive);
+# the same bands as FINDINGS Finding 2 (specs/t2-blunder-rate.md).
+BLUNDER_CPL_CP = 1000
+CPL_BUCKETS = (
+    ("perfect", 0, 25),
+    ("strong", 25, 100),
+    ("decent", 100, 500),
+    ("very_weak", 500, BLUNDER_CPL_CP),
+    ("blunder", BLUNDER_CPL_CP, math.inf),
+)
+BOOTSTRAP_RESAMPLES = 10_000
+BOOTSTRAP_SEED = 42
+CI_LEVEL = 0.95
+
 
 def compute_relative_error(
     model_eval: float, stockfish_eval: float, floor: int = RELATIVE_ERROR_FLOOR_CP
@@ -286,6 +300,98 @@ def load_results_df(
             )
 
     return df
+
+
+def _cpl_rows(df: pd.DataFrame) -> pd.DataFrame:
+    if "t2_cpl_clamped" not in df.columns:
+        return df.iloc[0:0]
+    return df[df["t2_cpl_clamped"].notna()]
+
+
+def bootstrap_proportion_ci(successes: int, n: int, seed: int = BOOTSTRAP_SEED) -> tuple[float, float]:
+    """Percentile bootstrap CI for a proportion.
+
+    Resampling n 0/1 values with replacement and taking the mean is exactly
+    Binomial(n, p_hat) / n, so that form is drawn directly.
+    """
+    if n == 0:
+        return (math.nan, math.nan)
+    rng = np.random.default_rng(seed)
+    resampled = rng.binomial(n, successes / n, size=BOOTSTRAP_RESAMPLES) / n
+    tail = (1 - CI_LEVEL) / 2
+    low, high = np.quantile(resampled, [tail, 1 - tail])
+    return (float(low), float(high))
+
+
+def _bucket_row(model: str, cpl: pd.Series) -> dict[str, Any]:
+    row: dict[str, Any] = {"model": model, "n": len(cpl)}
+    for key, low, high in CPL_BUCKETS:
+        count = int(((cpl >= low) & (cpl < high)).sum())
+        row[f"{key}_count"] = count
+        row[f"{key}_share"] = count / len(cpl)
+    return row
+
+
+def compute_cpl_buckets(df: pd.DataFrame) -> pd.DataFrame:
+    """Per model: count and share of legal moves in each clamped-CPL bucket."""
+    rows = _cpl_rows(df)
+    records = [
+        _bucket_row(model, group["t2_cpl_clamped"].astype(float))
+        for model, group in rows.groupby("model", sort=True)
+    ]
+    return pd.DataFrame(records)
+
+
+def _blunder_row(model: str, cpl: pd.Series) -> dict[str, Any]:
+    blunders = int((cpl >= BLUNDER_CPL_CP).sum())
+    ci_low, ci_high = bootstrap_proportion_ci(blunders, len(cpl))
+    return {
+        "model": model,
+        "n": len(cpl),
+        "blunder_rate": blunders / len(cpl),
+        "ci_low": ci_low,
+        "ci_high": ci_high,
+        "mean_cpl_clamped": float(cpl.mean()),
+        "median_cpl_clamped": float(cpl.median()),
+    }
+
+
+def _intervals_overlap(a: pd.Series, b: pd.Series) -> bool:
+    return bool(a["ci_low"] <= b["ci_high"] and b["ci_low"] <= a["ci_high"])
+
+
+def _flag_rank_ties(table: pd.DataFrame) -> pd.Series:
+    """True where a model's CI overlaps the model ranked directly above or below."""
+    rows = [table.iloc[i] for i in range(len(table))]
+    tied = [
+        any(_intervals_overlap(rows[i], rows[j]) for j in (i - 1, i + 1) if 0 <= j < len(rows))
+        for i in range(len(rows))
+    ]
+    return pd.Series(tied, index=table.index, dtype=bool)
+
+
+def compute_blunder_rates(df: pd.DataFrame) -> pd.DataFrame:
+    """Per model: share of legal moves with clamped CPL >= 1000, with a 95% bootstrap CI."""
+    rows = _cpl_rows(df)
+    records = [
+        _blunder_row(model, group["t2_cpl_clamped"].astype(float))
+        for model, group in rows.groupby("model", sort=True)
+    ]
+    if not records:
+        return pd.DataFrame()
+    table = pd.DataFrame(records).sort_values(["blunder_rate", "model"]).reset_index(drop=True)
+    table["rank_tied"] = _flag_rank_ties(table)
+    return table
+
+
+def _overall_blunder_rate(df: pd.DataFrame) -> dict[str, Any] | None:
+    rows = _cpl_rows(df)
+    if rows.empty:
+        return None
+    cpl = rows["t2_cpl_clamped"].astype(float)
+    blunders = int((cpl >= BLUNDER_CPL_CP).sum())
+    ci_low, ci_high = bootstrap_proportion_ci(blunders, len(cpl))
+    return {"n": int(len(cpl)), "rate": blunders / len(cpl), "ci_low": ci_low, "ci_high": ci_high}
 
 
 EVAL_BEFORE_SEARCH = "lc0_search"
@@ -1175,6 +1281,7 @@ def generate_summary(df: pd.DataFrame) -> dict[str, Any]:
             **_overall_direction_chance_metrics(df),
             "t1_zero_baseline": _overall_zero_baseline(df),
             "t2_first_attempt_combined": _overall_first_attempt_combined(df),
+            "t2_blunder_rate": _overall_blunder_rate(df),
             "t2_legal_rate_buggy_includes_no_move_prompts": df["t2_legal"].mean(),
             "t2_legal_rate": (
                 df["t2_legal_attempted"].mean()
@@ -1261,6 +1368,8 @@ def save_metrics(
     )
     _save_direction_chance_tables(df, output_path)
     _write_or_remove(compute_move_source_breakdown(df), output_path / "t2_move_source.csv")
+    _write_or_remove(compute_cpl_buckets(df), output_path / "cpl_buckets.csv")
+    _write_or_remove(compute_blunder_rates(df), output_path / "t2_blunder_rate.csv")
 
     # Save learning deltas if available
     _write_or_remove(calculate_learning_deltas(df), output_path / "learning_deltas.csv")

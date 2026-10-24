@@ -6,7 +6,8 @@ side's metrics and the fine-tuned − base delta:
 
   T1  Spearman ρ, Cohen's κ at ±50 cp, MAE and MAE relative to always answering 0
   T2  legal-move rate over prompts that ask for a move, first-attempt legal rate on
-      combined prompts (NaN without raw replies), clamped CPL
+      combined prompts (NaN without raw replies), blunder rate (clamped CPL >= 1000),
+      clamped CPL
   T3  mean score
 
 Error alone is not evidence of skill: most positions are near level, so a model
@@ -35,6 +36,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
 
 from src.metrics import (  # noqa: E402
+    BLUNDER_CPL_CP,
     COMBINED_PROMPT_FORMATS,
     EVAL_CLAMP_CP,
     MATE_SCORE_THRESHOLD_CP,
@@ -66,6 +68,7 @@ METRICS = (
     "t1_mae_ratio",
     "t2_legal_rate",
     "t2_first_attempt_legal_rate",
+    "t2_blunder_rate",
     "t2_mean_cpl_clamped",
     "t3_mean",
 )
@@ -124,6 +127,7 @@ def side_metrics(rows: pd.DataFrame) -> dict[str, float]:
         agreement = agreement[agreement["threshold"] == KAPPA_THRESHOLD_CP]
     error = compute_eval_error_vs_zero(rows)
     move_rows = rows[rows["prompt_format"].isin(MOVE_PROMPT_FORMATS)]
+    cpl = pd.to_numeric(rows["t2_cpl_clamped"], errors="coerce")
     return {
         "t1_spearman": _first_value(compute_eval_rank_correlation(rows), "spearman_rho"),
         "t1_kappa_t50": _first_value(agreement, "cohen_kappa"),
@@ -131,9 +135,15 @@ def side_metrics(rows: pd.DataFrame) -> dict[str, float]:
         "t1_mae_ratio": _first_value(error, "mae_ratio"),
         "t2_legal_rate": _mean(move_rows["t2_legal"].fillna(False).astype(float)),
         "t2_first_attempt_legal_rate": _first_attempt_rate(rows),
-        "t2_mean_cpl_clamped": _mean(pd.to_numeric(rows["t2_cpl_clamped"], errors="coerce")),
+        "t2_blunder_rate": _blunder_rate(cpl),
+        "t2_mean_cpl_clamped": _mean(cpl),
         "t3_mean": _mean(pd.to_numeric(rows[_t3_column(rows)], errors="coerce")),
     }
+
+
+def _blunder_rate(cpl: pd.Series) -> float:
+    """Share of legal moves (rows with a CPL) losing >= 1000 clamped cp."""
+    return _mean((cpl.dropna() >= BLUNDER_CPL_CP).astype(float))
 
 
 def _first_attempt_rate(rows: pd.DataFrame) -> float:
