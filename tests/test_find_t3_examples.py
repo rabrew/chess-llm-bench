@@ -33,7 +33,7 @@ def _cue_row(table, theme, cue):
 
 
 def test_phrase_mentioned_is_whole_word():
-    assert phrase_mentioned("pin", "The knight is pinned to the king")
+    assert phrase_mentioned("pin", "The bishop pins the knight to the king")
     assert not phrase_mentioned("pin", "In my opinion White is better")
 
 

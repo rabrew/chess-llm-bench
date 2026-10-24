@@ -76,7 +76,7 @@ pandas, plus `src.evaluator`.
   (fork, "attacks two"); a marked one (it says "fork") does not
 - A cue present in other themes' explanations raises the leak hits and rate
 - A cue with high leak fails the threshold even when the gain is high
-- `phrase_mentioned` is whole-word: "pinned" matches "pin", "opinion" does not
+- `phrase_mentioned` is whole-word: "pins" matches "pin", "opinion" does not
 - Non-tactical themes are not scanned
 - Malformed lines are skipped; a missing file exits 1
 - The report file contains the cue table and the sample section
