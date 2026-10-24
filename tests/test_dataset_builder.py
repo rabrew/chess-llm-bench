@@ -1,12 +1,8 @@
 """Tests for src/dataset_builder.py"""
 
 import json
-import tempfile
-from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
-import chess
-import pytest
 
 from src.dataset_builder import (
     rating_to_difficulty,
@@ -14,7 +10,6 @@ from src.dataset_builder import (
     LichessPuzzleFetcher,
     PGNPositionSampler,
     build_dataset,
-    DIFFICULTY_TIERS,
 )
 
 

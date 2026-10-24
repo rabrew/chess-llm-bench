@@ -1,0 +1,2 @@
+# Development-only tools (not needed to run the benchmark)
+ruff==0.14.0

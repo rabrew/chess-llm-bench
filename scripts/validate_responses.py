@@ -102,7 +102,7 @@ def validate_model(model_name, records):
     """Validate all records for a single model and print a report."""
     total = len(records)
     if total == 0:
-        print(f"  [SKIP] No records found")
+        print("  [SKIP] No records found")
         return
 
     mismatches = 0
@@ -137,7 +137,7 @@ def validate_model(model_name, records):
     print(f"  T3 avg  : {t3_avg:5.2f}/2  (side + theme correctness)")
     print(f"  Score   : {status}")
     if all_issues:
-        print(f"  Issues:")
+        print("  Issues:")
         for line in all_issues[:10]:   # cap output
             print(line)
         if len(all_issues) > 10:
@@ -173,7 +173,6 @@ def main():  # pragma: no cover
             missing.append(model)
             continue
 
-        found_any = True
         print(f"{'='*60}")
         print(f"Model: {model}")
         validate_model(model, recs)

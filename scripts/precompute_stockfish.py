@@ -28,7 +28,8 @@ def evaluate_position(args):
         result = engine.evaluate(fen)
         engine.close()
         return fen, result["eval"], result["best_move"]
-    except Exception as e:
+    except Exception as exc:  # one bad position must not stop the pool; log it and leave it unset
+        print(f"Stockfish failed on {fen}: {exc}", file=sys.stderr)
         return fen, None, None
 
 
@@ -123,7 +124,7 @@ def main():
     failed = 0
 
     print(f"\n{'='*60}")
-    print(f"  STOCKFISH EVALUATION")
+    print("  STOCKFISH EVALUATION")
     print(f"  Positions: {len(all_positions):,}")
     print(f"  Workers:   {n_workers}")
     print(f"  Depth:     {depth}")

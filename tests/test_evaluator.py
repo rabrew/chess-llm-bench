@@ -1,6 +1,5 @@
 """Tests for T1/T2/T3 scoring logic."""
 
-import pytest
 
 from src.evaluator import (
     get_direction,
@@ -9,7 +8,6 @@ from src.evaluator import (
     score_t3,
     score_all,
     should_trigger_correction,
-    THEME_SYNONYMS,
 )
 
 

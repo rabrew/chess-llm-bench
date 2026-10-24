@@ -1,14 +1,10 @@
 """Tests for scripts/enrich_cpl.py (Lc0 CPL post-processing)."""
 
 import json
-import os
 import sys
-import tempfile
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
-import chess
-import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
@@ -233,13 +229,10 @@ class TestEnrichRecords:
 
     def test_passthrough_records_unchanged(self):
         already_done = make_record(t2_cpl=15, t2_best_move="d4")
-        engine = MagicMock()
-        engine.evaluate.return_value = make_lc0_result(100, "e4")
-
-        # enrich_records only processes records passed to it (already filtered)
-        # so simulate: pass only the enrichable record, check the other unchanged
-        result = enrich_records([], engine)
-        assert result == []
+        to_enrich, passthrough = collect_work([already_done])
+        assert to_enrich == []
+        assert passthrough == [already_done]
+        assert enrich_records([], _engine()) == []
 
     def test_deduplication_same_fen_and_move(self):
         # Same FEN + same model_move in two records (different prompt formats)

@@ -1,13 +1,11 @@
 """Tests for LLM client response parsing."""
 
-import pytest
 from unittest.mock import patch, MagicMock
 
 from src.llm_client import (
     parse_response, build_prompt, OllamaClient,
     build_eval_prompt, build_explanation_prompt, build_move_prompt,
     parse_eval_response, parse_explanation_response,
-    MOVE_SYSTEM_PROMPT, EVAL_SYSTEM_PROMPT, EXPLANATION_SYSTEM_PROMPT,
 )
 
 

@@ -1,8 +1,6 @@
 """Tests for src/utils.py"""
 
 import logging
-import os
-import tempfile
 from pathlib import Path
 
 import pytest
@@ -136,6 +134,7 @@ class TestEnsureDir:
         new_dir = str(tmp_path / "strdir")
         result = ensure_dir(new_dir)
         assert Path(new_dir).exists()
+        assert Path(result) == Path(new_dir)
 
 
 class TestEnsureProjectDirs:

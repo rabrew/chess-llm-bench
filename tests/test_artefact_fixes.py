@@ -9,15 +9,12 @@ Covers:
   - WP-loss is bounded [0, 1000]
 """
 
-import math
 
-import chess
 import pandas as pd
 import pytest
 
 from src.evaluator import (
     EVAL_CLAMP_CP,
-    THEME_SYNONYMS,
     _camel_to_words,
     score_t2,
     score_t3,
@@ -233,7 +230,7 @@ def test_wp_loss_non_negative_on_horizon_noise():
 
 def test_t1_abs_error_excl_mate_drops_mate_rows():
     """Mate-truth rows become NaN; non-mate rows are unchanged."""
-    from src.metrics import load_results_df, MATE_SCORE_THRESHOLD_CP
+    from src.metrics import MATE_SCORE_THRESHOLD_CP
 
     # We'll simulate the derived-column logic directly to avoid file I/O.
     df = pd.DataFrame({

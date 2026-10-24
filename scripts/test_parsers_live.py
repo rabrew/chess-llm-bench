@@ -70,7 +70,7 @@ for model in MODELS:
             print(f"  [{fmt:10s}] OK   — eval={parsed['eval']} move={parsed['move']} side={parsed['side_claimed']}")
 
     if model_ok:
-        print(f"  ✓ All formats parsed cleanly")
+        print("  ✓ All formats parsed cleanly")
 
 print(f"\n{'='*60}")
 print(f"Result: {'ALL PASS' if overall_pass else 'FAILURES DETECTED — fix parser before running benchmark'}")

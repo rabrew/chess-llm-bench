@@ -6,11 +6,11 @@ import re
 from pathlib import Path
 from typing import Any
 
-_JOB_ID_RE = re.compile(r'"job_id"\s*:\s*"([^"]+)"')
-
 from filelock import FileLock, Timeout as FileLockTimeout
 
 from .utils import get_timestamp, parse_model_info
+
+_JOB_ID_RE = re.compile(r'"job_id"\s*:\s*"([^"]+)"')
 
 logger = logging.getLogger("chess_llm_bench")
 

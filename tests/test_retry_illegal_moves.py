@@ -1,12 +1,8 @@
 """Tests for scripts/retry_illegal_moves.py"""
 
-import json
 import sys
 from pathlib import Path
-from unittest.mock import MagicMock, patch
 
-import chess
-import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 

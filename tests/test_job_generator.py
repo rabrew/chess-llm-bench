@@ -1,7 +1,7 @@
 """Tests for src/job_generator.py"""
 
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 from src.job_generator import (
     generate_job_id,
@@ -238,6 +238,7 @@ class TestPopulateJobQueue:
         total = queue.count_total()
         # All jobs should be for llama3.2:3b only
         jobs = queue.get_jobs_by_status("pending")
+        assert inserted == total == len(jobs) > 0
         assert all(j["model"] == "llama3.2:3b" for j in jobs)
 
     def test_max_positions_per_tier(self, tmp_path, sample_positions, sample_models, sample_formats):

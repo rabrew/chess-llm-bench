@@ -65,7 +65,7 @@ def encode_position(board: chess.Board) -> np.ndarray:
 
 def wdl_to_centipawns(wdl: np.ndarray) -> int:
     """Convert WDL probabilities to centipawn evaluation."""
-    w, d, l = wdl[0], wdl[1], wdl[2]
+    w, d = wdl[0], wdl[1]
     score = w + d * 0.5
     if score >= 0.999:
         return 10000
@@ -126,7 +126,7 @@ def main():
         return
 
     print(f"\n{'='*60}")
-    print(f"  LC0 BATCH GPU EVALUATION v2 (OPTIMIZED)")
+    print("  LC0 BATCH GPU EVALUATION v2 (OPTIMIZED)")
     print(f"  Positions: {len(positions_to_eval):,}")
     print(f"  Batch size: {args.batch_size}")
     print(f"  Checkpoint every: {args.checkpoint_every:,}")
@@ -163,7 +163,7 @@ def main():
         for tier, positions in tier_data.items():
             with open(data_dir / f"{tier}.json", "w") as f:
                 json.dump(positions, f)
-        logger.info(f"Checkpoint saved")
+        logger.info("Checkpoint saved")
 
     evaluated = 0
     last_checkpoint = 0

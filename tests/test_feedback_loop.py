@@ -1,7 +1,7 @@
 """Tests for src/feedback_loop.py"""
 
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 from src.feedback_loop import (
     build_correction_prompt,

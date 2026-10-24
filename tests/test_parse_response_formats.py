@@ -6,7 +6,6 @@ produce a wide variety of formatting. Any response that contains valid content
 must NOT be incorrectly flagged as having parse errors.
 """
 
-import pytest
 
 from src.llm_client import parse_response
 
@@ -574,7 +573,7 @@ class TestAllModelsExplicit:
         )
         assert_fully_parsed(r, 55, "Rxe5", "White")
 
-    def test_gemma3_12b(self):
+    def test_gemma3_12b_markdown_header(self):
         """Gemma3 12b — may produce markdown headers then the format."""
         r = parse_response(
             "## Chess Position Analysis\n\n"

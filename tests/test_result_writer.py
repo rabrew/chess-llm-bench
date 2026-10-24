@@ -1,7 +1,6 @@
 """Tests for src/result_writer.py"""
 
 import json
-import tempfile
 from pathlib import Path
 
 import pytest

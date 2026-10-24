@@ -6,7 +6,7 @@ import logging
 import random
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any
 import multiprocessing as mp
 
 import chess
@@ -168,7 +168,6 @@ class LichessPuzzleFetcher:
             logger.error(f"Puzzle CSV not found: {self.csv_path}")
             return {}
 
-        rng = random.Random(seed)
         puzzles_by_tier: dict[str, list[dict[str, Any]]] = {
             tier: [] for tier in DIFFICULTY_TIERS
         }
@@ -176,7 +175,7 @@ class LichessPuzzleFetcher:
         print(f"  Loading: {self.csv_path}")
 
         # Use pandas for fast CSV loading - only columns we need
-        print(f"  Reading CSV with pandas...", end=" ", flush=True)
+        print("  Reading CSV with pandas...", end=" ", flush=True)
         df = pd.read_csv(
             self.csv_path,
             usecols=["FEN", "Rating", "Themes"],
@@ -191,7 +190,7 @@ class LichessPuzzleFetcher:
         unlimited = count_per_tier <= 0
 
         # Sample or use all positions per tier
-        print(f"\n  Puzzles by difficulty tier:")
+        print("\n  Puzzles by difficulty tier:")
         sampled_rows = []
         for tier in DIFFICULTY_TIERS:
             tier_df = df[df["tier"] == tier]
@@ -241,7 +240,6 @@ class LichessPuzzleFetcher:
                 else:
                     invalid_count += 1
 
-        total = sum(len(p) for p in puzzles_by_tier.values())
         print(f"\n  Validation complete: {valid_count:,} valid, {invalid_count:,} invalid")
 
         return puzzles_by_tier

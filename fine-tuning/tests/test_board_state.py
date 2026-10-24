@@ -3,7 +3,6 @@
 import sys
 from pathlib import Path
 
-import chess
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -51,7 +50,7 @@ class TestFenToBoardDescription:
         desc = fen_to_board_description(STARTING_FEN)
         # There should be no "empty" or bare square notation outside of piece context
         lines = desc.split("\n")
-        piece_lines = [l for l in lines if l.startswith("White:") or l.startswith("Black:")]
+        piece_lines = [line for line in lines if line.startswith(("White:", "Black:"))]
         for line in piece_lines:
             # Should not contain standalone empty square descriptions
             assert "empty" not in line.lower()

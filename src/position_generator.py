@@ -338,8 +338,7 @@ def generate_positions(
 
     # Generate a mix of position types
     target_random = count // 3
-    target_themed = count // 3
-    target_endgame = count - target_random - target_themed
+    target_themed = count // 3  # the endgame loop below fills the remainder up to count
 
     # Random positions
     attempts = 0

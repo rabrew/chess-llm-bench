@@ -2,10 +2,8 @@
 
 import json
 import sys
-import tempfile
 from pathlib import Path
 
-import chess
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -62,7 +60,6 @@ class TestStartingPosition:
 
 class TestPieceCountsMatchFen:
     def test_white_piece_count(self):
-        board = chess.Board(STARTING_FEN)
         desc = fen_to_board_description(STARTING_FEN)
         # Starting position: 1 king, 1 queen, 2 rooks, 2 bishops, 2 knights, 8 pawns = 16
         white_line = desc.split("\n")[0]

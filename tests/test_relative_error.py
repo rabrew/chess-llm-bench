@@ -1,6 +1,5 @@
 """Tests for the relative-error metric (Issue 1: H1 calibration fix)."""
 
-import math
 
 import pandas as pd
 import pytest

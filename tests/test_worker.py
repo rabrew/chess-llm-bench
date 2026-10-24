@@ -1,13 +1,9 @@
 """Tests for src/worker.py"""
 
 import pytest
-from unittest.mock import MagicMock, patch, call
+from unittest.mock import MagicMock, patch
 
 from src.worker import Worker, run_worker
-from src.job_queue import JobQueue
-from src.llm_client import OllamaClient
-from src.result_writer import ResultWriter
-from src.data_loader import DataLoader
 
 
 FEN = "r1bqkbnr/pppp1ppp/2n5/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R b KQkq - 3 3"
@@ -279,7 +275,7 @@ class TestProcessJob:
                 "t3_explanation": "Equal.", "t3_side_claimed": "Equal",
                 "t3_p1_side_correct": 1, "t3_p2_theme_correct": 0, "t3_score": 1,
             }
-            result = w.process_job(SAMPLE_JOB)
+            w.process_job(SAMPLE_JOB)
         w.correction_manager.trigger_correction.assert_called_once()
 
 

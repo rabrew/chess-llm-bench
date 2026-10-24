@@ -3,7 +3,6 @@
 import random
 
 import chess
-import pytest
 
 from src.position_generator import (
     validate_position,

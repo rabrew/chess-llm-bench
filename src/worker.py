@@ -2,14 +2,7 @@
 
 import logging
 import os
-import re
-import time
 from typing import Any
-
-# Shared position cache: populated in the parent process before forking so all
-# workers inherit it via COW without each independently loading gigabyte-scale
-# JSON files.  Keyed by position_id (int).
-_SHARED_POSITIONS: dict[int, dict] = {}
 
 import chess
 
@@ -31,8 +24,13 @@ from .llm_client import (
     parse_explanation_response,
     extract_move_from_text,
 )
-from .result_writer import ResultWriter, build_result_record, get_completed_job_ids
+from .result_writer import ResultWriter, build_result_record
 from .utils import load_config
+
+# Shared position cache: populated in the parent process before forking so all
+# workers inherit it via COW without each independently loading gigabyte-scale
+# JSON files.  Keyed by position_id (int).
+_SHARED_POSITIONS: dict[int, dict] = {}
 
 logger = logging.getLogger("chess_llm_bench")
 

@@ -1,8 +1,6 @@
 """Tests for src/engine_wrapper.py (mocked subprocess)."""
 
-import subprocess
-from io import StringIO
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 

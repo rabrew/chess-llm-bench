@@ -37,7 +37,7 @@ def _dataset(tmp_path, n=3):
 
 def _trainer_state(directory, steps=(50, 100), losses=(1.2, 0.4), epoch=1.0):
     directory.mkdir(parents=True)
-    history = [{"step": s, "loss": l, "epoch": epoch * s / steps[-1]} for s, l in zip(steps, losses)]
+    history = [{"step": step, "loss": loss, "epoch": epoch * step / steps[-1]} for step, loss in zip(steps, losses)]
     history.append({"step": steps[-1], "train_runtime": 99.0})
     (directory / "trainer_state.json").write_text(json.dumps(
         {"global_step": steps[-1], "epoch": epoch, "log_history": history}))

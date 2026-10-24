@@ -257,7 +257,7 @@ def main() -> None:
 
         legal_moves = legal_moves_san(fen)
         if not legal_moves:
-            logger.warning(f"  No legal moves (bad/terminal FEN) — skipping")
+            logger.warning("  No legal moves (bad/terminal FEN) — skipping")
             stats["skipped"] += 1
             continue
         prompt = build_retry_prompt(fen, original_move, legal_moves)

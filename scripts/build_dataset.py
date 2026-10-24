@@ -49,8 +49,8 @@ def main():  # pragma: no cover
 
     # Print header
     print(f"\n{'='*60}")
-    print(f"  DATASET BUILDER")
-    print(f"  Source: Lichess Puzzle Database")
+    print("  DATASET BUILDER")
+    print("  Source: Lichess Puzzle Database")
     print(f"{'='*60}\n")
 
     # Build dataset
@@ -60,7 +60,7 @@ def main():  # pragma: no cover
     total = sum(len(positions) for positions in dataset.values())
 
     print(f"\n{'='*60}")
-    print(f"  DATASET COMPLETE")
+    print("  DATASET COMPLETE")
     print(f"{'='*60}")
     print(f"\n  Total positions: {total:,}\n")
     print(f"  {'Tier':<12} {'Count':>10}")
