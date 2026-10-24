@@ -1,4 +1,6 @@
 # Python
+# venv and data are symlinks on the PC; a trailing-slash pattern does not match a symlink
+venv
 venv/
 __pycache__/
 *.pyc
@@ -6,6 +8,7 @@ __pycache__/
 .Python
 
 # Large data files
+/data
 data/*.json
 data/*.csv
 data/*.zst
@@ -23,6 +26,10 @@ results/metrics/
 results/logs/
 results/archive/
 results/benchmark.db
+results/finetuning_experiment/
+
+# Fine-tuning runtime cache (Unsloth)
+unsloth_compiled_cache/
 
 # Logs
 *.log
