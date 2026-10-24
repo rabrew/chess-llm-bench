@@ -24,7 +24,7 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from src.evaluator import phrase_mentioned, theme_mentioned  # noqa: E402
+from src.evaluator import NON_TACTICAL_THEMES, phrase_mentioned, theme_mentioned  # noqa: E402
 from src.utils import setup_logging  # noqa: E402
 
 logger = logging.getLogger("chess_llm_bench")
@@ -36,12 +36,6 @@ MAX_LEAK_RATE = 0.02
 EXAMPLES_PER_CUE = 3
 SAMPLE_PER_THEME = 15
 SAMPLE_TEXT_CHARS = 400
-
-# Labels that are not tactical ideas; not scanned.
-NON_TACTICAL = {
-    "advantage", "crushing", "equality", "opening", "middlegame", "endgame",
-    "long", "short", "veryLong", "oneMove", "master", "masterVsMaster",
-}
 
 # Candidate plain-English descriptions (hand-written 2026-10-20). Candidates
 # only: T3-3 keeps a cue only when the data supports it.
@@ -109,7 +103,7 @@ def scan(paths: list[Path]) -> ScanResult:
     for path in paths:
         for model, theme, text in iter_explanations(path):
             result.scanned += 1
-            if theme in NON_TACTICAL:
+            if theme in NON_TACTICAL_THEMES:
                 continue
             result.tactical += 1
             result.explanations_by_theme[theme] += 1

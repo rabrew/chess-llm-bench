@@ -134,6 +134,14 @@ def _camel_to_words(label: str) -> str:
     return "".join(out)
 
 
+# Lichess labels that describe evaluation, phase or length rather than a
+# tactical idea. Mate themes (mate, mateIn2, ...) count as tactical.
+NON_TACTICAL_THEMES = frozenset({
+    "advantage", "crushing", "equality", "opening", "middlegame", "endgame",
+    "long", "short", "veryLong", "oneMove", "master", "masterVsMaster",
+})
+
+
 # Word endings accepted after a theme phrase, so "forks", "mated" and "pins"
 # match while "material", "estimate" and "opinion" do not.
 THEME_WORD_ENDINGS = r"(?:s|es|d|ed|ing)?"

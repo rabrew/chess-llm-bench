@@ -11,7 +11,7 @@ import chess
 import numpy as np
 import pandas as pd
 
-from .evaluator import theme_mentioned
+from .evaluator import NON_TACTICAL_THEMES, theme_mentioned
 from .llm_client import parse_response
 from .result_writer import load_results
 from .utils import parse_model_info
@@ -68,6 +68,7 @@ CPL_BUCKETS = (
     ("blunder", BLUNDER_CPL_CP, math.inf),
 )
 BOOTSTRAP_RESAMPLES = 10_000
+PUZZLE_META_FILENAME = "puzzle_meta.json"  # written by scripts/build_puzzle_meta.py
 # T1-3: both sides' rank correlations must be at least this far from 0, with
 # opposite signs, before a model is flagged as reporting from the mover's view.
 PERSPECTIVE_RHO_MIN = 0.1
@@ -292,6 +293,9 @@ def load_results_df(
         df["t2_move_source"] = _move_sources(df, fens)
         df["t2_first_attempt_legal"] = _first_attempt_legal(df["t2_move_source"], df["t2_legal"])
 
+    # ----- Lichess puzzle metadata (setup move, full themes; Issue 21) -----
+    _attach_puzzle_meta(df, data_dir)
+
     # ----- T1 direction accuracy at multiple thresholds -----
     # The headline `t1_direction_correct` field uses ±50 cp, which empirically
     # is the worst-case threshold for this dataset (forces the call right at
@@ -451,6 +455,71 @@ def _overall_best_move_vs_random(df: pd.DataFrame) -> dict[str, Any] | None:
         return None
     stats = _best_move_stats(rows)
     return {key: stats[key] for key in ("n", "best_move_rate", "random_best_move_rate", "ratio_vs_random")}
+
+
+def _load_puzzle_meta(data_dir: str) -> dict[str, dict] | None:
+    path = Path(data_dir) / PUZZLE_META_FILENAME
+    if not path.exists():
+        return None
+    try:
+        return json.loads(path.read_text())["positions"]
+    except (OSError, json.JSONDecodeError, KeyError) as exc:
+        logger.warning(f"Ignoring unreadable {path}: {exc}")
+        return None
+
+
+def _tactical_theme_named(themes: Any, explanation: Any) -> float:
+    """1.0/0.0 if the explanation names any tactical theme in the list; NaN if not applicable."""
+    if not isinstance(themes, list) or not isinstance(explanation, str):
+        return math.nan
+    tactical = [theme for theme in themes if theme not in NON_TACTICAL_THEMES]
+    if not tactical:
+        return math.nan
+    return float(any(theme_mentioned(theme, explanation) for theme in tactical))
+
+
+def _attach_puzzle_meta(df: pd.DataFrame, data_dir: str) -> None:
+    """Add setup-move and full-theme columns from puzzle_meta.json, when present."""
+    positions = _load_puzzle_meta(data_dir)
+    if positions is None or "fen" not in df.columns:
+        return
+    meta = df["fen"].map(positions)
+    df["themes_all"] = meta.map(lambda m: m["themes_all"] if isinstance(m, dict) else None)
+    df["setup_move_san"] = meta.map(lambda m: m.get("setup_move_san") if isinstance(m, dict) else None)
+    has_move = df["t2_legal"].astype("boolean").fillna(False) & df["t2_move"].notna() & df["setup_move_san"].notna()
+    df["t2_played_setup_move"] = np.where(has_move, (df["t2_move"] == df["setup_move_san"]).astype(float), np.nan)
+    explanations = _optional_column(df, "t3_explanation")
+    df["t3_tactical_theme_correct"] = [
+        _tactical_theme_named(themes, text) for themes, text in zip(df["themes_all"], explanations)
+    ]
+
+
+def compute_puzzle_meta_metrics(df: pd.DataFrame) -> pd.DataFrame:
+    """Per model: how often the move is the human setup move; tactical theme mark."""
+    if "t2_played_setup_move" not in df.columns:
+        return pd.DataFrame()
+    records = [
+        {
+            "model": model,
+            "n_moves": int(rows["t2_played_setup_move"].notna().sum()),
+            "setup_move_rate": float(rows["t2_played_setup_move"].mean()),
+            "n_tactical_explanations": int(rows["t3_tactical_theme_correct"].notna().sum()),
+            "tactical_theme_rate": float(rows["t3_tactical_theme_correct"].mean()),
+        }
+        for model, rows in df.groupby("model", sort=True)
+    ]
+    return pd.DataFrame(records)
+
+
+def _overall_puzzle_meta(df: pd.DataFrame) -> dict[str, Any] | None:
+    if "t2_played_setup_move" not in df.columns:
+        return None
+    return {
+        "setup_move_rate": float(df["t2_played_setup_move"].mean()),
+        "n_moves": int(df["t2_played_setup_move"].notna().sum()),
+        "tactical_theme_rate": float(df["t3_tactical_theme_correct"].mean()),
+        "n_tactical_explanations": int(df["t3_tactical_theme_correct"].notna().sum()),
+    }
 
 
 EVAL_BEFORE_SEARCH = "lc0_search"
@@ -1391,6 +1460,7 @@ def generate_summary(df: pd.DataFrame) -> dict[str, Any]:
             "t2_first_attempt_combined": _overall_first_attempt_combined(df),
             "t2_blunder_rate": _overall_blunder_rate(df),
             "t2_best_move_vs_random": _overall_best_move_vs_random(df),
+            "puzzle_meta": _overall_puzzle_meta(df),
             "t2_legal_rate_buggy_includes_no_move_prompts": df["t2_legal"].mean(),
             "t2_legal_rate": (
                 df["t2_legal_attempted"].mean()
@@ -1481,6 +1551,7 @@ def save_metrics(
     _write_or_remove(compute_cpl_buckets(df), output_path / "cpl_buckets.csv")
     _write_or_remove(compute_blunder_rates(df), output_path / "t2_blunder_rate.csv")
     _write_or_remove(compute_best_move_vs_random(df), output_path / "t2_best_move_vs_random.csv")
+    _write_or_remove(compute_puzzle_meta_metrics(df), output_path / "puzzle_meta_metrics.csv")
 
     # Save learning deltas if available
     _write_or_remove(calculate_learning_deltas(df), output_path / "learning_deltas.csv")
