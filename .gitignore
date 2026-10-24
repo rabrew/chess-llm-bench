@@ -22,7 +22,6 @@ data/jobs.db
 results/evaluations.jsonl
 results/evaluations_retried.jsonl
 results/plots/
-results/metrics/
 results/logs/
 results/archive/
 results/benchmark.db
