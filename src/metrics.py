@@ -68,6 +68,10 @@ CPL_BUCKETS = (
     ("blunder", BLUNDER_CPL_CP, math.inf),
 )
 BOOTSTRAP_RESAMPLES = 10_000
+# T1-3: both sides' rank correlations must be at least this far from 0, with
+# opposite signs, before a model is flagged as reporting from the mover's view.
+PERSPECTIVE_RHO_MIN = 0.1
+PERSPECTIVE_KAPPA_THRESHOLD_CP = 100
 BOOTSTRAP_SEED = 42
 CI_LEVEL = 0.95
 
@@ -721,6 +725,41 @@ def compute_eval_rank_correlation(df: pd.DataFrame) -> pd.DataFrame:
         {"model": model, "n": len(rows), "spearman_rho": _spearman(rows)}
         for model, rows in valid.groupby("model")
     ]
+    return pd.DataFrame(records)
+
+
+def _side_metrics(rows: pd.DataFrame, side: str) -> dict[str, Any]:
+    rho = compute_eval_rank_correlation(rows)
+    agreement = compute_direction_agreement(rows)
+    kappa = agreement[agreement["threshold"] == PERSPECTIVE_KAPPA_THRESHOLD_CP] if not agreement.empty else agreement
+    return {
+        f"n_{side}": len(rows),
+        f"spearman_{side}": float(rho["spearman_rho"].iloc[0]) if not rho.empty else math.nan,
+        f"kappa100_{side}": float(kappa["cohen_kappa"].iloc[0]) if not kappa.empty else math.nan,
+    }
+
+
+def _perspective_flip(row: dict[str, Any]) -> bool:
+    white, black = row["spearman_white"], row["spearman_black"]
+    if math.isnan(white) or math.isnan(black):
+        return False
+    return white * black < 0 and min(abs(white), abs(black)) >= PERSPECTIVE_RHO_MIN
+
+
+def compute_t1_by_side_to_move(df: pd.DataFrame) -> pd.DataFrame:
+    """Per model: T1 rank correlation and κ split by side to move (perspective check)."""
+    valid = _valid_t1_rows(df)
+    if valid.empty or "fen" not in valid.columns:
+        return pd.DataFrame()
+    white_to_move = valid["fen"].map(lambda fen: _white_to_move_from_fen(fen) if isinstance(fen, str) else None)
+    valid = valid.assign(_white=white_to_move)[white_to_move.notna()]
+    records = []
+    for model, rows in valid.groupby("model", sort=True):
+        row: dict[str, Any] = {"model": model}
+        for side, is_white in (("white", True), ("black", False)):
+            row.update(_side_metrics(rows[rows["_white"] == is_white], side))
+        row["perspective_flip_suspect"] = _perspective_flip(row)
+        records.append(row)
     return pd.DataFrame(records)
 
 
@@ -1389,6 +1428,7 @@ def _save_direction_chance_tables(df: pd.DataFrame, output_path: Path) -> None:
         "direction_agreement.csv": compute_direction_agreement(df),
         "t1_rank_correlation.csv": compute_eval_rank_correlation(df),
         "t1_error_vs_zero.csv": compute_eval_error_vs_zero(df),
+        "t1_by_side_to_move.csv": compute_t1_by_side_to_move(df),
     }
     for name, table in tables.items():
         _write_or_remove(table, output_path / name)
