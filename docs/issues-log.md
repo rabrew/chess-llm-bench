@@ -247,6 +247,38 @@ still against the pre-rescue base records; the base re-run (Issue 18) gives the 
 
 ---
 
+## Issue 21 — The Benchmark Shows the Puzzle's Setup Position, Not the Puzzle
+**Date:** October 24
+**Symptom:** The T3 theme mark asks models to name tactics such as "hangingPiece" that are not on the board they are shown.
+**Root cause:**
+- In the Lichess puzzle CSV, `FEN` is the position *before* the opponent's move. The puzzle starts after `Moves[0]` (the setup move, usually the human mistake that allows the tactic), and its themes and rating describe that later position, for the other side.
+- `dataset_builder.py` stored the CSV `FEN` unchanged. Checked 2026-10-24: all 4,000 benchmark FENs are CSV FENs, and `Moves[0]` is legal in every one, so the side to move in the shown position is the side making the setup move.
+- **Still valid:** T1, T2 and the T3 side mark, which are scored against the engine on the shown position.
+- **Mis-targeted:** the T3 theme mark (the tactic doesn't exist yet) and the difficulty tiers (puzzle rating of the next position). The "flat across difficulty" finding (H1–H3) is weakened accordingly.
+
+**Fix (partial; the full fix needs a decision):**
+- `scripts/build_puzzle_meta.py` joins the CSV back on FEN and records the full themes, the setup move and the puzzle FEN (`data/puzzle_meta.json`, 4,000/4,000 joined).
+- `load_results_df` adds `t2_played_setup_move`, how often a model plays the human setup move (a direct pattern-matching measure), and `t3_tactical_theme_correct`.
+- A corrected benchmark needs `puzzle_fen` positions and a re-run (weeks of compute at the current scale). Until then, report the theme mark and the tiers with this caveat, or drop them from the headline.
+
+---
+
+## Issue 22 — Clamped CPL Was Rebuilt From the Wrong "Before" Eval
+**Date:** October 24
+**Symptom:** Mean clamped CPL of about 700 with a 90th percentile of 1,101, on a scale meant to cap each side at 1,000.
+**Root cause:**
+- `enrich_cpl.py` measured `t2_cpl` from an 800-node Lc0 "before" eval but did not save that eval.
+- `load_results_df` rebuilt "after" from the **no-search** `t1_stockfish_eval`, which on puzzle positions is often near 0 while the 800-node eval is a mate score.
+- The error went both ways. A missed mate that still left the side ahead was overstated; one that left the side losing was capped at about 1,043 instead of up to 2,000 (checklist T2-6).
+
+**Fix:**
+- `enrich_cpl.py` now stores `t2_eval_before` and `t2_eval_nodes`.
+- `--backfill-eval-before` filled 340,418 + 76,688 + 61,506 existing records with 0 failures, re-searching only the starting positions. Each file was backed up first, and symlinked results are updated in place.
+- A spot check re-evaluated 20 positions and reproduced the stored values to within 5 cp.
+- **Corrected (base re-run):** mean 784, 90th percentile 1,605, blunder rate 41.4% (was 38.6%). Moves were worse than reported.
+
+---
+
 ## Summary Table
 
 | # | Date | Component | Impact | Fix |
@@ -271,3 +303,5 @@ still against the pre-rescue base records; the base re-run (Issue 18) gives the 
 | 18 | Oct 23 | FT comparison design | Base legality pre-rescue, FT post-rescue (F-4 broken). **Corrected Oct 24: wrong; all runs had the rescue, and the re-run matches to 0.3 pts** | Base re-run done; kept as base side (same deepseek settings, raw replies) |
 | 19 | Oct 23 | compare_finetuning_results.py T3 | Substring T3 showed gains; whole-word T3 shows losses for 3 of 5 | Use t3_score_v2 |
 | 20 | Oct 24 | T2 legality meaning | ~98% legal is after re-asking with the legal-move list; first answers on combined prompts are 9.3% legal | Move-source labels + first-attempt legality (specs/t2-move-source.md) |
+| 21 | Oct 24 | Dataset positions | Benchmark shows the puzzle's setup position; theme mark and tiers describe the next position | Metadata join + setup-move rate; re-run decision pending |
+| 22 | Oct 24 | CPL reconstruction | Clamped CPL rebuilt from the no-search eval | Store/backfill 800-node before-eval; mean 700 → 784 |

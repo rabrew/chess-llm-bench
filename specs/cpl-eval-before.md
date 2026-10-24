@@ -19,9 +19,22 @@ different number.
 
 The puzzle positions are where this hurts. The 800-node search finds the winning tactic, so "before"
 is often a mate score (about ±10,000). The no-search reading is close to level instead: its median
-|value| on these rows is 43 cp. So the rebuilt "after" is pushed about 10,000 cp too far, and the
-clamped CPL goes over its intended 1,000 cap. In the base re-run, the 90th-percentile clamped CPL is
-1,101.
+|value| on these rows is 43 cp. The rebuilt "after" is therefore wrong by about the gap between the
+two readings, which can go either way:
+- **Overstated:** a missed mate that still leaves the side +100 scores about 1,043 instead of 900.
+- **Understated:** a missed mate that leaves the side losing is capped at about 1,043 instead of up
+  to 2,000. Going from winning to losing is the worst move there is.
+
+**Measured after the fix (base re-run, 2026-10-24):**
+
+| Clamped CPL | Before (no-search "before") | After (800-node "before") |
+|---|---|---|
+| Mean | ~700 | 784 |
+| 90th percentile | 1,101 | 1,605 |
+| Blunder rate (≥ 1000) | 38.6% | 41.4% |
+
+The understated cases dominate, so the corrected figures say the moves were worse than reported.
+Re-evaluating 20 starting positions reproduced the stored "before" to within 5 cp (median 0).
 
 **Fix:**
 1. Store the 800-node "before" eval on every enriched record.
