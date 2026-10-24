@@ -1,6 +1,6 @@
 # Chess LLM Benchmark — Simple Summary
 
-**Ryan Brew · draft of 2026-10-24** (interim: one fine-tuning experiment is still running)
+**Ryan Brew · draft of 2026-10-24** (interim: one fine-tuning experiment is still in progress)
 
 ---
 
