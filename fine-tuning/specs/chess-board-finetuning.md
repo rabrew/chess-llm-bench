@@ -150,6 +150,16 @@ weights, adapters and GGUFs stay out of git.
 
 **Tests:** `fine-tuning/tests/test_run_record.py`.
 
+**Training script structure (2026-10-24):**
+- `run_finetuning` is split into small steps: `plan_run`, then loading and splitting the data, loading
+  the model, training, exporting the GGUF, and writing the run record.
+- The model size used for the gradient-checkpointing and CPU-offload thresholds comes from
+  `MODEL_REGISTRY` (`parse_model_info`), not a parse of the tag name. That parse duplicated the
+  registry and read `mixtral:8x7b` as 56B.
+- `EpochAccuracyCallback` keeps `history` (`epoch`, `held_out_accuracy`) for the run record. A failed
+  check adds no entry.
+- **Tests:** `fine-tuning/tests/test_finetune_run_steps.py`.
+
 ---
 
 ## Model Selection (F-5, recorded 2026-10-23)
