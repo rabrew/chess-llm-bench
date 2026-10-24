@@ -42,6 +42,8 @@ class Sources:
     rerun_metrics: Path
     comparison: Path
     board_test: Path
+    legal_comparison: Path = Path("results/finetuning_experiment/comparison_legal.csv")
+    legal_board_test: Path = Path("results/finetuning_experiment/board_legal_t0_training_prompt_summary.csv")
 
 
 # ---------- formatting ----------
@@ -185,6 +187,28 @@ def finetune_table(comparison_path: Path, board_path: Path) -> str:
     return _table(header, rows)
 
 
+def finetune_legal_table(comparison_path: Path, board_path: Path) -> str:
+    """Base → pieces + legal moves, one column per pre-registered criterion (legal-moves-finetuning.md)."""
+    comparison, board = _read_csv(comparison_path), _read_csv(board_path)
+    if comparison is None or board is None:
+        return NOT_AVAILABLE
+    legal = board.set_index("model")
+    rows = []
+    for r in comparison.sort_values("base_model").itertuples():
+        known = r.base_model in legal.index and r.ft_model in legal.index
+        recall = _arrow(legal.loc[r.base_model, "mean_legal_recall"], legal.loc[r.ft_model, "mean_legal_recall"], pct) if known else DASH
+        rows.append([
+            r.base_model, recall,
+            _arrow(r.base_t2_first_attempt_legal_rate, r.ft_t2_first_attempt_legal_rate, pct),
+            _arrow(r.base_t2_legal_rate, r.ft_t2_legal_rate, pct),
+            _arrow(r.base_t2_blunder_rate, r.ft_t2_blunder_rate, pct),
+            _arrow(r.base_t1_spearman, r.ft_t1_spearman, num),
+        ])
+    header = ["Model", "0: legal-move recall (held-out)", "1: first-answer legal", "2: legal (final)",
+              "3: blunder rate", "4: T1 ρ"]
+    return _table(header, rows)
+
+
 DIFFICULTY_TIERS = ("easy", "medium", "hard", "extreme")
 
 
@@ -222,6 +246,7 @@ def render_all(sources: Sources) -> dict[str, str]:
         "first_answer": first_answer_table(sources.rerun_metrics),
         "family": family_table(sources.metrics),
         "finetune": finetune_table(sources.comparison, sources.board_test),
+        "finetune_legal": finetune_legal_table(sources.legal_comparison, sources.legal_board_test),
         "difficulty": difficulty_table(summary),
         "formats": formats_table(sources.metrics),
     }
@@ -251,11 +276,14 @@ def main() -> None:
     parser.add_argument("--rerun-metrics", default="results/finetuning_experiment/base_rerun/metrics")
     parser.add_argument("--comparison", default="results/finetuning_experiment/comparison.csv")
     parser.add_argument("--board-test", default="results/finetuning_experiment/board_t0_summary.csv")
+    parser.add_argument("--legal-comparison", default=str(Sources.legal_comparison))
+    parser.add_argument("--legal-board-test", default=str(Sources.legal_board_test))
     parser.add_argument("--doc", action="append", help=f"Document to update (repeatable; default {', '.join(DEFAULT_DOCS)})")
     parser.add_argument("--check", action="store_true", help="Exit 1 if any table is stale; write nothing")
     args = parser.parse_args()
 
-    sources = Sources(Path(args.metrics), Path(args.rerun_metrics), Path(args.comparison), Path(args.board_test))
+    sources = Sources(Path(args.metrics), Path(args.rerun_metrics), Path(args.comparison), Path(args.board_test),
+                      Path(args.legal_comparison), Path(args.legal_board_test))
     if not (sources.metrics / "summary.json").exists():
         print(f"ERROR: {sources.metrics / 'summary.json'} not found", file=sys.stderr)
         sys.exit(1)

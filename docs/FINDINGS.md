@@ -315,6 +315,12 @@ Difficulty doesn't matter either (H1–H3):
 - **If only legality improves**, that reads as "learned the rules, not chess". This section will be
   filled in when the run finishes.
 
+Results, one column per criterion (generated when the run finishes):
+
+<!-- table:finetune_legal -->
+_Table not available yet: its input file has not been generated._
+<!-- /table:finetune_legal -->
+
 ---
 
 ## Scope and limitations
