@@ -18,7 +18,8 @@ GIT_TIMEOUT_S = 10
 TRACKED_PACKAGES = ("pandas", "numpy", "chess")
 
 
-def _sha256(path: Path) -> str | None:
+def file_sha256(path: Path) -> str | None:
+    """SHA-256 of a file, read in chunks; None (with a warning) if it is missing."""
     if not path.is_file():
         logger.warning(f"Provenance: {path} not found; no hash recorded")
         return None
@@ -29,7 +30,8 @@ def _sha256(path: Path) -> str | None:
     return digest.hexdigest()
 
 
-def _line_count(path: Path) -> int | None:
+def line_count(path: Path) -> int | None:
+    """Number of lines in a file, or None if it is missing."""
     if not path.is_file():
         return None
     with open(path, "rb") as f:
@@ -50,7 +52,8 @@ def _git(repo_dir: Path, *args: str) -> str | None:
     return result.stdout
 
 
-def _git_state(repo_dir: Path) -> tuple[str | None, bool | None]:
+def git_state(repo_dir: Path) -> tuple[str | None, bool | None]:
+    """(HEAD SHA, tracked changes present) for repo_dir; (None, None) when unknown."""
     sha = _git(repo_dir, "rev-parse", "HEAD")
     if sha is None:
         return None, None
@@ -67,7 +70,7 @@ def _engine(config: dict) -> dict[str, Any] | None:
         "name": "lc0",
         "binary": lc0.get("binary"),
         "weights": weights,
-        "weights_sha256": _sha256(Path(weights)) if weights else None,
+        "weights_sha256": file_sha256(Path(weights)) if weights else None,
         "nodes": lc0.get("nodes"),
     }
 
@@ -86,14 +89,14 @@ def build_provenance(config_path: str | Path, results_file: str | Path, repo_dir
     """Everything needed to trace a summary back to the run that produced it."""
     config = load_config(str(config_path))
     results_path = Path(results_file)
-    git_sha, git_dirty = _git_state(Path(repo_dir))
+    git_sha, git_dirty = git_state(Path(repo_dir))
     return {
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "git_sha": git_sha,
         "git_dirty": git_dirty,
         "results_file": str(results_file),
-        "results_sha256": _sha256(results_path),
-        "results_records": _line_count(results_path),
+        "results_sha256": file_sha256(results_path),
+        "results_records": line_count(results_path),
         "engine": _engine(config),
         "config_path": str(config_path),
         "config": config,
