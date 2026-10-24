@@ -105,3 +105,42 @@ def test_record_run_writes_runs_file(tmp_path):
     record = json.loads(path.read_text())
     assert record["ft_tag"] == "qwen2.5:7b-board-ft"
     assert record["outputs"]["gguf"] == str(tmp_path / "x.gguf")
+
+
+def test_unsloth_is_imported_before_trl(monkeypatch):
+    """Unsloth patches TRL on import; importing trl first breaks SFTConfig (warmup_ratio)."""
+    import builtins
+    import types
+    order = []
+    real_import = builtins.__import__
+    fakes = {
+        "unsloth": types.SimpleNamespace(FastLanguageModel=object),
+        "trl": types.SimpleNamespace(SFTConfig=object, SFTTrainer=object),
+        "datasets": types.SimpleNamespace(Dataset=object),
+    }
+
+    def recording_import(name, *args, **kwargs):
+        if name in fakes:
+            order.append(name)
+            return fakes[name]
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", recording_import)
+    fm._import_training_deps(_Logger())
+    assert order[0] == "unsloth"
+
+
+def test_trainer_build_failure_cleans_up(tmp_path, monkeypatch):
+    plan = fm.plan_run("qwen2.5:7b", str(_config(tmp_path)))
+    fake_model = type("M", (), {})()
+    monkeypatch.setattr(fm, "_import_training_deps", lambda logger: (None, None, None, None))
+    monkeypatch.setattr(fm, "_load_model", lambda plan, flm, logger: (fake_model, None))
+
+    def broken_build(*args, **kwargs):
+        plan.checkpoint_dir.mkdir(parents=True, exist_ok=True)
+        raise TypeError("unexpected keyword argument 'warmup_ratio'")
+
+    monkeypatch.setattr(fm, "_build_trainer", broken_build)
+    with pytest.raises(TypeError):
+        fm._train_and_export(plan, ([], []), resume=False, logger=_Logger())
+    assert not plan.checkpoint_dir.exists()
