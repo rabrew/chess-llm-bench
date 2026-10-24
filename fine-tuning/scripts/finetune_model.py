@@ -274,9 +274,10 @@ def _load_split(plan: RunPlan, dry_run: bool, logger: Any) -> tuple[list[dict], 
 def _import_training_deps(logger: Any) -> tuple[Any, Any, Any, Any]:
     """Deferred so dry runs work without GPU dependencies installed."""
     try:
+        # unsloth must come first: it patches trl/transformers on import
+        from unsloth import FastLanguageModel  # noqa: I001
         from datasets import Dataset
         from trl import SFTConfig, SFTTrainer
-        from unsloth import FastLanguageModel
     except ImportError as e:
         logger.error(f"Missing dependency: {e}")
         logger.error("Install with: pip install 'unsloth[colab-new] @ git+https://github.com/unslothai/unsloth.git' 'trl>=1.0' datasets")
@@ -373,15 +374,15 @@ def _train_and_export(plan: RunPlan, split: tuple[list[dict], list[dict]], resum
     model, tokenizer = _load_model(plan, deps[0], logger)
     train_records, held_out = split
     callback = EpochAccuracyCallback(model, tokenizer, held_out, logger)
-    plan.checkpoint_dir.mkdir(parents=True, exist_ok=True)
-    trainer = _build_trainer(plan, deps, model, tokenizer, train_records, callback)
-    logger.info("Starting training...")
     try:
+        plan.checkpoint_dir.mkdir(parents=True, exist_ok=True)
+        trainer = _build_trainer(plan, deps, model, tokenizer, train_records, callback)
+        logger.info("Starting training...")
         trainer.train(resume_from_checkpoint=True if resume else None)
         logger.info("Training complete.")
         gguf_path = _export_gguf(plan, model, tokenizer, logger)
     except Exception as exc:  # any failure: remove this run's partial outputs, then re-raise
-        logger.error(f"Training or GGUF export failed: {exc}")
+        logger.error(f"Trainer setup, training or GGUF export failed: {exc}")
         _cleanup_dirs(plan.checkpoint_dir, plan.gguf_dir, logger)
         raise
     return trainer, callback, gguf_path
