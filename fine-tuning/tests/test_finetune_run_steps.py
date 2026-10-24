@@ -67,6 +67,9 @@ class _Logger:
     def error(self, msg, exc_info=False):
         self.errors.append(msg)
 
+    def warning(self, msg):
+        self.infos.append(msg)
+
 
 class _State:
     epoch = 2.0
