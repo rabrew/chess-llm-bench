@@ -37,6 +37,14 @@ silently drift from the results.
 | `first_answer` | per model, first-answer legality on combined prompts vs final legality (re-run) |
 | `family` | `by_model_family.csv` corrected columns |
 | `finetune` | per model, base → fine-tuned: board-reading recall and perfect-board rate, ρ, legality, blunder rate, T3 |
+| `difficulty` | per tier, from `summary.hypothesis_tests`: T1 relative error (H1), clamped CPL (H2), T3 v2 (H3), each with its "supported" verdict |
+| `formats` | per prompt format, from `by_prompt_format.csv`: T1 ρ, final legality, blunder rate, T3 v2 (W-6) |
+
+**New metrics table (W-6):** `compute_by_prompt_format(df)` in `src/metrics.py` gives one row per
+`prompt_format`, pooled over models: `n`, `t1_spearman_rho` (rows with both evals), `t2_legal_rate`
+(mean `t2_legal_attempted`, NaN for formats that don't ask for a move), `t2_blunder_rate` (rows with a
+clamped CPL), and `t3_score_v2_mean`. `save_metrics` writes `by_prompt_format.csv`. The test is in
+`tests/test_render_findings.py`.
 
 **`--check`:** the documents are not written. Exit 1, listing each table name that differs from the
 fresh render.
