@@ -58,6 +58,7 @@ derived column is missing (hand-built frames, old files).
 | Case | Behaviour |
 |---|---|
 | A family with one size | Skipped in H4, as now |
+| No family has two sizes | H4 `supported` is False (nothing was shown), not vacuously True |
 | A group with no valid T1 rows | ρ is NaN; H4 `better_t1` is False (it can't be shown) |
 | No `t2_cpl_clamped` | The blunder rate falls back to the legacy mean CPL, and `columns_used` says so |
 | An empty frame | Empty family table; H3/H4 as now |

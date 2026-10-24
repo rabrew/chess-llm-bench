@@ -65,6 +65,13 @@ def test_family_table_falls_back_without_derived_columns():
     assert table.loc[3, "t2_legal_rate"] == pytest.approx(1.0)
 
 
+def test_h4_not_supported_when_no_family_is_comparable():
+    frame = _frame()
+    h4 = compute_hypothesis_tests(frame[frame["model"] == "small"])["H4"]
+    assert h4["by_family"] == {}
+    assert h4["supported"] is False
+
+
 def test_merge_guard_still_raises():
     frame = _frame()
     frame.loc[frame["model"] == "small", "model_size_b"] = 70
