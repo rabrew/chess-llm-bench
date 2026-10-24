@@ -88,7 +88,7 @@ def test_config_snapshot_and_versions(tmp_path):
 
 def _df():
     return pd.DataFrame([{
-        "job_id": "j", "model": "qwen2.5:7b", "position_id": 1, "difficulty": "easy", "phase": "opening",
+        "job_id": "j", "job_type": "standard", "model": "qwen2.5:7b", "position_id": 1, "difficulty": "easy", "phase": "opening",
         "source": "lichess_puzzles", "model_family": "qwen2.5", "model_size_b": 7, "inference_ms": 1,
         "t1_model_eval": 0, "t1_stockfish_eval": 0, "t1_absolute_error": 0, "t1_direction_correct": True,
         "t2_legal": True, "t2_cpl": 0, "t3_p1_side_correct": 1, "t3_p2_theme_correct": 0, "t3_score": 1,
