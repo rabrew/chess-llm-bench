@@ -552,6 +552,25 @@ def compute_puzzle_meta_metrics(df: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(records)
 
 
+def _format_row(prompt_format: str, rows: pd.DataFrame) -> dict[str, Any]:
+    cpl = pd.to_numeric(rows["t2_cpl_clamped"], errors="coerce").dropna() if "t2_cpl_clamped" in rows else pd.Series(dtype=float)
+    return {
+        "prompt_format": prompt_format,
+        "n": int(len(rows)),
+        "t1_spearman_rho": _group_spearman(rows),
+        "t2_legal_rate": _group_mean(rows, "t2_legal_attempted"),
+        "t2_blunder_rate": float((cpl >= BLUNDER_CPL_CP).mean()) if not cpl.empty else math.nan,
+        "t3_score_v2_mean": _group_mean(rows, "t3_score_v2"),
+    }
+
+
+def compute_by_prompt_format(df: pd.DataFrame) -> pd.DataFrame:
+    """Per prompt format, pooled over models: T1 ρ, legality, blunder rate, T3 v2 (W-6)."""
+    if "prompt_format" not in df.columns or df.empty:
+        return pd.DataFrame()
+    return pd.DataFrame([_format_row(fmt, rows) for fmt, rows in df.groupby("prompt_format", sort=True)])
+
+
 def _overall_puzzle_meta(df: pd.DataFrame) -> dict[str, Any] | None:
     if "t2_played_setup_move" not in df.columns:
         return None
@@ -1649,6 +1668,7 @@ def save_metrics(
     _write_or_remove(compute_best_move_vs_random(df), output_path / "t2_best_move_vs_random.csv")
     _write_or_remove(compute_puzzle_meta_metrics(df), output_path / "puzzle_meta_metrics.csv")
     _write_or_remove(compute_side_mark_agreement(df), output_path / "t3_side_mark_agreement.csv")
+    _write_or_remove(compute_by_prompt_format(df), output_path / "by_prompt_format.csv")
 
     # Save learning deltas if available
     _write_or_remove(calculate_learning_deltas(df), output_path / "learning_deltas.csv")

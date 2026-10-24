@@ -184,6 +184,34 @@ def finetune_table(comparison_path: Path, board_path: Path) -> str:
     return _table(header, rows)
 
 
+DIFFICULTY_TIERS = ("easy", "medium", "hard", "extreme")
+
+
+def _verdict(test: dict) -> str:
+    return "supported" if test.get("supported") else "not supported"
+
+
+def difficulty_table(summary: dict) -> str:
+    tests = summary.get("hypothesis_tests", {})
+    if not all(key in tests for key in ("H1", "H2", "H3")):
+        return NOT_AVAILABLE
+    h1, h2, h3 = (tests[key]["values"] for key in ("H1", "H2", "H3"))
+    rows = [[tier, num(h1.get(tier)), num(h2.get(tier), 0), num(h3.get(tier))] for tier in DIFFICULTY_TIERS]
+    rows.append(["Expected trend holds?", _verdict(tests["H1"]), _verdict(tests["H2"]), _verdict(tests["H3"])])
+    return _table(["Tier", "T1 relative error (H1)", "Clamped CPL (H2)", "T3 v2 (H3)"], rows)
+
+
+def formats_table(metrics_dir: Path) -> str:
+    table = _read_csv(metrics_dir / "by_prompt_format.csv")
+    if table is None:
+        return NOT_AVAILABLE
+    rows = [
+        [r.prompt_format, num(r.t1_spearman_rho), pct(r.t2_legal_rate), pct(r.t2_blunder_rate), num(r.t3_score_v2_mean)]
+        for r in table.itertuples()
+    ]
+    return _table(["Prompt format", "T1 ρ", "Legal (final)", "Blunder rate", "T3 (0–2)"], rows)
+
+
 def render_all(sources: Sources) -> dict[str, str]:
     summary = json.loads((sources.metrics / "summary.json").read_text())
     return {
@@ -193,6 +221,8 @@ def render_all(sources: Sources) -> dict[str, str]:
         "first_answer": first_answer_table(sources.rerun_metrics),
         "family": family_table(sources.metrics),
         "finetune": finetune_table(sources.comparison, sources.board_test),
+        "difficulty": difficulty_table(summary),
+        "formats": formats_table(sources.metrics),
     }
 
 
