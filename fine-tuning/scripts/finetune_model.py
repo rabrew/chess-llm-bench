@@ -125,7 +125,15 @@ def load_dataset_records(dataset_path: str) -> list[dict]:
 
 
 def split_held_out(records: list[dict], seed: int = 42, n: int = 200) -> tuple[list[dict], list[dict]]:
-    """Split off n held-out records for epoch-level accuracy logging."""
+    """Split off n held-out records for epoch-level accuracy logging.
+
+    Raises:
+        ValueError: if a FEN (``input``) appears twice; the positional split
+            could then put the same position in both sets (F-2).
+    """
+    inputs = [r["input"] for r in records]
+    if len(set(inputs)) != len(inputs):
+        raise ValueError(f"{len(inputs) - len(set(inputs))} duplicate FENs in the dataset; deduplicate before splitting")
     rng = random.Random(seed)
     shuffled = list(records)
     rng.shuffle(shuffled)
