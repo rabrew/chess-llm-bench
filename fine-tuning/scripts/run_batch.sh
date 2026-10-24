@@ -20,6 +20,7 @@ for tag in "$@"; do
 done
 if [ ${#failed[@]} -gt 0 ]; then
     echo "=== FAILED MODELS: ${failed[*]} ==="
+    exit 1
 else
     echo "=== All models complete ==="
 fi
