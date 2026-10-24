@@ -3121,9 +3121,9 @@
     }
   },
   "provenance": {
-    "generated_at": "2026-10-24T20:37:38.907509+00:00",
-    "git_sha": "17bd2c53a580aa1e203321ff1d5587a7497ffb68",
-    "git_dirty": true,
+    "generated_at": "2026-10-24T20:45:12.611005+00:00",
+    "git_sha": "303509155590b0ad07ce3893ec866835ca75cad4",
+    "git_dirty": false,
     "results_file": "results/evaluations.jsonl",
     "results_sha256": "fa405b772495d769a327b7c4c7fb2bd0cc06dd5aa10e7a9e6713f23c192332bc",
     "results_records": 526662,

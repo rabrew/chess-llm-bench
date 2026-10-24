@@ -280,6 +280,20 @@ still against the pre-rescue base records; the base re-run (Issue 18) gives the 
 
 ---
 
+## Issue 23 — The "pgn+fen" Prompt Never Contained Any PGN
+**Date:** October 24
+**Symptom:** `pgn+fen` and `fen_only` give near-identical results on every metric (blunder rate 41.49% vs 41.54%).
+**Root cause:**
+- All 4,000 benchmark positions come from the Lichess puzzle CSV and have `pgn_moves = ""`; the puzzle CSV has no game history.
+- With an empty history, `build_prompt(..., "pgn+fen")` returns exactly the `fen_only` prompt; this was checked byte for byte.
+- So the "does the move history help?" comparison (checklist W-6) was never actually run. There are five distinct prompts, not six.
+
+**Use made of it:** the duplicate prompts are a free repeatability test, because models were sampled at Ollama's default temperature (M-3). On 87,794 identical-prompt pairs the same model gave the same move 68.7% of the time, named the same better side 75.0% of the time, and gave the identical eval 34.2% of the time (median difference 5 cp).
+
+**Fix:** report `pgn+fen` as a repeat of `fen_only`, not as a separate condition. Testing move history needs positions with game history (for example the PGN source in `config.dataset.pgn_path`) and a new run.
+
+---
+
 ## Summary Table
 
 | # | Date | Component | Impact | Fix |
@@ -306,3 +320,4 @@ still against the pre-rescue base records; the base re-run (Issue 18) gives the 
 | 20 | Oct 24 | T2 legality meaning | ~98% legal is after re-asking with the legal-move list; first answers on combined prompts are 9.3% legal | Move-source labels + first-attempt legality (specs/t2-move-source.md) |
 | 21 | Oct 24 | Dataset positions | Benchmark shows the puzzle's setup position; theme mark and tiers describe the next position | Metadata join + setup-move rate; re-run decision pending |
 | 22 | Oct 24 | CPL reconstruction | Clamped CPL rebuilt from the no-search eval | Store/backfill 800-node before-eval; mean 700 → 784 |
+| 23 | Oct 24 | pgn+fen prompt | No position has PGN history; the prompt equals fen_only | Report as a repeat; used as a repeatability measure (68.7% same move) |
