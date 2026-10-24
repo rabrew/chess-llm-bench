@@ -164,7 +164,7 @@ def main():  # pragma: no cover
         "mixtral:8x7b", "llama3.3:70b", "qwen2.5:72b",
     ]
 
-    found_any   = False
+
     missing     = []
 
     for model in config_order:
