@@ -37,6 +37,7 @@ silently drift from the results.
 | `first_answer` | per model, first-answer legality on combined prompts vs final legality (re-run) |
 | `family` | `by_model_family.csv` corrected columns |
 | `finetune` | per model, base → fine-tuned: board-reading recall and perfect-board rate, ρ, legality, blunder rate, T3 |
+| `finetune_legal` | per model, base → pieces + legal moves: legal-move recall on held-out positions (criterion 0), first-answer legality (criterion 1), final legality (2), blunder rate (3) and T1 ρ (4). Inputs: `--legal-comparison` (default `results/finetuning_experiment/comparison_legal.csv`) and `--legal-board-test` (default `results/finetuning_experiment/board_legal_t0_training_prompt_summary.csv`); "not available" until both exist |
 | `difficulty` | per tier, from `summary.hypothesis_tests`: T1 relative error (H1), clamped CPL (H2), T3 v2 (H3), each with its "supported" verdict |
 | `formats` | per prompt format, from `by_prompt_format.csv`: T1 ρ, final legality, blunder rate, T3 v2 (W-6) |
 
