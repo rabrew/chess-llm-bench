@@ -13,10 +13,12 @@ import pytest
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from scripts.enrich_cpl import (
+    backfill_eval_before,
     compute_cpl,
     load_positions,
     collect_work,
     enrich_records,
+    run,
 )
 
 
@@ -252,3 +254,92 @@ class TestEnrichRecords:
         assert engine.evaluate.call_count == 2
         # Both records get the same CPL
         assert result[0]["t2_cpl"] == result[1]["t2_cpl"]
+
+
+# ---------------------------------------------------------------------------
+# Stored "before" eval (specs/cpl-eval-before.md, T2-6)
+# ---------------------------------------------------------------------------
+
+NODES = 800
+
+
+def _engine(eval_cp=100, best_move="Nf3"):
+    engine = MagicMock()
+    engine.nodes = NODES
+    engine.evaluate.return_value = make_lc0_result(eval_cp, best_move=best_move)
+    return engine
+
+
+class TestEvalBeforeStored:
+    def test_enrichment_stores_eval_before_and_nodes(self):
+        result = enrich_records([make_record()], _engine(eval_cp=250))
+        assert result[0]["t2_eval_before"] == 250
+        assert result[0]["t2_eval_nodes"] == NODES
+
+    def test_engine_failure_stores_nothing(self):
+        engine = _engine()
+        engine.evaluate.side_effect = RuntimeError("Lc0 crashed")
+        result = enrich_records([make_record()], engine)
+        assert "t2_eval_before" not in result[0]
+
+
+class TestBackfillEvalBefore:
+    def test_fills_only_records_with_cpl_and_no_before(self):
+        records = [
+            make_record(job_id="a", t2_cpl=40),
+            make_record(job_id="b", t2_cpl=None),
+            make_record(job_id="c", t2_cpl=0, t2_eval_before=7, t2_eval_nodes=NODES),
+        ]
+        result, failed = backfill_eval_before(records, _engine(eval_cp=300))
+        assert failed == 0
+        assert result[0]["t2_eval_before"] == 300
+        assert result[0]["t2_eval_nodes"] == NODES
+        assert result[0]["t2_cpl"] == 40
+        assert "t2_eval_before" not in result[1]
+        assert result[2]["t2_eval_before"] == 7
+
+    def test_each_fen_evaluated_once(self):
+        records = [make_record(job_id=str(i), t2_cpl=i) for i in range(5)]
+        engine = _engine()
+        backfill_eval_before(records, engine)
+        assert engine.evaluate.call_count == 1
+
+    def test_does_not_mutate_input(self):
+        records = [make_record(t2_cpl=40)]
+        backfill_eval_before(records, _engine())
+        assert "t2_eval_before" not in records[0]
+
+    def test_idempotent(self):
+        engine = _engine()
+        once, _ = backfill_eval_before([make_record(t2_cpl=40)], engine)
+        twice, _ = backfill_eval_before(once, engine)
+        assert twice == once
+        assert engine.evaluate.call_count == 1
+
+    def test_engine_failure_is_counted_not_raised(self):
+        engine = _engine()
+        engine.evaluate.side_effect = RuntimeError("Lc0 crashed")
+        result, failed = backfill_eval_before([make_record(t2_cpl=40)], engine)
+        assert failed == 1
+        assert "t2_eval_before" not in result[0]
+
+
+class TestRunBackfill:
+    def _write(self, tmp_path, records):
+        path = tmp_path / "evaluations.jsonl"
+        path.write_text("".join(json.dumps(r) + "\n" for r in records))
+        return path
+
+    def test_backfill_writes_backup_then_results(self, tmp_path):
+        path = self._write(tmp_path, [make_record(t2_cpl=40)])
+        original = path.read_text()
+        run(str(path), str(tmp_path), engine=_engine(eval_cp=123), dry_run=False, backfill=True)
+        backups = list(tmp_path.glob("evaluations.jsonl.bak-*"))
+        assert len(backups) == 1
+        assert backups[0].read_text() == original
+        assert json.loads(path.read_text())["t2_eval_before"] == 123
+
+    def test_backfill_without_backup(self, tmp_path):
+        path = self._write(tmp_path, [make_record(t2_cpl=40)])
+        run(str(path), str(tmp_path), engine=_engine(), dry_run=False, backfill=True, backup=False)
+        assert not list(tmp_path.glob("*.bak-*"))
