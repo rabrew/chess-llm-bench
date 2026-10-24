@@ -119,3 +119,61 @@ def test_rerun_config_writes_to_its_own_files():
         for key in OUTPUT_PATHS:
             assert rerun[key] != other[key], key
         assert rerun["data_dir"] == other["data_dir"]
+
+
+# --- pieces + legal moves fine-tune (fine-tuning/specs/legal-moves-finetuning.md) ---
+
+LEGAL_CFG = REPO / "config" / "config_legal_ft.yaml"
+LEGAL_SUFFIX = "-board-legal-ft"
+
+
+def test_legal_config_matches_base_except_models_and_paths():
+    assert chk.config_differences(_load(BASE_CFG), _load(LEGAL_CFG)) == []
+
+
+def test_legal_config_lists_batch_one_legal_tags():
+    expected = {tag.removesuffix("-board-ft") + LEGAL_SUFFIX for tag in BATCH_1}
+    assert set(_load(LEGAL_CFG)["models"]) == expected
+
+
+def test_legal_config_writes_to_its_own_files():
+    legal = _load(LEGAL_CFG)["paths"]
+    for other in (_load(BASE_CFG)["paths"], _load(FT_CFG)["paths"], _load(RERUN_CFG)["paths"]):
+        for key in OUTPUT_PATHS:
+            assert legal[key] != other[key], key
+
+
+def test_legal_tags_have_bases_in_base_config():
+    assert chk.tag_problems(_load(LEGAL_CFG)["models"], _load(BASE_CFG)["models"]) == []
+
+
+@pytest.mark.parametrize("tag", ["llama3.2:3b-board-ft", "llama3.2:3b-board-legal-ft"])
+def test_fine_tuned_suffixes_resolve_to_base(tag):
+    from src.utils import base_model_tag, parse_model_info
+    assert base_model_tag(tag) == "llama3.2:3b"
+    info = parse_model_info(tag)
+    assert info["family"] == "llama3"
+    assert info["fine_tuned"] is True
+
+
+def test_base_model_tag_leaves_base_unchanged():
+    from src.utils import base_model_tag
+    assert base_model_tag("qwen2.5:7b") == "qwen2.5:7b"
+
+
+def test_legal_finetune_config_matches_batch_one_settings():
+    ft = yaml.safe_load((REPO / "fine-tuning" / "config" / "finetune_config.yaml").read_text())
+    legal = yaml.safe_load((REPO / "fine-tuning" / "config" / "finetune_config_legal.yaml").read_text())
+    differing = {k for k in ft["training"] if ft["training"][k] != legal["training"].get(k)}
+    assert differing == {"dataset_path", "max_seq_length"}
+    assert legal["training"]["max_seq_length"] == 768
+    tags = {m["ollama_ft_tag"] for m in legal["models"]}
+    assert tags == {tag.removesuffix("-board-ft") + LEGAL_SUFFIX for tag in BATCH_1}
+    hf_ids = {m["ollama_base"]: m["hf_id"] for m in ft["models"]}
+    assert all(m["hf_id"] == hf_ids[m["ollama_base"]] for m in legal["models"])
+
+
+def test_run_batch_honours_ft_config():
+    script = (REPO / "fine-tuning" / "scripts" / "run_batch.sh").read_text()
+    assert "FT_CONFIG" in script
+    assert script.count('--config "$FT_CONFIG"') == 3
