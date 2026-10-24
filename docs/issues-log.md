@@ -230,18 +230,20 @@ still against the pre-rescue base records; the base re-run (Issue 18) gives the 
 
 ---
 
-## Issue 20 — "98% Legal Moves" Is Legality After a Re-Ask
+## Issue 20 — "98% Legal Moves" Is Legality After Re-Asking With the Legal-Move List
 **Date:** October 24
 **Symptom:** T2 reports about 98% legal moves for most models, which reads as "models almost always play a legal move".
 **Root cause:**
 - On combined prompts (`fen_only`, `pgn+fen`, `cot`), the worker replaces an illegal `Move:` answer. It first looks for any legal move in the reply text, then makes a separate `move_only` call at temperature 0. Legality is scored on the final move.
+- **The `move_only` prompt, and therefore the retry, lists every legal move** ("Legal moves: Nge7, Nh6, … You MUST pick one of the listed legal moves"). So a legal retry answer means the model copied an item from a list it was given, not that it worked out a legal move.
 - The base re-run saved raw replies, so the first answer can be scored. Over 59,981 combined rows for the five models, **9.3%** of first answers were legal, against **96.0%** of final moves. The text rescue supplied 1–7% of final moves and the isolated retry 82–91%. The per-model first-answer rates are 6.5–13.4%.
 - The illegal first answers are mostly stock moves that ignore the position. llama3.2:3b answers "e4" 45% of the time, qwen2.5:7b "Nf6" 24% and gemma3:4b "d5" 20%, often for the wrong side or onto occupied squares.
 - Caveat: mistral:7b often writes long algebraic ("h4-h5"), which SAN parsing rejects even when the move itself is legal. Its first-answer rate is a lower bound on whether it read the board, though it is still a failure to follow the required format.
-- Asked for a move alone (`move_only`), the same models are 89–99% legal. `move_only` takes any legal move found in the reply, which is lenient.
+- Given the legal-move list (`move_only`), the same models are 89–99% legal. That measures copying from a list, plus lenient extraction (any legal move found in the reply counts). It is not evidence of reading the board.
+- The fine-tuned models fall to 56–95% on `move_only`. They fail to copy a move from the list in front of them; fine-tuned gemma answered "Re8" with its rook already on e8.
 - Earlier records saved no replies, so first-attempt legality exists only for the re-run models. The fine-tuned run cannot be measured this way.
 
-**Fix:** `t2_move_source` and `t2_first_attempt_legal` columns, `t2_move_source.csv`, the summary key `t2_first_attempt_combined`, and a comparison column (`specs/t2-move-source.md`, replacing checklist T2-2). In the write-up, describe the ~98% as "legal after re-asking for a move", with the first-answer rate reported beside it.
+**Fix:** `t2_move_source` and `t2_first_attempt_legal` columns, `t2_move_source.csv`, the summary key `t2_first_attempt_combined`, and a comparison column (`specs/t2-move-source.md`, replacing checklist T2-2). In the write-up, describe the ~98% as "legal after re-asking with the list of legal moves", with the first-answer rate (about 9%) reported beside it as the measure of board reading.
 
 ---
 
@@ -268,4 +270,4 @@ still against the pre-rescue base records; the base re-run (Issue 18) gives the 
 | 17 | Oct 23 | run_all.sh | Completed tiers marked abandoned; DB errors read as 0 pending | Check completion first; read-only pending count that fails loudly |
 | 18 | Oct 23 | FT comparison design | Base legality pre-rescue, FT post-rescue (F-4 broken). **Corrected Oct 24: wrong; all runs had the rescue, and the re-run matches to 0.3 pts** | Base re-run done; kept as base side (same deepseek settings, raw replies) |
 | 19 | Oct 23 | compare_finetuning_results.py T3 | Substring T3 showed gains; whole-word T3 shows losses for 3 of 5 | Use t3_score_v2 |
-| 20 | Oct 24 | T2 legality meaning | ~98% legal is after re-asking; first answers on combined prompts are 9.3% legal | Move-source labels + first-attempt legality (specs/t2-move-source.md) |
+| 20 | Oct 24 | T2 legality meaning | ~98% legal is after re-asking with the legal-move list; first answers on combined prompts are 9.3% legal | Move-source labels + first-attempt legality (specs/t2-move-source.md) |

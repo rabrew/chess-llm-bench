@@ -13,7 +13,9 @@ On the combined prompts (`fen_only`, `pgn+fen`, `cot`), the worker produces that
 
 1. Parse `Move:` from the reply.
 2. If that move is missing or illegal, look for any legal move in the reply text (the text rescue).
-3. If there is none, make a separate `move_only` call at temperature 0 (the isolated retry).
+3. If there is none, make a separate `move_only` call at temperature 0 (the isolated retry). That
+   prompt **lists every legal move** and tells the model to pick one, so a retry answer measures
+   copying from a list, not reading the board.
 
 The base re-run (2026-10-24) saves raw replies, so step 1 can be scored. Only **7–13%** of first answers
 on combined prompts were legal. The text rescue supplied about 2–5% more, and the isolated retry
@@ -81,7 +83,9 @@ move-asking formats with at least one known source:
 For each move-asking row:
 
 1. `move_only`: the reply is the only attempt, so the source is `first_answer` and first-attempt legal
-   = `t2_legal`. This holds with or without a raw reply. Note that the move is taken as any legal move
+   = `t2_legal`. Note that this prompt supplies the legal-move list, so `move_only` "first-attempt"
+   legality measures picking from a list. Board-reading legality comes from the combined rows only
+   (`t2_first_attempt_combined`). This holds with or without a raw reply. Note that the move is taken as any legal move
    found in the reply (`extract_move_from_text`), which is more lenient than `Move:` parsing.
 2. Combined, no `raw_response` → `unknown`.
 3. Combined, `parse_response(raw_response)["move"]` is legal on `fen` → `first_answer`.
