@@ -177,3 +177,24 @@ def test_run_batch_honours_ft_config():
     script = (REPO / "fine-tuning" / "scripts" / "run_batch.sh").read_text()
     assert "FT_CONFIG" in script
     assert script.count('--config "$FT_CONFIG"') == 3
+
+
+def test_run_batch_exits_nonzero_when_a_model_fails(tmp_path):
+    """Chained steps (the legal-moves benchmark) must not start after a failed model."""
+    import shutil
+    import subprocess
+    repo = tmp_path / "repo"
+    (repo / "fine-tuning" / "scripts").mkdir(parents=True)
+    shutil.copy(REPO / "fine-tuning" / "scripts" / "run_batch.sh", repo / "fine-tuning" / "scripts")
+    (repo / "venv" / "bin").mkdir(parents=True)
+    (repo / "venv" / "bin" / "activate").write_text(f'export PATH="{repo}/fakebin:$PATH"\n')
+    (repo / "fakebin").mkdir()
+    fake_python = repo / "fakebin" / "python"
+    fake_python.write_text('#!/bin/bash\n[[ "$2" == "bad:1b" ]] && exit 1\nexit 0\n')
+    fake_python.chmod(0o755)
+    script = repo / "fine-tuning" / "scripts" / "run_batch.sh"
+    ok = subprocess.run(["bash", str(script), "good:1b"], capture_output=True, text=True)
+    bad = subprocess.run(["bash", str(script), "good:1b", "bad:1b"], capture_output=True, text=True)
+    assert ok.returncode == 0, ok.stdout + ok.stderr
+    assert bad.returncode == 1
+    assert "FAILED MODELS: bad:1b" in bad.stdout
