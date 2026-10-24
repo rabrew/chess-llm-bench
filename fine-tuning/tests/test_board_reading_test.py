@@ -135,3 +135,47 @@ def test_output_paths_depend_on_style():
         Path("results/finetuning_experiment/board_t0_training_prompt.jsonl"),
         Path("results/finetuning_experiment/board_t0_training_prompt_summary.csv"),
     )
+
+
+# ---------- --task board+legal (fine-tuning/specs/legal-moves-finetuning.md) ----------
+
+def test_legal_task_training_prompt_uses_legal_instruction():
+    from finetune_model import format_alpaca_prompt
+    from generate_board_dataset import LEGAL_INSTRUCTION
+    assert brt.build_prompt(POSITION, "training", task="board+legal") == format_alpaca_prompt(LEGAL_INSTRUCTION, POSITION["input"])
+
+
+def test_legal_task_format_prompt_asks_for_legal_moves():
+    prompt = brt.build_prompt(POSITION, "format", task="board+legal")
+    assert "Legal moves:" in prompt
+    assert "Legal moves:" not in brt.build_prompt(POSITION, "format")
+
+
+def test_legal_task_allows_longer_answers():
+    assert brt.build_payload("m", "P", task="board+legal")["options"]["num_predict"] > brt.build_payload("m", "P")["options"]["num_predict"]
+
+
+def test_legal_task_scores_legal_moves():
+    text = "White: King e1\nBlack: King e8\nSide to move: White\nLegal moves: Kd1, Kd2, Ke2, Kf1, Kf2"
+    row = brt.score_row("m:ft", "m", True, 0, KINGS, text, 1.0, "d", task="board+legal")
+    assert row["legal_found"] is True
+    assert row["legal_recall"] == 1.0 and row["legal_precision"] == 1.0
+    assert "legal_recall" not in brt.score_row("m", "m", False, 0, KINGS, text, 1.0, "d")
+
+
+def test_summary_includes_legal_means():
+    rows = [brt.score_row("m", "m", False, i, KINGS, "Legal moves: Kd1", 1.0, "d", task="board+legal") for i in range(2)]
+    summary = brt.summarise(rows)[0]
+    assert summary["mean_legal_recall"] == 0.2
+    assert summary["mean_legal_precision"] == 1.0
+
+
+def test_legal_task_output_paths_are_separate():
+    board, legal = brt.output_paths("training"), brt.output_paths("training", task="board+legal")
+    assert board != legal
+    assert legal[0].name == "board_legal_t0_training_prompt.jsonl"
+
+
+def test_unknown_task_rejected():
+    with pytest.raises(ValueError):
+        brt.build_prompt(POSITION, "format", task="moves-only")
