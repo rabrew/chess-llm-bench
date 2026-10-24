@@ -42,8 +42,10 @@ def _metrics_dir(tmp_path, frame):
 def _t1_frame():
     truth = [-300, -100, 0, 100, 300]
     rows = []
-    for model, evals in (("a", truth), ("b", [5, 3, 1, -2, 4])):
-        rows += [{"model": model, "t1_model_eval": e, "t1_stockfish_eval": t,
+    for size_b, (model, evals) in enumerate((("a", truth), ("b", [5, 3, 1, -2, 4])), start=1):
+        rows += [{"model": model, "position_id": i, "difficulty": "easy", "phase": "opening",
+                  "source": "lichess_puzzles", "model_family": model, "model_size_b": size_b,
+                  "t1_model_eval": e, "t1_stockfish_eval": t,
                   "job_id": f"{model}{i}", "t1_absolute_error": abs(e - t), "t1_direction_correct": True,
                   "t2_legal": True, "t2_cpl": None, "t3_p1_side_correct": None,
                   "t3_p2_theme_correct": None, "t3_score": None, "inference_ms": 1}
