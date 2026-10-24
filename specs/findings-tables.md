@@ -22,7 +22,7 @@ silently drift from the results.
   `t2_move_source.csv` (first-answer legality exists only there)
 - `--comparison` (default `results/finetuning_experiment/comparison.csv`)
 - `--board-test` (default `results/finetuning_experiment/board_t0_summary.csv`)
-- `--doc`, repeatable (default `docs/FINDINGS.md`)
+- `--doc`, repeatable (default `docs/FINDINGS.md` and `docs/SIMPLE_SUMMARY.md`)
 
 **Output:** each document is rewritten in place. Only the text between
 `<!-- table:NAME -->` and `<!-- /table:NAME -->` markers is replaced; everything else is untouched.

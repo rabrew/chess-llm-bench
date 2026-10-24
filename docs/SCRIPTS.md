@@ -82,6 +82,38 @@ Reads `evaluations.jsonl`, aggregates metrics (by model, difficulty, phase, sour
 python scripts/generate_plots.py
 ```
 
+**`enrich_cpl.py`**
+Fills `t2_cpl`, `t2_best_move` and the 800-node "before" eval (`t2_eval_before`, `t2_eval_nodes`) with
+Lc0. `--backfill-eval-before` adds the "before" eval to older records: it backs up the file first
+and resolves symlinks (specs/cpl-eval-before.md).
+```
+python scripts/enrich_cpl.py --results results/evaluations.jsonl
+python scripts/enrich_cpl.py --results results/evaluations.jsonl --backfill-eval-before
+```
+
+**`build_puzzle_meta.py`**
+Joins the Lichess CSV back to the benchmark FENs and writes `data/puzzle_meta.json`, with the full
+themes, the setup move and the puzzle FEN (Issue 21, specs/puzzle-metadata-join.md).
+```
+python scripts/build_puzzle_meta.py --results results/evaluations.jsonl
+```
+
+**`find_t3_examples.py`**
+Reports, for each plain-English theme cue, how many unmarked explanations it would credit (gain) and how
+often it appears for other themes (leak). Writes `results/t3_examples.md` (specs/t3-example-finder.md).
+
+**`render_findings.py`**
+Regenerates the tables in `docs/FINDINGS.md` and `docs/SIMPLE_SUMMARY.md` from the metrics. `--check`
+exits 1 if a table is stale (specs/findings-tables.md).
+```
+python scripts/render_findings.py
+python scripts/render_findings.py --check
+```
+
+**`check_ft_run.py`** / **`pending_jobs.py`**
+The pre-flight check that a fine-tuned config matches its base config, and a read-only count of pending
+jobs for `run_all.sh`.
+
 ### Development / debugging
 
 **`test_parsers_live.py`**
@@ -96,6 +128,20 @@ Pulls all models listed in `config/config.yaml` from Ollama. Also accepts `--mod
 python scripts/pull_models.py
 python scripts/pull_models.py --model phi4:14b
 ```
+
+---
+
+## `fine-tuning/scripts/`
+
+| Script | Purpose |
+|---|---|
+| `generate_board_dataset.py` | Builds the training data. `--task board+legal --from-dataset data/board_dataset.jsonl` builds the pieces + legal moves version on the same positions |
+| `finetune_model.py` | QLoRA training for one model, then GGUF export; writes a `runs/` record |
+| `import_finetuned_to_ollama.py`, `verify_export.py` | Import the GGUF into Ollama, then check that it still reads boards |
+| `run_batch.sh` | Train, import and verify each listed model; `FT_CONFIG=...` picks the config; exits 1 if any model fails |
+| `board_reading_test.py` | F-9 board-reading test, base vs fine-tuned; `--task board+legal` also scores the legal-move list |
+| `compare_finetuning_results.py` | Paired base vs fine-tuned comparison (ρ, legality, first-answer legality, blunder rate, T3) |
+| `run_record.py backfill` | Writes `runs/` records for models trained before tracking existed |
 
 ---
 
@@ -115,4 +161,5 @@ python scripts/pull_models.py --model phi4:14b
 | `result_writer.py` | Thread-safe append writer for `evaluations.jsonl` |
 | `data_loader.py` | Loads dataset files from `data/` |
 | `feedback_loop.py` | (Experimental) Logic for iterative prompt improvement based on failure patterns |
-| `utils.py` | Config loading, logging setup, directory helpers |
+| `utils.py` | Config loading, logging setup, directory helpers, `MODEL_REGISTRY` |
+| `provenance.py` | Git, data and engine provenance for `summary.json` |

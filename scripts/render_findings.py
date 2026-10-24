@@ -3,7 +3,7 @@
 Only text between <!-- table:NAME --> and <!-- /table:NAME --> markers is replaced.
 
 Usage (from the repo root):
-    python scripts/render_findings.py            # rewrite docs/FINDINGS.md tables
+    python scripts/render_findings.py            # rewrite the tables in FINDINGS and SIMPLE_SUMMARY
     python scripts/render_findings.py --check    # exit 1 if any table is stale
 """
 
@@ -31,6 +31,7 @@ BUCKET_LABELS = {
 }
 NOT_AVAILABLE = "_Table not available yet: its input file has not been generated._"
 DASH = "—"
+DEFAULT_DOCS = ("docs/FINDINGS.md", "docs/SIMPLE_SUMMARY.md")
 BLOCK = re.compile(r"<!-- table:(?P<name>[\w-]+) -->\n.*?<!-- /table:(?P=name) -->", re.S)
 OPEN = re.compile(r"<!-- table:(?P<name>[\w-]+) -->")
 
@@ -250,7 +251,7 @@ def main() -> None:
     parser.add_argument("--rerun-metrics", default="results/finetuning_experiment/base_rerun/metrics")
     parser.add_argument("--comparison", default="results/finetuning_experiment/comparison.csv")
     parser.add_argument("--board-test", default="results/finetuning_experiment/board_t0_summary.csv")
-    parser.add_argument("--doc", action="append", help="Document to update (repeatable; default docs/FINDINGS.md)")
+    parser.add_argument("--doc", action="append", help=f"Document to update (repeatable; default {', '.join(DEFAULT_DOCS)})")
     parser.add_argument("--check", action="store_true", help="Exit 1 if any table is stale; write nothing")
     args = parser.parse_args()
 
@@ -260,7 +261,7 @@ def main() -> None:
         sys.exit(1)
     tables = render_all(sources)
     stale = []
-    for doc in [Path(d) for d in (args.doc or ["docs/FINDINGS.md"])]:
+    for doc in [Path(d) for d in (args.doc or DEFAULT_DOCS)]:
         text = doc.read_text()
         rendered = replace_blocks(text, tables)
         if rendered == text:

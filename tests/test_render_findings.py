@@ -223,3 +223,7 @@ def test_compute_by_prompt_format():
     assert table.loc["cot", "t2_legal_rate"] == pytest.approx(1.0)
     assert math.isnan(table.loc["eval_only", "t2_legal_rate"])
     assert table.loc["cot", "n"] == 5
+
+
+def test_default_docs_cover_findings_and_summary():
+    assert rf.DEFAULT_DOCS == ("docs/FINDINGS.md", "docs/SIMPLE_SUMMARY.md")
