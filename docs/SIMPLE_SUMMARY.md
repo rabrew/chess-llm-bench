@@ -96,7 +96,7 @@ repeatable.
   *more* illegal moves, even with the list of legal moves in front of them.
 - **What it means:** knowing where the pieces are didn't help them play.
 
-**Experiment 2: running now.**
+**Experiment 2: under way.** One model is trained and four more train next.
 - The same five models are learning both the piece positions *and every legal move*.
 - I wrote down beforehand what would count as success.
 - If they learn the rules but still play badly, that is more evidence that the models learn patterns
