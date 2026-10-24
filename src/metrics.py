@@ -1615,12 +1615,15 @@ def _save_direction_chance_tables(df: pd.DataFrame, output_path: Path) -> None:
 def save_metrics(
     df: pd.DataFrame,
     output_dir: str = "results/metrics",
+    provenance: dict[str, Any] | None = None,
 ) -> None:
     """Save all metric aggregations to files.
 
     Args:
         df: Results DataFrame
         output_dir: Output directory for metric files
+        provenance: src.provenance.build_provenance() output, written into
+            summary.json when given (P-2)
     """
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
@@ -1653,6 +1656,8 @@ def save_metrics(
 
     # Save summary as JSON
     summary = generate_summary(df)
+    if provenance is not None:
+        summary["provenance"] = provenance
     with open(output_path / "summary.json", "w") as f:
         json.dump(summary, f, indent=2, default=str)
 

@@ -685,12 +685,14 @@ def main():
     if args.save_metrics:
         print("Re-computing metrics from evaluations.jsonl …")
         from src.metrics import load_results_df, save_metrics
+        from src.provenance import build_provenance
         results_file = paths.get("results_file", "results/evaluations.jsonl")
         df_raw = load_results_df(results_file)
         if df_raw.empty:
             print(f"ERROR: no results in {results_file}")
             sys.exit(1)
-        save_metrics(df_raw, str(metrics_dir))
+        provenance = build_provenance(args.config, results_file, repo_dir=Path(__file__).parent.parent)
+        save_metrics(df_raw, str(metrics_dir), provenance=provenance)
         print(f"  Metrics saved to {metrics_dir}\n")
 
     # Load pre-computed metrics
