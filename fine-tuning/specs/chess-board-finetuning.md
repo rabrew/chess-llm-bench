@@ -99,6 +99,25 @@ Format: `Correction — <list of fixes>. Full board: <ground truth>`
 
 ---
 
+## Held-Out Split (F-2, recorded 2026-10-24)
+
+`split_held_out(records, seed=42, n=200)` shuffles with `random.Random(seed)` and takes the first 200
+records as the held-out set. The held-out positions are used for per-epoch board accuracy, by
+`verify_export.py` and by the F-9 board-reading test. They must never be trained on.
+
+- **Rule:** the held-out and training sets share no FEN. The split is positional, so this holds only
+  if no FEN appears twice in the dataset. `split_held_out` therefore **raises `ValueError` if any
+  `input` (FEN) is duplicated**, rather than letting a duplicate leak into both sides.
+- **Checked 2026-10-24:** `data/board_dataset.jsonl` has 20,000 records and 20,000 unique FENs. None
+  are benchmark FENs (F-1).
+- **Tests** (`fine-tuning/tests/test_held_out_split.py`):
+  - the sizes, determinism and FEN-disjointness of the split
+  - the duplicate guard
+  - the same checks on the real dataset (skipped when the file is absent), including that no held-out
+    FEN is a benchmark FEN
+
+---
+
 ## Model Selection (F-5, recorded 2026-10-23)
 
 The fine-tuned models are the benchmarked models that meet three conditions:
