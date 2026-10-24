@@ -118,6 +118,40 @@ records as the held-out set. The held-out positions are used for per-epoch board
 
 ---
 
+## Experiment Tracking (F-7, recorded 2026-10-24)
+
+Each training run writes one JSON file to `runs/` at the repo root (tracked in git; small). Model
+weights, adapters and GGUFs stay out of git.
+
+**Record fields:**
+
+| Field | Meaning |
+|---|---|
+| `run_id` | `<UTC stamp>_<ft tag with ':' → '_'>` |
+| `created_at` | UTC ISO time |
+| `model`, `ft_tag`, `hf_id` | base Ollama tag, fine-tuned tag, HuggingFace id |
+| `git_sha`, `git_dirty` | from `src.provenance.git_state`; `None` when unknown |
+| `seed`, `config_path`, `config` | the training seed, plus a snapshot of the whole fine-tuning config |
+| `dataset_path`, `dataset_sha256`, `dataset_records` | |
+| `metrics` | `global_step`, `epoch`, `final_train_loss`, `loss_history` (step, loss), and `held_out_accuracy` per epoch where recorded |
+| `outputs` | checkpoint dir and GGUF path |
+| `notes` | free text, e.g. why a record was backfilled |
+
+**Writing:**
+- `finetune_model.py` writes the record after a successful GGUF export.
+- `write_run_record` refuses to overwrite an existing file.
+
+**Backfill:**
+- `python fine-tuning/scripts/run_record.py backfill` creates records for batch 1 from each checkpoint
+  dir's latest `trainer_state.json`.
+- The git SHA at training time is unknown, so it is left `None` and stated in `notes`.
+- The dataset hash is of the current `data/board_dataset.jsonl`. It was not changed after batch 1 was
+  generated; this is stated as an assumption in `notes`.
+
+**Tests:** `fine-tuning/tests/test_run_record.py`.
+
+---
+
 ## Model Selection (F-5, recorded 2026-10-23)
 
 The fine-tuned models are the benchmarked models that meet three conditions:
