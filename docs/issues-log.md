@@ -260,7 +260,9 @@ still against the pre-rescue base records; the base re-run (Issue 18) gives the 
 **Fix (partial; the full fix needs a decision):**
 - `scripts/build_puzzle_meta.py` joins the CSV back on FEN and records the full themes, the setup move and the puzzle FEN (`data/puzzle_meta.json`, 4,000/4,000 joined).
 - `load_results_df` adds `t2_played_setup_move`, how often a model plays the human setup move (a direct pattern-matching measure), and `t3_tactical_theme_correct`.
-- A corrected benchmark needs `puzzle_fen` positions and a re-run (weeks of compute at the current scale). Until then, report the theme mark and the tiers with this caveat, or drop them from the headline.
+- A corrected benchmark needs `puzzle_fen` positions and a re-run (weeks of compute at the current scale).
+
+**Decision (2026-10-24):** keep the results. The theme mark and the difficulty tiers are reported but not used as evidence for any conclusion (FINDINGS, Scope and limitations). The re-run on puzzle positions is listed as future work.
 
 ---
 

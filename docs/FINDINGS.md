@@ -332,8 +332,12 @@ _Table not available yet: its input file has not been generated._
 - **Contamination.** Lichess puzzles are public and may be in the models' training data. That makes the
   failures more striking, not less: the models do badly even on positions they may have seen.
 - **Setup position, not the puzzle (Issue 21).** T1, T2 and the side mark are scored on the position
-  shown and are valid. The theme mark and the difficulty tiers describe the next position. A corrected
-  run would need the puzzle positions themselves (`data/puzzle_meta.json` has them).
+  shown and are valid. The theme mark and the difficulty tiers describe the next position.
+  - **Decision (2026-10-24):** they are reported for completeness but **not used as evidence** for
+    any conclusion.
+  - **Future work:** a re-run on the puzzle positions themselves (`data/puzzle_meta.json` has them).
+- **Move history not tested (Issue 23).** No position had a game history, so `pgn+fen` repeated
+  `fen_only`. Whether history helps is unanswered.
 - **Reproducibility.** The positions (seed 42), the engine truth and the scoring are reproducible. The
   model outputs are not: default temperature, and 68.7% same-move agreement on repeated prompts.
 - **First-answer legality** exists only for the five re-run models, because raw replies were not saved
@@ -345,6 +349,13 @@ _Table not available yet: its input file has not been generated._
   - Probably on in the April runs and off in the October re-run.
   - Legality and ρ match across the two to within 0.3 points.
   - The earlier claim that chain-of-thought explained DeepSeek-R1's T1 results is withdrawn.
+- **Engine strength.** Move quality uses Lc0 at 800 nodes. A check at a higher node count (that the
+  model ranking doesn't change) was not run. Adjacent models are statistically tied anyway, so only
+  large gaps are claimed.
+- **Explanation marking.** T3 is marked by rules (side named, theme words present), not judged by a
+  person or a model. It measures whether the right words appear, not whether the reasoning is sound.
+- **Fine-tuning scope.** Only five models of 3–7B have been fine-tuned so far. The larger models (batch 2)
+  need a cloud GPU and are not included.
 - **Missing data.** deepseek-r1:7b is missing about 4% of its evaluations in the base run.
 
 ## Alignment with the proposal (W-1)
