@@ -4,14 +4,15 @@ Run after the full benchmark pipeline completes:
     python scripts/enrich_cpl.py
     python scripts/enrich_cpl.py --dry-run
     python scripts/enrich_cpl.py --nodes 400
+    python scripts/enrich_cpl.py --backfill-eval-before   # T2-6, specs/cpl-eval-before.md
 """
 
 import argparse
 import json
 import logging
-import os
+import shutil
 import sys
-import tempfile
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -25,6 +26,7 @@ from src.utils import load_config, setup_logging
 logger = logging.getLogger("chess_llm_bench")
 
 TIERS = ("easy", "medium", "hard", "extreme")
+BACKUP_TIMESTAMP_FORMAT = "%Y%m%dT%H%M%SZ"
 
 
 # ---------------------------------------------------------------------------
@@ -116,16 +118,7 @@ def enrich_records(records: list[dict], engine: Any) -> list[dict]:
         return records
 
     # --- Pass 1: evaluate all unique pre-move FENs ---
-    unique_fens = {r["fen"] for r in records}
-    pre_move_results: dict[str, dict] = {}  # fen -> {"eval": int, "best_move": str}
-
-    logger.info(f"Evaluating {len(unique_fens)} unique pre-move FENs...")
-    for fen in unique_fens:
-        try:
-            pre_move_results[fen] = engine.evaluate(fen)
-        except Exception as e:
-            logger.warning(f"Pre-move eval failed for FEN {fen!r}: {e}")
-            pre_move_results[fen] = None
+    pre_move_results = evaluate_unique_fens({r["fen"] for r in records}, engine)
 
     # --- Pass 2: evaluate unique (fen, model_move) pairs where move != best move ---
     pairs_to_eval: set[tuple[str, str]] = set()
@@ -166,6 +159,7 @@ def enrich_records(records: list[dict], engine: Any) -> list[dict]:
             continue
 
         r["t2_best_move"] = pre.get("best_move")
+        r.update(_eval_before_fields(pre, engine))
 
         if move == pre.get("best_move"):
             r["t2_cpl"] = 0
@@ -180,14 +174,57 @@ def enrich_records(records: list[dict], engine: Any) -> list[dict]:
     return enriched
 
 
+def evaluate_unique_fens(fens: set[str], engine: Any) -> dict[str, dict | None]:
+    """Evaluate each FEN once; a failed evaluation maps to None and is logged."""
+    results: dict[str, dict | None] = {}
+    logger.info(f"Evaluating {len(fens)} unique pre-move FENs...")
+    for fen in fens:
+        try:
+            results[fen] = engine.evaluate(fen)
+        except Exception as e:  # engine crash, bad FEN: logged and counted, never fatal
+            logger.warning(f"Pre-move eval failed for FEN {fen!r}: {e}")
+            results[fen] = None
+    return results
+
+
+def _eval_before_fields(pre: dict, engine: Any) -> dict[str, Any]:
+    """The 800-node 'before' eval that t2_cpl is measured from (specs/cpl-eval-before.md)."""
+    return {"t2_eval_before": pre["eval"], "t2_eval_nodes": getattr(engine, "nodes", None)}
+
+
+def _needs_eval_before(record: dict) -> bool:
+    return record.get("t2_cpl") is not None and record.get("t2_eval_before") is None
+
+
+def backfill_eval_before(records: list[dict], engine: Any) -> tuple[list[dict], int]:
+    """Add t2_eval_before to records that have a CPL but no stored 'before' eval.
+
+    Only starting positions are evaluated; t2_cpl and post-move evals are untouched.
+
+    Returns:
+        (records as new dicts where filled, number of records whose FEN failed)
+    """
+    fens = {r["fen"] for r in records if _needs_eval_before(r)}
+    pre_move_results = evaluate_unique_fens(fens, engine) if fens else {}
+    filled, failed = [], 0
+    for r in records:
+        if not _needs_eval_before(r):
+            filled.append(r)
+            continue
+        pre = pre_move_results.get(r["fen"])
+        if pre is None:
+            failed += 1
+            filled.append(r)
+            continue
+        filled.append({**r, **_eval_before_fields(pre, engine)})
+    return filled, failed
+
+
 # ---------------------------------------------------------------------------
 # I/O and CLI
 # ---------------------------------------------------------------------------
 
-def run(results_file: str, data_dir: str, engine: Any, dry_run: bool) -> None:
-    """Main enrichment logic: read, enrich, write atomically."""
-    results_path = Path(results_file)
-
+def _read_records(results_path: Path) -> list[dict]:
     logger.info(f"Reading {results_path}...")
     records = []
     with open(results_path) as f:
@@ -198,7 +235,47 @@ def run(results_file: str, data_dir: str, engine: Any, dry_run: bool) -> None:
                     records.append(json.loads(line))
                 except json.JSONDecodeError:
                     logger.warning(f"Skipping malformed JSON on line {lineno}")
+    return records
 
+
+def _write_records_atomically(results_path: Path, records: list[dict]) -> None:
+    tmp_path = results_path.with_suffix(".jsonl.tmp")
+    with open(tmp_path, "w") as f:
+        for r in records:
+            f.write(json.dumps(r) + "\n")
+    tmp_path.replace(results_path)
+
+
+def _backup(results_path: Path) -> Path:
+    stamp = datetime.now(timezone.utc).strftime(BACKUP_TIMESTAMP_FORMAT)
+    backup_path = results_path.with_name(f"{results_path.name}.bak-{stamp}")
+    shutil.copy2(results_path, backup_path)
+    logger.info(f"Backed up {results_path} to {backup_path}")
+    return backup_path
+
+
+def run_backfill(results_path: Path, engine: Any, backup: bool = True) -> None:
+    """Fill t2_eval_before on existing results (T2-6)."""
+    records = _read_records(results_path)
+    filled, failed = backfill_eval_before(records, engine)
+    changed = sum(1 for before, after in zip(records, filled) if before is not after)
+    logger.info(f"Backfill: {changed} records filled, {failed} failed")
+    if not changed:
+        return
+    if backup:
+        _backup(results_path)
+    _write_records_atomically(results_path, filled)
+
+
+def run(results_file: str, data_dir: str, engine: Any, dry_run: bool,
+        backfill: bool = False, backup: bool = True) -> None:
+    """Main enrichment logic: read, enrich, write atomically."""
+    results_path = Path(results_file)
+    if backfill:
+        run_backfill(results_path, engine, backup=backup)
+        return
+
+    records = _read_records(results_path)
     to_enrich, passthrough = collect_work(records)
 
     logger.info(
@@ -214,7 +291,7 @@ def run(results_file: str, data_dir: str, engine: Any, dry_run: bool) -> None:
     if dry_run:
         unique_fens = len({r["fen"] for r in to_enrich})
         logger.info(f"[dry-run] Would evaluate {unique_fens} unique pre-move FENs")
-        logger.info(f"[dry-run] No files written.")
+        logger.info("[dry-run] No files written.")
         return
 
     enriched = enrich_records(to_enrich, engine)
@@ -236,12 +313,7 @@ def run(results_file: str, data_dir: str, engine: Any, dry_run: bool) -> None:
         else:
             all_records.append(r)
 
-    # Atomic write
-    tmp_path = results_path.with_suffix(".jsonl.tmp")
-    with open(tmp_path, "w") as f:
-        for r in all_records:
-            f.write(json.dumps(r) + "\n")
-    tmp_path.replace(results_path)
+    _write_records_atomically(results_path, all_records)
 
     logger.info(
         f"\nCPL enrichment complete.\n"
@@ -265,6 +337,10 @@ def main() -> None:
                         help="Override Lc0 nodes per position (default: from config or 800)")
     parser.add_argument("--dry-run", action="store_true",
                         help="Print what would be enriched without writing anything")
+    parser.add_argument("--backfill-eval-before", action="store_true",
+                        help="Add the Lc0 'before' eval to records that already have a CPL (T2-6)")
+    parser.add_argument("--no-backup", action="store_true",
+                        help="With --backfill-eval-before: do not copy the results file first")
     args = parser.parse_args()
 
     setup_logging()
@@ -286,7 +362,8 @@ def main() -> None:
 
     logger.info(f"Starting Lc0: {binary} (nodes={nodes})")
     with Lc0Engine(path=binary, weights=weights, nodes=nodes) as engine:
-        run(args.results, args.data_dir, engine=engine, dry_run=False)
+        run(args.results, args.data_dir, engine=engine, dry_run=False,
+            backfill=args.backfill_eval_before, backup=not args.no_backup)
 
 
 if __name__ == "__main__":

@@ -153,6 +153,7 @@ def load_results_df(
             t1_relative_error      magnitude-invariant T1 error
             t1_abs_error_excl_mate t1_absolute_error with mate-truth rows NaN'd
             t2_cpl_clamped         CPL recomputed with ±EVAL_CLAMP_CP clamp
+            t2_eval_before_source  "lc0_search" (stored 800-node eval) or "no_search" fallback
             t2_wp_loss             Δ win-probability × 1000 (bounded [0,1000])
             t3_p2_theme_correct_v2 theme-correctness rescored with new matcher
             t2_move_source         where the final move came from (specs/t2-move-source.md)
@@ -192,10 +193,13 @@ def load_results_df(
             )
 
     # ----- T2 derived columns: clamped CPL + win-probability loss ---------
-    # Reconstruct eval_after from (t1_stockfish_eval, t2_cpl, fen):
-    #   cpl = max(0, sf - eval_after)  if white_to_move else
-    #         max(0, eval_after - sf)
-    # so eval_after = sf - cpl  if white_to_move else  sf + cpl.
+    # Reconstruct eval_after from (eval_before, t2_cpl, fen):
+    #   cpl = max(0, before - eval_after)  if white_to_move else
+    #         max(0, eval_after - before)
+    # so eval_after = before - cpl  if white_to_move else  before + cpl.
+    # "before" must be the 800-node eval t2_cpl was measured from
+    # (t2_eval_before); the no-search t1_stockfish_eval is only a fallback
+    # for records never backfilled (specs/cpl-eval-before.md, T2-6).
     if "t2_cpl" in df.columns and "t1_stockfish_eval" in df.columns:
         fen_lookup = _build_fen_lookup(data_dir)
         if "fen" in df.columns:
@@ -209,25 +213,26 @@ def load_results_df(
             lambda f: _white_to_move_from_fen(f) if isinstance(f, str) else None
         )
 
-        def _derive(row_sf, row_cpl, row_wtm):
-            if pd.isna(row_sf) or pd.isna(row_cpl) or row_wtm is None:
+        before, source = _cpl_eval_before(df)
+
+        def _derive(row_before, row_cpl, row_wtm):
+            if pd.isna(row_before) or pd.isna(row_cpl) or row_wtm is None:
                 return (np.nan, np.nan)
-            sf = float(row_sf)
+            ev_before = float(row_before)
             cpl = float(row_cpl)
-            ea = sf - cpl if row_wtm else sf + cpl
+            ea = ev_before - cpl if row_wtm else ev_before + cpl
             return (
-                compute_clamped_cpl(sf, ea, bool(row_wtm)),
-                compute_wp_loss(sf, ea, bool(row_wtm)),
+                compute_clamped_cpl(ev_before, ea, bool(row_wtm)),
+                compute_wp_loss(ev_before, ea, bool(row_wtm)),
             )
 
         derived = [
-            _derive(sf, cpl, wtm)
-            for sf, cpl, wtm in zip(
-                df["t1_stockfish_eval"], df["t2_cpl"], white_to_move
-            )
+            _derive(ev, cpl, wtm)
+            for ev, cpl, wtm in zip(before, df["t2_cpl"], white_to_move)
         ]
         df["t2_cpl_clamped"] = [d[0] for d in derived]
         df["t2_wp_loss"] = [d[1] for d in derived]
+        df["t2_eval_before_source"] = source
 
     # ----- T3 rescored theme-correctness with the new matcher -------------
     if "theme" in df.columns and "t3_explanation" in df.columns:
@@ -281,6 +286,28 @@ def load_results_df(
             )
 
     return df
+
+
+EVAL_BEFORE_SEARCH = "lc0_search"
+EVAL_BEFORE_NO_SEARCH = "no_search"
+
+
+def _cpl_eval_before(df: pd.DataFrame) -> tuple[pd.Series, pd.Series]:
+    """Per row: the 'before' eval for CPL reconstruction and which reading it is."""
+    no_search = pd.to_numeric(df["t1_stockfish_eval"], errors="coerce")
+    stored = pd.to_numeric(_optional_column(df, "t2_eval_before"), errors="coerce")
+    has_cpl = df["t2_cpl"].notna()
+    use_stored = stored.notna()
+    source = pd.Series(
+        np.where(use_stored, EVAL_BEFORE_SEARCH, EVAL_BEFORE_NO_SEARCH), index=df.index, dtype=object
+    ).where(has_cpl, None)
+    fallback_rows = int((has_cpl & ~use_stored).sum())
+    if fallback_rows:
+        logger.warning(
+            f"{fallback_rows} CPL rows have no t2_eval_before; clamped CPL uses the no-search "
+            "t1_stockfish_eval (run enrich_cpl.py --backfill-eval-before)"
+        )
+    return stored.where(use_stored, no_search), source
 
 
 def _is_legal_san(fen: Any, san: Any) -> bool:
