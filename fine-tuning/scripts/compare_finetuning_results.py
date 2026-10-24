@@ -5,7 +5,8 @@ Pairs first-attempt (job_type == "standard") records on
 side's metrics and the fine-tuned − base delta:
 
   T1  Spearman ρ, Cohen's κ at ±50 cp, MAE and MAE relative to always answering 0
-  T2  legal-move rate over prompts that ask for a move, clamped CPL
+  T2  legal-move rate over prompts that ask for a move, first-attempt legal rate on
+      combined prompts (NaN without raw replies), clamped CPL
   T3  mean score
 
 Error alone is not evidence of skill: most positions are near level, so a model
@@ -34,6 +35,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
 
 from src.metrics import (  # noqa: E402
+    COMBINED_PROMPT_FORMATS,
     EVAL_CLAMP_CP,
     MATE_SCORE_THRESHOLD_CP,
     MOVE_PROMPT_FORMATS,
@@ -63,6 +65,7 @@ METRICS = (
     "t1_mae",
     "t1_mae_ratio",
     "t2_legal_rate",
+    "t2_first_attempt_legal_rate",
     "t2_mean_cpl_clamped",
     "t3_mean",
 )
@@ -127,9 +130,18 @@ def side_metrics(rows: pd.DataFrame) -> dict[str, float]:
         "t1_mae": _first_value(error, "mae"),
         "t1_mae_ratio": _first_value(error, "mae_ratio"),
         "t2_legal_rate": _mean(move_rows["t2_legal"].fillna(False).astype(float)),
+        "t2_first_attempt_legal_rate": _first_attempt_rate(rows),
         "t2_mean_cpl_clamped": _mean(pd.to_numeric(rows["t2_cpl_clamped"], errors="coerce")),
         "t3_mean": _mean(pd.to_numeric(rows[_t3_column(rows)], errors="coerce")),
     }
+
+
+def _first_attempt_rate(rows: pd.DataFrame) -> float:
+    """Model's own answer legal, combined prompts; NaN when no raw replies were saved."""
+    if "t2_first_attempt_legal" not in rows.columns:
+        return math.nan
+    combined = rows[rows["prompt_format"].isin(COMBINED_PROMPT_FORMATS)]
+    return _mean(combined["t2_first_attempt_legal"])
 
 
 def _t3_column(rows: pd.DataFrame) -> str:

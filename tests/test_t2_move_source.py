@@ -22,6 +22,9 @@ def _record(fmt="fen_only", raw=LEGAL_REPLY, retry=NO_RETRY, legal=True, model="
         "model": model, "prompt_format": fmt,
         "t1_model_eval": None, "t1_stockfish_eval": 0, "t1_absolute_error": None,
         "t2_move": "Nf6" if legal else None, "t2_legal": legal, "t2_cpl": None, "t3_score": None,
+        "difficulty": "easy", "phase": "middlegame", "source": "lichess_puzzles",
+        "inference_ms": 100, "t1_direction_correct": None,
+        "t3_p1_side_correct": None, "t3_p2_theme_correct": None,
     }
     if raw is not None:
         record["raw_response"] = raw
