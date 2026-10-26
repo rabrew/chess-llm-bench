@@ -1,0 +1,369 @@
+{
+  "run_id": "20261020T232245Z_deepseek-r1_7b-board-ft",
+  "created_at": "2026-10-20T23:22:45.432154+00:00",
+  "model": "deepseek-r1:7b",
+  "ft_tag": "deepseek-r1:7b-board-ft",
+  "hf_id": "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B",
+  "git_sha": null,
+  "git_dirty": null,
+  "seed": 42,
+  "config_path": "fine-tuning/config/finetune_config.yaml",
+  "config": {
+    "models": [
+      {
+        "ollama_base": "llama3.2:3b",
+        "hf_id": "meta-llama/Llama-3.2-3B-Instruct",
+        "ollama_ft_tag": "llama3.2:3b-board-ft"
+      },
+      {
+        "ollama_base": "gemma3:4b",
+        "hf_id": "google/gemma-3-4b-it",
+        "ollama_ft_tag": "gemma3:4b-board-ft",
+        "attn_implementation": "eager"
+      },
+      {
+        "ollama_base": "qwen2.5:7b",
+        "hf_id": "Qwen/Qwen2.5-7B-Instruct",
+        "ollama_ft_tag": "qwen2.5:7b-board-ft"
+      },
+      {
+        "ollama_base": "mistral:7b",
+        "hf_id": "mistralai/Mistral-7B-Instruct-v0.3",
+        "ollama_ft_tag": "mistral:7b-board-ft"
+      },
+      {
+        "ollama_base": "wizardlm2:7b",
+        "hf_id": "microsoft/WizardLM-2-7B",
+        "ollama_ft_tag": "wizardlm2:7b-board-ft"
+      },
+      {
+        "ollama_base": "deepseek-r1:7b",
+        "hf_id": "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B",
+        "ollama_ft_tag": "deepseek-r1:7b-board-ft"
+      },
+      {
+        "ollama_base": "gemma4:e2b",
+        "hf_id": "google/gemma-4-E2B-it",
+        "ollama_ft_tag": "gemma4:e2b-board-ft",
+        "attn_implementation": "eager"
+      },
+      {
+        "ollama_base": "gemma4:e4b",
+        "hf_id": "google/gemma-4-E4B-it",
+        "ollama_ft_tag": "gemma4:e4b-board-ft",
+        "attn_implementation": "eager"
+      },
+      {
+        "ollama_base": "llama3.1:8b",
+        "hf_id": "meta-llama/Llama-3.1-8B-Instruct",
+        "ollama_ft_tag": "llama3.1:8b-board-ft"
+      },
+      {
+        "ollama_base": "solar:10.7b",
+        "hf_id": "upstage/SOLAR-10.7B-Instruct-v1.0",
+        "ollama_ft_tag": "solar:10.7b-board-ft"
+      },
+      {
+        "ollama_base": "gemma3:12b",
+        "hf_id": "google/gemma-3-12b-it",
+        "ollama_ft_tag": "gemma3:12b-board-ft",
+        "attn_implementation": "eager"
+      },
+      {
+        "ollama_base": "qwen2.5:14b",
+        "hf_id": "Qwen/Qwen2.5-14B-Instruct",
+        "ollama_ft_tag": "qwen2.5:14b-board-ft"
+      },
+      {
+        "ollama_base": "phi4:14b",
+        "hf_id": "microsoft/phi-4",
+        "ollama_ft_tag": "phi4:14b-board-ft"
+      },
+      {
+        "ollama_base": "deepseek-r1:14b",
+        "hf_id": "deepseek-ai/DeepSeek-R1-Distill-Qwen-14B",
+        "ollama_ft_tag": "deepseek-r1:14b-board-ft"
+      },
+      {
+        "ollama_base": "qwen2.5:32b",
+        "hf_id": "Qwen/Qwen2.5-32B-Instruct",
+        "ollama_ft_tag": "qwen2.5:32b-board-ft"
+      },
+      {
+        "ollama_base": "codellama:34b",
+        "hf_id": "codellama/CodeLlama-34b-Instruct-hf",
+        "ollama_ft_tag": "codellama:34b-board-ft"
+      },
+      {
+        "ollama_base": "yi:34b",
+        "hf_id": "01-ai/Yi-34B-Chat",
+        "ollama_ft_tag": "yi:34b-board-ft"
+      },
+      {
+        "ollama_base": "command-r:35b",
+        "hf_id": "CohereForAI/c4ai-command-r-v01",
+        "ollama_ft_tag": "command-r:35b-board-ft"
+      },
+      {
+        "ollama_base": "gemma4:26b",
+        "hf_id": "google/gemma-4-26B-A4B-it",
+        "ollama_ft_tag": "gemma4:26b-board-ft",
+        "attn_implementation": "eager"
+      },
+      {
+        "ollama_base": "gemma4:31b",
+        "hf_id": "google/gemma-4-31B-it",
+        "ollama_ft_tag": "gemma4:31b-board-ft",
+        "attn_implementation": "eager"
+      },
+      {
+        "ollama_base": "mixtral:8x7b",
+        "hf_id": "mistralai/Mixtral-8x7B-Instruct-v0.1",
+        "ollama_ft_tag": "mixtral:8x7b-board-ft"
+      },
+      {
+        "ollama_base": "llama3.3:70b",
+        "hf_id": "meta-llama/Llama-3.3-70B-Instruct",
+        "ollama_ft_tag": "llama3.3:70b-board-ft"
+      }
+    ],
+    "training": {
+      "dataset_path": "data/board_dataset.jsonl",
+      "max_seq_length": 512,
+      "num_epochs": 2,
+      "per_device_train_batch_size": 4,
+      "gradient_accumulation_steps": 4,
+      "lora_rank": 16,
+      "lora_alpha": 32,
+      "lora_target_modules": [
+        "q_proj",
+        "v_proj",
+        "k_proj",
+        "o_proj"
+      ],
+      "learning_rate": 0.0002,
+      "warmup_ratio": 0.05,
+      "seed": 42,
+      "gguf_quantization": "q4_k_m"
+    },
+    "paths": {
+      "hf_models_dir": "/home/rabrew/hf_models",
+      "checkpoints_dir": "/home/rabrew/finetuned_checkpoints",
+      "gguf_output_dir": "/home/rabrew/finetuned_gguf",
+      "ollama_modelfiles_dir": "/home/rabrew/ollama_modelfiles",
+      "merge_work_dir": "/mnt/shared/merge_work",
+      "llama_cpp_dir": "~/.unsloth/llama.cpp"
+    }
+  },
+  "dataset_path": "data/board_dataset.jsonl",
+  "dataset_sha256": "4514f33abafe8d829c52ce59595bd8c56277c4367922b192b6e5ce8e824fbf9a",
+  "dataset_records": 20000,
+  "metrics": {
+    "global_step": 2476,
+    "epoch": 2.0,
+    "final_train_loss": 0.3746882629394531,
+    "loss_history": [
+      [
+        50,
+        2.3769435119628906
+      ],
+      [
+        100,
+        1.0999376678466797
+      ],
+      [
+        150,
+        0.827226791381836
+      ],
+      [
+        200,
+        0.7156148529052735
+      ],
+      [
+        250,
+        0.623546371459961
+      ],
+      [
+        300,
+        0.5537887954711914
+      ],
+      [
+        350,
+        0.5103798675537109
+      ],
+      [
+        400,
+        0.48631843566894534
+      ],
+      [
+        450,
+        0.4638440704345703
+      ],
+      [
+        500,
+        0.443583984375
+      ],
+      [
+        550,
+        0.43846046447753906
+      ],
+      [
+        600,
+        0.4284560394287109
+      ],
+      [
+        650,
+        0.4271854019165039
+      ],
+      [
+        700,
+        0.42268383026123046
+      ],
+      [
+        750,
+        0.41651813507080077
+      ],
+      [
+        800,
+        0.41310352325439453
+      ],
+      [
+        850,
+        0.4158967971801758
+      ],
+      [
+        900,
+        0.40922893524169923
+      ],
+      [
+        950,
+        0.40475677490234374
+      ],
+      [
+        1000,
+        0.40592926025390624
+      ],
+      [
+        1050,
+        0.40520889282226563
+      ],
+      [
+        1100,
+        0.3999988555908203
+      ],
+      [
+        1150,
+        0.40296119689941406
+      ],
+      [
+        1200,
+        0.39843647003173827
+      ],
+      [
+        1250,
+        0.39513286590576174
+      ],
+      [
+        1300,
+        0.39137260437011717
+      ],
+      [
+        1350,
+        0.3943825912475586
+      ],
+      [
+        1400,
+        0.3885205841064453
+      ],
+      [
+        1450,
+        0.3907080841064453
+      ],
+      [
+        1500,
+        0.38760379791259764
+      ],
+      [
+        1550,
+        0.38977306365966796
+      ],
+      [
+        1600,
+        0.388885498046875
+      ],
+      [
+        1650,
+        0.382981071472168
+      ],
+      [
+        1700,
+        0.38708335876464844
+      ],
+      [
+        1750,
+        0.384143180847168
+      ],
+      [
+        1800,
+        0.3816289138793945
+      ],
+      [
+        1850,
+        0.3810450744628906
+      ],
+      [
+        1900,
+        0.3795846176147461
+      ],
+      [
+        1950,
+        0.3816691970825195
+      ],
+      [
+        2000,
+        0.38302074432373046
+      ],
+      [
+        2050,
+        0.3797630310058594
+      ],
+      [
+        2100,
+        0.38327804565429685
+      ],
+      [
+        2150,
+        0.3852506637573242
+      ],
+      [
+        2200,
+        0.3793233489990234
+      ],
+      [
+        2250,
+        0.37554924011230467
+      ],
+      [
+        2300,
+        0.37781879425048825
+      ],
+      [
+        2350,
+        0.38036773681640623
+      ],
+      [
+        2400,
+        0.37546348571777344
+      ],
+      [
+        2450,
+        0.3746882629394531
+      ]
+    ]
+  },
+  "outputs": {
+    "checkpoint_dir": "/home/rabrew/finetuned_checkpoints/deepseek-r1:7b-board-ft",
+    "trainer_state": "/home/rabrew/finetuned_checkpoints/deepseek-r1:7b-board-ft/checkpoint-2476/trainer_state.json"
+  },
+  "notes": "backfilled 2026-10-24 from trainer_state.json; git SHA at training time unknown; dataset hash is of the current file, assumed unchanged since training"
+}
