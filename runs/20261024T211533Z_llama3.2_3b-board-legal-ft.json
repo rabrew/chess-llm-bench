@@ -1,0 +1,279 @@
+{
+  "run_id": "20261024T211533Z_llama3.2_3b-board-legal-ft",
+  "created_at": "2026-10-24T21:15:33.520636+00:00",
+  "model": "llama3.2:3b",
+  "ft_tag": "llama3.2:3b-board-legal-ft",
+  "hf_id": "meta-llama/Llama-3.2-3B-Instruct",
+  "git_sha": null,
+  "git_dirty": null,
+  "seed": 42,
+  "config_path": "fine-tuning/config/finetune_config_legal.yaml",
+  "config": {
+    "models": [
+      {
+        "ollama_base": "llama3.2:3b",
+        "hf_id": "meta-llama/Llama-3.2-3B-Instruct",
+        "ollama_ft_tag": "llama3.2:3b-board-legal-ft"
+      },
+      {
+        "ollama_base": "gemma3:4b",
+        "hf_id": "google/gemma-3-4b-it",
+        "ollama_ft_tag": "gemma3:4b-board-legal-ft",
+        "attn_implementation": "eager"
+      },
+      {
+        "ollama_base": "qwen2.5:7b",
+        "hf_id": "Qwen/Qwen2.5-7B-Instruct",
+        "ollama_ft_tag": "qwen2.5:7b-board-legal-ft"
+      },
+      {
+        "ollama_base": "mistral:7b",
+        "hf_id": "mistralai/Mistral-7B-Instruct-v0.3",
+        "ollama_ft_tag": "mistral:7b-board-legal-ft"
+      },
+      {
+        "ollama_base": "deepseek-r1:7b",
+        "hf_id": "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B",
+        "ollama_ft_tag": "deepseek-r1:7b-board-legal-ft"
+      }
+    ],
+    "training": {
+      "dataset_path": "data/board_legal_dataset.jsonl",
+      "max_seq_length": 768,
+      "num_epochs": 2,
+      "per_device_train_batch_size": 4,
+      "gradient_accumulation_steps": 4,
+      "lora_rank": 16,
+      "lora_alpha": 32,
+      "lora_target_modules": [
+        "q_proj",
+        "v_proj",
+        "k_proj",
+        "o_proj"
+      ],
+      "learning_rate": 0.0002,
+      "warmup_ratio": 0.05,
+      "seed": 42,
+      "gguf_quantization": "q4_k_m"
+    },
+    "paths": {
+      "hf_models_dir": "/home/rabrew/hf_models",
+      "checkpoints_dir": "/home/rabrew/finetuned_checkpoints",
+      "gguf_output_dir": "/home/rabrew/finetuned_gguf",
+      "ollama_modelfiles_dir": "/home/rabrew/ollama_modelfiles",
+      "merge_work_dir": "/mnt/shared/merge_work",
+      "llama_cpp_dir": "~/.unsloth/llama.cpp"
+    }
+  },
+  "dataset_path": "data/board_legal_dataset.jsonl",
+  "dataset_sha256": "ee8fb93f9f7ed601b7c0eb46905c98b8a27e21b60dd3b3ab5128aaf5638185a4",
+  "dataset_records": 20000,
+  "metrics": {
+    "global_step": 2476,
+    "epoch": 2.0,
+    "final_train_loss": 0.28592782974243164,
+    "loss_history": [
+      [
+        50,
+        1.5788383483886719
+      ],
+      [
+        100,
+        0.8273072052001953
+      ],
+      [
+        150,
+        0.7133535766601562
+      ],
+      [
+        200,
+        0.6654753112792968
+      ],
+      [
+        250,
+        0.6171198272705078
+      ],
+      [
+        300,
+        0.5376858901977539
+      ],
+      [
+        350,
+        0.48669857025146485
+      ],
+      [
+        400,
+        0.4551282501220703
+      ],
+      [
+        450,
+        0.4295176315307617
+      ],
+      [
+        500,
+        0.39893943786621094
+      ],
+      [
+        550,
+        0.38581787109375
+      ],
+      [
+        600,
+        0.375693359375
+      ],
+      [
+        650,
+        0.37113208770751954
+      ],
+      [
+        700,
+        0.3611984634399414
+      ],
+      [
+        750,
+        0.35442466735839845
+      ],
+      [
+        800,
+        0.34788524627685546
+      ],
+      [
+        850,
+        0.35006477355957033
+      ],
+      [
+        900,
+        0.3454758834838867
+      ],
+      [
+        950,
+        0.3361245727539062
+      ],
+      [
+        1000,
+        0.3373765563964844
+      ],
+      [
+        1050,
+        0.3332421493530273
+      ],
+      [
+        1100,
+        0.32827167510986327
+      ],
+      [
+        1150,
+        0.32844135284423825
+      ],
+      [
+        1200,
+        0.3242607498168945
+      ],
+      [
+        1250,
+        0.3223829650878906
+      ],
+      [
+        1300,
+        0.3131743621826172
+      ],
+      [
+        1350,
+        0.3140481758117676
+      ],
+      [
+        1400,
+        0.31044748306274417
+      ],
+      [
+        1450,
+        0.3115505599975586
+      ],
+      [
+        1500,
+        0.3050201416015625
+      ],
+      [
+        1550,
+        0.3082107162475586
+      ],
+      [
+        1600,
+        0.3068785285949707
+      ],
+      [
+        1650,
+        0.3021189117431641
+      ],
+      [
+        1700,
+        0.3019235038757324
+      ],
+      [
+        1750,
+        0.3011915588378906
+      ],
+      [
+        1800,
+        0.29620143890380857
+      ],
+      [
+        1850,
+        0.2936227226257324
+      ],
+      [
+        1900,
+        0.2913221740722656
+      ],
+      [
+        1950,
+        0.2952170944213867
+      ],
+      [
+        2000,
+        0.2946539497375488
+      ],
+      [
+        2050,
+        0.29119741439819335
+      ],
+      [
+        2100,
+        0.28958574295043943
+      ],
+      [
+        2150,
+        0.2936623764038086
+      ],
+      [
+        2200,
+        0.28842472076416015
+      ],
+      [
+        2250,
+        0.28659160614013673
+      ],
+      [
+        2300,
+        0.28652462005615237
+      ],
+      [
+        2350,
+        0.289213924407959
+      ],
+      [
+        2400,
+        0.28425844192504884
+      ],
+      [
+        2450,
+        0.28592782974243164
+      ]
+    ]
+  },
+  "outputs": {
+    "checkpoint_dir": "/home/rabrew/finetuned_checkpoints/llama3.2:3b-board-legal-ft",
+    "trainer_state": "/home/rabrew/finetuned_checkpoints/llama3.2:3b-board-legal-ft/checkpoint-2476/trainer_state.json"
+  },
+  "notes": "backfilled 2026-10-24 from trainer_state.json; git SHA at training time unknown; dataset hash is of the current file, assumed unchanged since training"
+}
