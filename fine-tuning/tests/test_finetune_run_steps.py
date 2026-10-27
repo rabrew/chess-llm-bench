@@ -147,3 +147,74 @@ def test_trainer_build_failure_cleans_up(tmp_path, monkeypatch):
     with pytest.raises(TypeError):
         fm._train_and_export(plan, ([], []), resume=False, logger=_Logger())
     assert not plan.checkpoint_dir.exists()
+
+
+class _Trainer:
+    def __init__(self, plan, fail=False):
+        self.plan, self.fail = plan, fail
+
+    def train(self, resume_from_checkpoint=None):
+        (self.plan.checkpoint_dir / "checkpoint-10").mkdir(parents=True)
+        if self.fail:
+            raise RuntimeError("CUDA out of memory")
+
+
+def _fake_training(monkeypatch, plan, fail_training=False):
+    monkeypatch.setattr(fm, "_import_training_deps", lambda logger: (None, None, None, None))
+    monkeypatch.setattr(fm, "_load_model", lambda plan, flm, logger: (object(), None))
+    monkeypatch.setattr(fm, "_build_trainer", lambda *args: _Trainer(plan, fail_training))
+
+
+def test_training_failure_cleans_up(tmp_path, monkeypatch):
+    plan = fm.plan_run("qwen2.5:7b", str(_config(tmp_path)))
+    _fake_training(monkeypatch, plan, fail_training=True)
+    with pytest.raises(RuntimeError):
+        fm._train_and_export(plan, ([], []), resume=False, logger=_Logger())
+    assert not plan.checkpoint_dir.exists()
+
+
+def test_export_failure_keeps_checkpoint(tmp_path, monkeypatch):
+    plan = fm.plan_run("qwen2.5:7b", str(_config(tmp_path)))
+    _fake_training(monkeypatch, plan)
+
+    def full_disk(plan, model, tokenizer, logger):
+        plan.gguf_dir.mkdir(parents=True)
+        raise RuntimeError("Unsloth: Not enough disk space to convert to GGUF.")
+
+    monkeypatch.setattr(fm, "_export_gguf", full_disk)
+    logger = _Logger()
+    with pytest.raises(RuntimeError, match="disk space"):
+        fm._train_and_export(plan, ([], []), resume=False, logger=logger)
+    assert (plan.checkpoint_dir / "checkpoint-10").is_dir()
+    assert not plan.gguf_dir.exists()
+    assert any("reexport_gguf.py qwen2.5:7b" in msg for msg in logger.errors)
+
+
+class _GgufModel:
+    """Writes files where Unsloth does: the 16-bit merge in gguf_dir, the GGUF in gguf_dir or gguf_dir_gguf."""
+
+    def __init__(self, gguf_in_suffix_dir):
+        self.gguf_in_suffix_dir = gguf_in_suffix_dir
+
+    def save_pretrained_gguf(self, out_dir, tokenizer, quantization_method):
+        merge_dir = Path(out_dir)
+        merge_dir.mkdir(parents=True, exist_ok=True)
+        (merge_dir / "model-00001-of-00002.safetensors").write_text("weights")
+        gguf_dir = Path(out_dir + "_gguf") if self.gguf_in_suffix_dir else merge_dir
+        gguf_dir.mkdir(parents=True, exist_ok=True)
+        (gguf_dir / "Model.Q4_K_M.gguf").write_text("gguf")
+
+
+def test_export_removes_16bit_merge(tmp_path):
+    plan = fm.plan_run("qwen2.5:7b", str(_config(tmp_path)))
+    gguf = fm._export_gguf(plan, _GgufModel(gguf_in_suffix_dir=True), None, _Logger())
+    assert gguf == Path(str(plan.gguf_dir) + "_gguf") / "Model.Q4_K_M.gguf"
+    assert gguf.is_file()
+    assert not plan.gguf_dir.exists()
+
+
+def test_export_keeps_dir_holding_the_gguf(tmp_path):
+    plan = fm.plan_run("qwen2.5:7b", str(_config(tmp_path)))
+    gguf = fm._export_gguf(plan, _GgufModel(gguf_in_suffix_dir=False), None, _Logger())
+    assert gguf == plan.gguf_dir / "Model.Q4_K_M.gguf"
+    assert gguf.is_file()

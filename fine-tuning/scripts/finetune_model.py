@@ -15,6 +15,7 @@ Import it into Ollama with:
 import argparse
 import json
 import random
+import shutil
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -28,7 +29,7 @@ FT_SRC = Path(__file__).resolve().parents[1] / "src"
 sys.path.insert(0, str(REPO_ROOT))
 sys.path.insert(0, str(FT_SRC))
 
-from board_state import fen_to_board_description, verify_board_description
+from board_state import verify_board_description
 from src.utils import parse_model_info, setup_logging
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -193,14 +194,17 @@ def ensure_outputs_free(dirs: list[Path], resume: bool) -> None:
         )
 
 
+def _gguf_dirs(gguf_dir: Path) -> list[Path]:
+    """Unsloth writes the 16-bit merge to gguf_dir and may put the GGUF in gguf_dir + '_gguf'."""
+    return [gguf_dir, Path(str(gguf_dir) + "_gguf")]
+
+
 def _output_dirs(checkpoint_dir: Path, gguf_dir: Path) -> list[Path]:
-    return [checkpoint_dir, gguf_dir, Path(str(gguf_dir) + "_gguf")]
+    return [checkpoint_dir, *_gguf_dirs(gguf_dir)]
 
 
-def _cleanup_dirs(checkpoint_dir: Path, gguf_dir: Path, logger: Any) -> None:
-    """Remove partial checkpoint and GGUF dirs after a failed run."""
-    import shutil
-    for d in _output_dirs(checkpoint_dir, gguf_dir):
+def _remove_dirs(dirs: list[Path], logger: Any) -> None:
+    for d in dirs:
         if d.exists():
             shutil.rmtree(d)
             logger.warning(f"Cleaned up partial directory: {d}")
@@ -336,12 +340,14 @@ def _export_gguf(plan: RunPlan, model: Any, tokenizer: Any, logger: Any) -> Path
     model.save_pretrained_gguf(
         str(plan.gguf_dir), tokenizer, quantization_method=plan.training.get("gguf_quantization", "q4_k_m"),
     )
-    # Unsloth may append _gguf to the output dir name; check both locations.
-    actual_dir = plan.gguf_dir if plan.gguf_dir.exists() else Path(str(plan.gguf_dir) + "_gguf")
-    gguf_files = sorted(actual_dir.glob("*.gguf")) if actual_dir.exists() else []
+    merge_dir, suffix_dir = _gguf_dirs(plan.gguf_dir)
+    gguf_files = sorted(merge_dir.glob("*.gguf")) or sorted(suffix_dir.glob("*.gguf"))
     if not gguf_files:
-        logger.warning(f"No .gguf file found in {plan.gguf_dir} or {actual_dir} — check Unsloth output above.")
+        logger.warning(f"No .gguf file found in {merge_dir} or {suffix_dir} — check Unsloth output above.")
         return None
+    if gguf_files[0].parent == suffix_dir and merge_dir.exists():
+        shutil.rmtree(merge_dir)
+        logger.info(f"Removed the 16-bit merge {merge_dir} (rebuildable with reexport_gguf.py)")
     logger.info(f"GGUF saved: {gguf_files[0]}")
     return gguf_files[0]
 
@@ -380,10 +386,18 @@ def _train_and_export(plan: RunPlan, split: tuple[list[dict], list[dict]], resum
         logger.info("Starting training...")
         trainer.train(resume_from_checkpoint=True if resume else None)
         logger.info("Training complete.")
+    except Exception as exc:  # partial training is useless: remove this run's outputs, then re-raise
+        logger.error(f"Trainer setup or training failed: {exc}")
+        _remove_dirs(_output_dirs(plan.checkpoint_dir, plan.gguf_dir), logger)
+        raise
+    try:
         gguf_path = _export_gguf(plan, model, tokenizer, logger)
-    except Exception as exc:  # any failure: remove this run's partial outputs, then re-raise
-        logger.error(f"Trainer setup, training or GGUF export failed: {exc}")
-        _cleanup_dirs(plan.checkpoint_dir, plan.gguf_dir, logger)
+    except Exception as exc:  # keep the finished checkpoint; only the export needs redoing
+        logger.error(
+            f"GGUF export failed: {exc}. The checkpoint is kept; re-export with: "
+            f"python fine-tuning/scripts/reexport_gguf.py {plan.ollama_base} --config <the --config used for this run>"
+        )
+        _remove_dirs(_gguf_dirs(plan.gguf_dir), logger)
         raise
     return trainer, callback, gguf_path
 

@@ -296,6 +296,32 @@ still against the pre-rescue base records; the base re-run (Issue 18) gives the 
 
 ---
 
+## Issue 24 — A Failed GGUF Export Deleted a Finished Training Run
+
+**Date:** 2026-10-27
+**Component:** `fine-tuning/scripts/finetune_model.py`
+
+**What happened:**
+- deepseek-r1:7b-board-legal-ft finished training on 2026-10-26, about 1 h 20 min of GPU time.
+- The GGUF export then failed. Unsloth needs about 30.4 GB and the root disk had 25.6 GB free.
+- One `try` block covered both training and export, and its failure cleanup deleted the checkpoint folder along with the partial export.
+
+**Why the disk was full:**
+- A successful Unsloth export leaves a 16-bit merge (8–15 GB) next to the GGUF.
+- The gemma3, qwen2.5 and mistral legal-moves exports that day left 37 GB of these merges.
+
+**Fix:**
+- The cleanup now runs only when trainer setup or training fails.
+- A failed export keeps the checkpoint, removes only the GGUF folders, logs the `reexport_gguf.py` command, and re-raises the error.
+- A successful export removes the 16-bit merge. It can be rebuilt from the adapter.
+- `_export_gguf` used to look only in the merge folder when it existed, so it could miss a GGUF in the `_gguf` folder. It now checks both.
+- I deleted the three leftover merges by hand.
+- Spec: `fine-tuning/specs/chess-board-finetuning.md`. Tests: `fine-tuning/tests/test_finetune_run_steps.py`.
+
+**Impact:** deepseek-r1:7b-board-legal-ft has to be trained again. No results were affected.
+
+---
+
 ## Summary Table
 
 | # | Date | Component | Impact | Fix |
@@ -323,3 +349,4 @@ still against the pre-rescue base records; the base re-run (Issue 18) gives the 
 | 21 | Oct 24 | Dataset positions | Benchmark shows the puzzle's setup position; theme mark and tiers describe the next position | Metadata join + setup-move rate; re-run decision pending |
 | 22 | Oct 24 | CPL reconstruction | Clamped CPL rebuilt from the no-search eval | Store/backfill 800-node before-eval; mean 700 → 784 |
 | 23 | Oct 24 | pgn+fen prompt | No position has PGN history; the prompt equals fen_only | Report as a repeat; used as a repeatability measure (68.7% same move) |
+| 24 | Oct 27 | finetune_model.py cleanup | Export failure (disk full) deleted deepseek legal-moves training | Clean up only on training failure; drop the 16-bit merge after export |

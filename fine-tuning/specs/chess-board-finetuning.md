@@ -160,6 +160,21 @@ weights, adapters and GGUFs stay out of git.
   check adds no entry.
 - **Tests:** `fine-tuning/tests/test_finetune_run_steps.py`.
 
+**Failure cleanup and disk use (2026-10-27):**
+- **Failed trainer setup or training:** both output folders are removed, as before, since they hold
+  only partial output.
+- **Failed GGUF export:** only the GGUF folders are removed, and the finished checkpoint is **kept**.
+  - The error log names the `reexport_gguf.py` command that resumes from that checkpoint, and the error
+    is re-raised so `run_batch.sh` still marks the model failed.
+  - Why: on 2026-10-26 the deepseek-r1:7b legal-moves export failed for lack of disk space, and the old
+    blanket cleanup deleted about 1 h 20 min of finished training.
+- **After a successful export:** Unsloth leaves its 16-bit merge (8–15 GB) in `<gguf_dir>`, with the
+  GGUF in `<gguf_dir>_gguf`. The merge folder is then removed.
+  - Only when the GGUF is in the `_gguf` folder; when Unsloth writes the GGUF into `<gguf_dir>` itself,
+    nothing is removed.
+  - The merge can always be rebuilt from the adapter (`reexport_gguf.py`).
+  - Why: the three kept merges filled 37 GB of the root disk and caused the export failure above.
+
 ---
 
 ## Model Selection (F-5, recorded 2026-10-23)
