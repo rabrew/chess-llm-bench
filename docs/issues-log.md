@@ -322,6 +322,25 @@ still against the pre-rescue base records; the base re-run (Issue 18) gives the 
 
 ---
 
+## Issue 25 — The Export Check Never Tested the Legal Moves
+
+**Date:** 2026-10-29
+**Component:** `fine-tuning/scripts/verify_export.py`
+
+**What happened:**
+- The check run after each export scored only the piece list, and it sent the pieces-only prompt even to the legal-moves models.
+- All five legal-moves models passed it (board recall 0.88–1.00) and went into the 12-hour benchmark.
+- The criterion-0 test afterwards showed their legal-move lists were only 65–81% complete and 52–60% correct, so the run could not answer its own question (FINDINGS section F).
+
+**Fix:**
+- `verify_export.py` detects the task from the training targets. For a legal-moves model it uses the legal-moves prompt and output length, and it also requires mean legal-move recall and precision ≥ 0.9, the criterion-0 bar.
+- A live run on llama3.2:3b-board-legal-ft now fails as it should: board recall 0.987 passes, but legal-move recall 0.790 and precision 0.602 fail.
+- Spec: `fine-tuning/specs/gguf-export-check.md`. Tests: `fine-tuning/tests/test_gguf_export_check.py`.
+
+**Impact:** no results changed. A future legal-moves run (for example batch 2) now stops before the benchmark if the training did not take.
+
+---
+
 ## Summary Table
 
 | # | Date | Component | Impact | Fix |
@@ -349,4 +368,4 @@ still against the pre-rescue base records; the base re-run (Issue 18) gives the 
 | 21 | Oct 24 | Dataset positions | Benchmark shows the puzzle's setup position; theme mark and tiers describe the next position | Metadata join + setup-move rate; re-run decision pending |
 | 22 | Oct 24 | CPL reconstruction | Clamped CPL rebuilt from the no-search eval | Store/backfill 800-node before-eval; mean 700 → 784 |
 | 23 | Oct 24 | pgn+fen prompt | No position has PGN history; the prompt equals fen_only | Report as a repeat; used as a repeatability measure (68.7% same move) |
-| 24 | Oct 27 | finetune_model.py cleanup | Export failure (disk full) deleted deepseek legal-moves training | Clean up only on training failure; drop the 16-bit merge after export |
+| 24 | Oct 27 | finetune_model.py cleanup | Export failure (disk full) deleted deepseek legal-moves training | Clean up only on training failure; drop the 16-bit merge after export |\n| 25 | Oct 29 | verify_export.py | Undertrained legal-moves models passed the export check and were benchmarked | Legal-moves prompt, plus legal-move recall and precision ≥ 0.9 |

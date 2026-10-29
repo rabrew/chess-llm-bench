@@ -126,8 +126,9 @@ runs the F-9 test on the 200 held-out positions for each base model and its `-bo
 - **Outputs:** `results/finetuning_experiment/board_legal_t0*.{jsonl,csv}`, so the pieces-only results
   are never overwritten.
 
-Training's own per-epoch check and `verify_export.py` keep scoring the board part only, since the
-board comes first in the target.
+Training's own per-epoch check keeps scoring the board part only, since the board comes first in
+the target. `verify_export.py` scored only the board too, until 2026-10-29. It now also requires
+held-out legal-move recall and precision ≥ 0.9, the criterion-0 bar (see `gguf-export-check.md`).
 
 ## Verification
 

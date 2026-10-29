@@ -33,8 +33,9 @@ This spec adds two things:
   (`split_held_out(seed=42, n=200)`, the same set as the F-9 board test).
 - **Process:** each position is sent with the training-style prompt from `board_reading_test`, in raw
   mode at temperature 0.
-- **Output:** a log line with mean recall and unparsed rate. Exit code 0 if mean recall ≥
-  `MIN_EXPORT_RECALL` (0.80), otherwise 1.
+- **Output:** a log line with mean recall and unparsed rate (and legal-move recall and precision for
+  `board+legal`). Exit code 0 if mean recall ≥ `MIN_EXPORT_RECALL` (0.80), and for `board+legal`
+  the legal-move check passes too; otherwise 1.
 - 0.80 sits well below the weakest working fine-tuned model under this prompt (gemma3, 0.965 recall),
   and well above an untrained model (≈0.0 to 0.15).
 
@@ -72,8 +73,22 @@ This spec adds two things:
 ### verify_export
 
 1. Load the config, find the entry, and take the first `n` held-out positions.
-2. Query Ollama for each position and score it with `verify_board_description`.
-3. `export_passes(recalls, threshold)` returns True or False, and raises `ValueError` on an empty list.
+2. **Detect the task** from the dataset (`detect_task`): `board+legal` when the training targets
+   carry a `Legal moves:` line, otherwise `board`. The prompt and `num_predict` follow the task, so a
+   legal-moves model is asked for its legal moves.
+3. Query Ollama for each position and score it with `verify_board_description`, and for
+   `board+legal` also with `verify_legal_moves`.
+4. `export_passes(recalls, threshold)` returns True or False, and raises `ValueError` on an empty list.
+5. For `board+legal`, the export also needs `legal_passes(recalls, precisions, MIN_EXPORT_LEGAL)`:
+   mean legal-move recall **and** precision ≥ 0.9.
+
+#### Legal-move check (added 2026-10-29)
+
+The legal-moves models passed this check on the board alone, and the check sent them the
+pieces-only prompt. Their legal-move lists were only 65–81% complete and 52–60% correct, which was
+found after a 12-hour benchmark (FINDINGS section F). `MIN_EXPORT_LEGAL` is 0.9, the same bar as
+criterion 0 in `legal-moves-finetuning.md`, so a model that would fail criterion 0 now fails the batch
+before the benchmark. Under this check all five 2026-10 legal-moves exports would fail.
 
 ### Batch pipeline
 
@@ -91,6 +106,8 @@ runs train, import, verify. A failed verify marks the model FAILED.
 | `convert` or `quantize` fails | `RuntimeError` with stderr. The work dir is kept for inspection. |
 | Ollama unreachable during verify | the `query_ollama` retries, then the error propagates and the exit is non-zero |
 | `n` larger than the held-out set | capped at the held-out size |
+| Empty dataset when detecting the task | `ValueError` |
+| Model gives no `Legal moves:` line | recall and precision 0 for that position |
 
 ## Dependencies
 

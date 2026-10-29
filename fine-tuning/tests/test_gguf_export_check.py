@@ -49,6 +49,66 @@ def test_sample_positions_rejects_non_positive():
         vx.sample_positions([{"input": "x"}], 0)
 
 
+# --- verify_export: legal-move check (2026-10-29) ---------------------------
+
+START_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+START_MOVES = "Na3, Nc3, Nf3, Nh3, a3, a4, b3, b4, c3, c4, d3, d4, e3, e4, f3, f4, g3, g4, h3, h4"
+
+
+def test_detect_task_from_training_targets():
+    assert vx.detect_task([{"output": "White: King e1\nSide to move: White"}]) == "board"
+    assert vx.detect_task([{"output": "White: King e1\nSide to move: White\nLegal moves: Kd1"}]) == "board+legal"
+
+
+def test_detect_task_rejects_empty_dataset():
+    with pytest.raises(ValueError):
+        vx.detect_task([])
+
+
+def test_legal_threshold_is_criterion_zero():
+    assert vx.MIN_EXPORT_LEGAL == 0.9
+
+
+def test_legal_passes_needs_recall_and_precision():
+    assert vx.legal_passes([0.95, 0.9], [0.9, 1.0], 0.9) is True
+    assert vx.legal_passes([1.0, 1.0], [0.6, 0.5], 0.9) is False  # the 2026-10 exports: long, wrong lists
+    assert vx.legal_passes([0.7, 0.8], [1.0, 1.0], 0.9) is False
+
+
+def test_legal_passes_rejects_empty():
+    with pytest.raises(ValueError):
+        vx.legal_passes([], [], 0.9)
+
+
+def _fake_ollama(reply, calls):
+    def query(model, prompt, host, task="board"):
+        calls.append((prompt, task))
+        return reply
+    return query
+
+
+def test_score_model_asks_legal_models_for_legal_moves(monkeypatch):
+    calls = []
+    reply = f"White: King e1\nBlack: King e8\nSide to move: White\nLegal moves: {START_MOVES}"
+    monkeypatch.setattr(vx, "query_ollama", _fake_ollama(reply, calls))
+    scores = vx.score_model("m", [{"input": f"FEN: {START_FEN}"}], "host", task="board+legal")
+    assert calls[0][1] == "board+legal" and "legal move" in calls[0][0]
+    assert scores[0]["legal_recall"] == 1.0 and scores[0]["legal_precision"] == 1.0
+
+
+def test_score_model_missing_legal_line_scores_zero(monkeypatch):
+    monkeypatch.setattr(vx, "query_ollama", _fake_ollama("White: King e1\nSide to move: White", []))
+    scores = vx.score_model("m", [{"input": f"FEN: {START_FEN}"}], "host", task="board+legal")
+    assert scores[0]["legal_recall"] == 0.0 and scores[0]["legal_precision"] == 0.0
+
+
+def test_score_model_board_task_has_no_legal_scores(monkeypatch):
+    calls = []
+    monkeypatch.setattr(vx, "query_ollama", _fake_ollama("White: King e1", calls))
+    scores = vx.score_model("m", [{"input": f"FEN: {START_FEN}"}], "host")
+    assert calls[0][1] == "board" and "legal_recall" not in scores[0]
+
+
 # --- reexport_gguf: paths and ids ------------------------------------------
 
 @pytest.mark.parametrize("given,expected", [
