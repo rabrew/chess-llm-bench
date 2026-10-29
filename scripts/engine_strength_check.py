@@ -25,10 +25,11 @@ from src.engine_wrapper import Lc0Engine  # noqa: E402
 from src.metrics import BLUNDER_CPL_CP, compute_clamped_cpl, load_results_df  # noqa: E402
 from src.utils import load_config, setup_logging  # noqa: E402
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("chess_llm_bench")
 
 SEED = 42
 PER_TIER = 250
+FLUSH_EVERY = 200
 DEFAULT_NODES = (800, 8000)
 STORED = "stored"
 RHO_THRESHOLD = 0.9
@@ -98,7 +99,7 @@ def evaluate_missing(fens: set[str], cache_path: Path, engine: Any) -> tuple[dic
                 continue
             evals[fen] = {"eval": result["eval"], "best_move": result["best_move"]}
             cache.write(json.dumps({"fen": fen, **evals[fen]}) + "\n")
-            if done % 1000 == 0:
+            if done % FLUSH_EVERY == 0:
                 cache.flush()
                 logger.info(f"{cache_path.name}: {done}/{len(todo)}")
     return evals, failed
