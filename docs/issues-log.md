@@ -368,4 +368,5 @@ still against the pre-rescue base records; the base re-run (Issue 18) gives the 
 | 21 | Oct 24 | Dataset positions | Benchmark shows the puzzle's setup position; theme mark and tiers describe the next position | Metadata join + setup-move rate; re-run decision pending |
 | 22 | Oct 24 | CPL reconstruction | Clamped CPL rebuilt from the no-search eval | Store/backfill 800-node before-eval; mean 700 → 784 |
 | 23 | Oct 24 | pgn+fen prompt | No position has PGN history; the prompt equals fen_only | Report as a repeat; used as a repeatability measure (68.7% same move) |
-| 24 | Oct 27 | finetune_model.py cleanup | Export failure (disk full) deleted deepseek legal-moves training | Clean up only on training failure; drop the 16-bit merge after export |\n| 25 | Oct 29 | verify_export.py | Undertrained legal-moves models passed the export check and were benchmarked | Legal-moves prompt, plus legal-move recall and precision ≥ 0.9 |
+| 24 | Oct 27 | finetune_model.py cleanup | Export failure (disk full) deleted deepseek legal-moves training | Clean up only on training failure; drop the 16-bit merge after export |
+| 25 | Oct 29 | verify_export.py | Undertrained legal-moves models passed the export check and were benchmarked | Legal-moves prompt, plus legal-move recall and precision ≥ 0.9 |
