@@ -196,16 +196,19 @@ def finetune_legal_table(comparison_path: Path, board_path: Path) -> str:
     rows = []
     for r in comparison.sort_values("base_model").itertuples():
         known = r.base_model in legal.index and r.ft_model in legal.index
-        recall = _arrow(legal.loc[r.base_model, "mean_legal_recall"], legal.loc[r.ft_model, "mean_legal_recall"], pct) if known else DASH
+        recall, precision = (
+            _arrow(legal.loc[r.base_model, column], legal.loc[r.ft_model, column], pct) if known else DASH
+            for column in ("mean_legal_recall", "mean_legal_precision")
+        )
         rows.append([
-            r.base_model, recall,
+            r.base_model, recall, precision,
             _arrow(r.base_t2_first_attempt_legal_rate, r.ft_t2_first_attempt_legal_rate, pct),
             _arrow(r.base_t2_legal_rate, r.ft_t2_legal_rate, pct),
             _arrow(r.base_t2_blunder_rate, r.ft_t2_blunder_rate, pct),
             _arrow(r.base_t1_spearman, r.ft_t1_spearman, num),
         ])
-    header = ["Model", "0: legal-move recall (held-out)", "1: first-answer legal", "2: legal (final)",
-              "3: blunder rate", "4: T1 ρ"]
+    header = ["Model", "0: legal-move recall (held-out)", "0: legal-move precision", "1: first-answer legal",
+              "2: legal (final)", "3: blunder rate", "4: T1 ρ"]
     return _table(header, rows)
 
 

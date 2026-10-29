@@ -86,6 +86,8 @@ def _sources(tmp_path):
         rerun_metrics=tmp_path / "missing_rerun",
         comparison=tmp_path / "missing.csv",
         board_test=tmp_path / "missing_board.csv",
+        legal_comparison=tmp_path / "missing_legal.csv",
+        legal_board_test=tmp_path / "missing_legal_board.csv",
     )
 
 
@@ -245,6 +247,7 @@ def test_finetune_legal_table(tmp_path):
     legal_sources = rf.Sources(sources.metrics, sources.rerun_metrics, sources.comparison, sources.board_test,
                                legal_comparison=comparison, legal_board_test=board)
     table = rf.render_all(legal_sources)["finetune_legal"]
-    assert "2.0% → 95.0%" in table  # criterion 0
+    assert "2.0% → 95.0%" in table  # criterion 0: recall
+    assert "10.0% → 97.0%" in table  # criterion 0: precision
     assert "10.3% → 31.0%" in table  # criterion 1
     assert "98.4% → 99.0%" in table
