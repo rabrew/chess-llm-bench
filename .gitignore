@@ -43,3 +43,6 @@ dashboard/tailwind.min.js
 
 # OS
 .DS_Store
+
+# T2-5 engine-strength evaluation caches (regenerable)
+results/engine_strength/
