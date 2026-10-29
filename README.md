@@ -61,7 +61,8 @@ Each position is evaluated on three tasks:
 
 `fine-tuning/` trains LoRA adapters on five of the models and re-runs the same benchmark on them:
 - **Pieces only:** done. Spec: `fine-tuning/specs/chess-board-finetuning.md`.
-- **Pieces + legal moves:** running; the success criteria were committed before any results.
+- **Pieces + legal moves:** done; judged against success criteria committed before any results
+  (FINDINGS section F).
   Spec: `fine-tuning/specs/legal-moves-finetuning.md`.
 
 `fine-tuning/scripts/compare_finetuning_results.py` pairs base and fine-tuned answers on the same

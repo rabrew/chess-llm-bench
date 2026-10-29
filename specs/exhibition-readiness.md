@@ -107,7 +107,7 @@ Detailed design: [fine-tuning/specs/chess-board-finetuning.md](../fine-tuning/sp
   - The proposal says 4 task prompts. The data has 6 prompt formats (3 combined plus 3 isolated). Explain this.
   - It says 1,000 positions. It is 1,000 *per tier*, 4,000 in total.
   - It says reproducible. Reword this to match M-3.
-- [x] **W-2 · Reframe the main argument (P0).** *Drafted: the FINDINGS interim conclusion gives five lines of evidence (first-answer legality, near-chance best moves plus the setup move, perfect-or-disaster, evals vs zero, size), all phrased "more consistent with". The final conclusion waits for the legal-moves fine-tune.* Scaling alone can't separate reasoning from pattern matching, because bigger models also memorise more. Present three lines of evidence together:
+- [x] **W-2 · Reframe the main argument (P0).** *Done 2026-10-29: the FINDINGS main conclusion gives five lines of evidence (first-answer legality, near-chance best moves plus the setup move, perfect-or-disaster, evals vs zero, size), all phrased "more consistent with", and now says what section F found: neither fine-tune changed any of them. The final framing is Ryan's (R-5).* Scaling alone can't separate reasoning from pattern matching, because bigger models also memorise more. Present three lines of evidence together:
   1. flat across size
   2. flat across difficulty (H1 and H2 not supported)
   3. "perfect or disaster" move quality
@@ -123,7 +123,7 @@ Detailed design: [fine-tuning/specs/chess-board-finetuning.md](../fine-tuning/sp
 ### Decisions recorded 2026-10-24
 
 - [x] **D-21 · Setup position, not the puzzle (Issue 21).** *Decided: keep the results. The theme mark and difficulty tiers are reported but not used as evidence; a re-run on puzzle positions is future work. Reversible: the puzzle positions are in `data/puzzle_meta.json`.*
-- [x] **R-4 · Every open item fixed or listed as a limitation.** *Checked 2026-10-24 against this file. The open items (T2-5 engine strength, O-3 judge marking, batch 2, the legal-moves fine-tune) are in FINDINGS "Scope and limitations" or section F. Re-check once the legal-moves results are in.*
+- [x] **R-4 · Every open item fixed or listed as a limitation.** *Re-checked 2026-10-29 against this file. The open items are T2-5 (engine strength), O-2 (commercial models, out of scope), O-3 (judge marking), batch 2, and the legal-moves training falling short of its criterion 0. All are in FINDINGS "Scope and limitations" or section F. A-1 and A-2 are Ryan's setup tasks, not findings.*
 
 ### Optional (only if time allows)
 

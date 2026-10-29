@@ -47,7 +47,7 @@ fine-tuning experiments (pieces only, and pieces + legal moves).
 
 ---
 
-## Main conclusion (interim — base models)
+## Main conclusion (draft)
 
 The models behave like **pattern matchers, not players**. Five lines of evidence point the same way.
 Each is "more consistent with" pattern matching; none proves it.
@@ -66,8 +66,13 @@ Each is "more consistent with" pattern matching; none proves it.
 5. **Size doesn't fix it.** From 2B to 70B the picture is the same, with one exception: both Google
    Gemma families improve with size, while Llama, Qwen and DeepSeek-R1 do not (Finding 5).
 
-Whether teaching the board and the rules changes any of this is the subject of the fine-tuning
-experiment (section F). The final conclusion waits for it.
+**Fine-tuning didn't change this (section F).** Teaching five small models (3–7B) where the pieces
+are worked: board reading went from 1–19% to 89–99%. But T1 ρ stayed near 0, blunder rates did
+not improve, and legality *fell* for every model. Teaching them the legal moves as well did not
+reach its own pre-registered bar (the models listed only 65–81% of the legal moves), so it can't
+show whether knowing the rules would help. What it does show: approximate knowledge of the rules
+made the models' answers less legal, not more. Both results fit pattern matching better than
+reasoning.
 
 ---
 
@@ -391,6 +396,10 @@ Results, one column per criterion (base → pieces + legal moves):
   person or a model. It measures whether the right words appear, not whether the reasoning is sound.
 - **Fine-tuning scope.** Only five models of 3–7B have been fine-tuned so far. The larger models (batch 2)
   need a cloud GPU and are not included.
+- **Legal-moves training fell short.** The pieces + legal moves models reached 65–81% legal-move
+  recall, below the pre-registered 0.9, so whether knowing the rules transfers is still open. A longer
+  or larger training run could answer it. The check run after each export tested only the piece
+  list, so this shortfall was found after the benchmark, not before.
 - **Missing data.** deepseek-r1:7b is missing about 4% of its evaluations in the base run.
 
 ## Alignment with the proposal (W-1)

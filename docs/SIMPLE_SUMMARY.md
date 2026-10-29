@@ -1,6 +1,6 @@
 # Chess LLM Benchmark — Simple Summary
 
-**Ryan Brew · draft of 2026-10-24** (interim: one fine-tuning experiment is still in progress)
+**Ryan Brew · draft of 2026-10-29**
 
 ---
 
@@ -103,11 +103,12 @@ repeatable.
 - By the rule I set in advance, that means no conclusion about whether rules knowledge helps.
 - Still, their answers in the benchmark became *less* legal, not more, just as in Experiment 1.
 
-## The conclusion so far
+## The conclusion
 
 These models have learned what chess **looks like** (the notation, the vocabulary, the usual moves),
 not how it **works**. On every measure the evidence is more consistent with pattern matching than
-with reasoning. Being bigger mostly doesn't change that.
+with reasoning. Being bigger mostly doesn't change that, and neither did teaching them where the
+pieces are.
 
 ## Honest limits
 
@@ -120,6 +121,8 @@ with reasoning. Being bigger mostly doesn't change that.
   the move or evaluation scores.
 - **Not repeatable answer by answer:** the dataset and scoring can be reproduced exactly, but the
   models' answers vary from run to run.
+- **The second experiment didn't finish the job:** the models only half-learned the legal moves,
+  so whether knowing the rules would help is still an open question.
 - **Earlier numbers were wrong:** an audit found and fixed several measurement mistakes. Some numbers
   in older drafts were wrong, and they are listed in `docs/FINDINGS.md`.
 
