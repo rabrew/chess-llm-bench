@@ -16,6 +16,11 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from src.utils import load_config, setup_logging
 
 
+def needs_evaluation(position: dict) -> bool:
+    """A legacy network score with a null best move is not a completed search."""
+    return position.get("stockfish_eval") is None or not position.get("stockfish_best_move")
+
+
 def evaluate_position(args):
     """Evaluate a single position with Stockfish (worker function)."""
     fen, stockfish_path, depth = args
@@ -107,7 +112,7 @@ def main():
         tier_data[tier] = positions
 
         for i, pos in enumerate(positions):
-            if "stockfish_eval" not in pos or "stockfish_best_move" not in pos:
+            if needs_evaluation(pos):
                 all_positions.append((tier, i, pos["fen"]))
 
     if not all_positions:

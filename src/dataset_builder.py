@@ -4,7 +4,7 @@ import hashlib
 import json
 import logging
 import random
-from concurrent.futures import ProcessPoolExecutor, as_completed
+from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 from typing import Any
 import multiprocessing as mp
@@ -26,6 +26,7 @@ DIFFICULTY_TIERS = {
     "hard": (1800, 2400),
     "extreme": (2400, 4000),
 }
+PGN_PHASE_COUNT = 3
 
 
 def _fen_to_id(fen: str) -> int:
@@ -222,9 +223,11 @@ class LichessPuzzleFetcher:
         valid_count = 0
         invalid_count = 0
         with ProcessPoolExecutor(max_workers=n_workers) as executor:
-            futures = {executor.submit(_validate_puzzle_row, row): row for row in rows_to_validate}
+            # Quotas must follow the seeded input order, not process completion
+            # order. All tasks still run in parallel while results are collected.
+            futures = [executor.submit(_validate_puzzle_row, row) for row in rows_to_validate]
             pbar = tqdm(
-                as_completed(futures),
+                futures,
                 total=len(futures),
                 desc="  Validating",
                 unit="pos",
@@ -395,11 +398,52 @@ class PGNPositionSampler:
         return " ".join(pgn_parts)
 
 
+def _puzzle_positions(dataset_config: dict, max_per_tier: int, seed: int) -> dict[str, list[dict]]:
+    """Load only the explicitly configured puzzle source at its full quota."""
+    source = dataset_config.get("lichess_source")
+    if source in (None, "none"):
+        return {}
+    if source not in ("local", "api"):
+        raise ValueError(f"Unknown lichess_source: {source!r}")
+    csv_path = dataset_config.get("lichess_csv_path")
+    if source == "local" and not csv_path:
+        raise ValueError("Local Lichess source requires dataset.lichess_csv_path")
+    if source == "api" and max_per_tier <= 0:
+        raise ValueError("API source requires a positive max_positions_per_tier; unlimited network fetching is unsupported")
+    fetcher = LichessPuzzleFetcher(source=source, csv_path=csv_path)
+    if source == "local":
+        return fetcher.fetch_from_csv(count_per_tier=max_per_tier, seed=seed)
+    positions = {tier: [] for tier in DIFFICULTY_TIERS}
+    for puzzle in fetcher.fetch_from_api(count=max_per_tier * len(DIFFICULTY_TIERS)):
+        positions[puzzle["difficulty"]].append(puzzle)
+    return positions
+
+
+def _append_optional_sources(all_positions: dict, dataset_config: dict, max_per_tier: int, seed: int) -> None:
+    """Mixed sources are opt-in when a Lichess source is configured."""
+    puzzle_source = dataset_config.get("lichess_source") in ("local", "api")
+    pgn_path = dataset_config.get("pgn_path")
+    if dataset_config.get("include_pgn", not puzzle_source) and pgn_path and Path(pgn_path).exists():
+        sampler = PGNPositionSampler(pgn_path)
+        positions_by_phase = sampler.sample_positions(count_per_phase=max_per_tier // PGN_PHASE_COUNT, seed=seed)
+        for positions in positions_by_phase.values():
+            all_positions["medium"].extend(positions)
+    if dataset_config.get("include_generated", not puzzle_source):
+        all_positions["medium"].extend(generate_positions(count=max_per_tier, seed=seed))
+
+
 def build_dataset(
     config: dict[str, Any],
     output_dir: str = "data",
 ) -> dict[str, list[dict[str, Any]]]:
-    """Build the complete dataset from all sources.
+    """Build a puzzle-only dataset, or explicitly opt into additional sources.
+
+    Configured local/API puzzle sources do not mix in games or synthetic boards
+    unless dataset.include_pgn / dataset.include_generated is true. With no
+    puzzle source, legacy generated-only (and configured PGN) builds remain
+    available. API fetching requires a positive finite quota; CSV quota <= 0
+    retains all valid rows. Optional non-puzzle positions stay in medium; no
+    engine-based difficulty reassignment is performed.
 
     Args:
         config: Configuration dictionary
@@ -419,49 +463,9 @@ def build_dataset(
         "extreme": [],
     }
 
-    # 1. Lichess puzzles
-    lichess_source = dataset_config.get("lichess_source", "local")
-    csv_path = dataset_config.get("lichess_csv_path")
-
-    fetcher = LichessPuzzleFetcher(source=lichess_source, csv_path=csv_path)
-
-    if lichess_source == "local" and csv_path:
-        puzzles_by_tier = fetcher.fetch_from_csv(
-            count_per_tier=max_per_tier // 3,
-            seed=seed,
-        )
-        for tier, puzzles in puzzles_by_tier.items():
-            all_positions[tier].extend(puzzles)
-    elif lichess_source == "api":
-        puzzles = fetcher.fetch_from_api(count=max_per_tier)
-        for puzzle in puzzles:
-            tier = puzzle["difficulty"]
-            all_positions[tier].append(puzzle)
-
-    # 2. Real game positions
-    pgn_path = dataset_config.get("pgn_path")
-    if pgn_path and Path(pgn_path).exists():
-        sampler = PGNPositionSampler(pgn_path)
-        positions_by_phase = sampler.sample_positions(
-            count_per_phase=max_per_tier // 3,
-            seed=seed,
-        )
-        # Distribute across difficulty tiers (will be adjusted by Stockfish eval later)
-        for phase, positions in positions_by_phase.items():
-            for pos in positions:
-                # Temporary difficulty assignment
-                tier = "medium"
-                all_positions[tier].append(pos)
-
-    # 3. Generated positions
-    generated = generate_positions(
-        count=max_per_tier,
-        seed=seed,
-    )
-    for pos in generated:
-        # Assign to medium tier by default (will be adjusted by Stockfish eval)
-        tier = "medium"
-        all_positions[tier].append(pos)
+    for tier, puzzles in _puzzle_positions(dataset_config, max_per_tier, seed).items():
+        all_positions[tier].extend(puzzles)
+    _append_optional_sources(all_positions, dataset_config, max_per_tier, seed)
 
     # Deduplicate positions by FEN across all tiers before ID assignment.
     # Positions from different sources (Lichess, PGN, generated) can share the

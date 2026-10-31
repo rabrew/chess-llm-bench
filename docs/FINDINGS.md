@@ -11,6 +11,14 @@ fine-tuning experiments (pieces only, and pieces + legal moves).
 > these tables. The audit that changed earlier figures is summarised at the end and logged in full in
 > `docs/issues-log.md` (Issues 14–25).
 
+> **Post-results methods correction (2026-10-31).** The saved tables below have
+> not been regenerated. Their blunder confidence intervals resampled individual
+> responses, although positions repeat across prompts and models. Treat those
+> intervals as legacy output, not validated uncertainty for new positions. The
+> corrected code uses position-cluster bootstrap intervals and reports its method
+> and cluster count. Interval overlap does not establish a statistical tie or
+> equivalence. See [the correction specification](../specs/analysis-review-corrections.md).
+
 **Data.**
 - 4,000 Lichess puzzle positions (1,000 per rating tier) × 22 open-source models (2B–70B) × 6 prompt
   formats, giving 526,662 evaluations.
@@ -49,8 +57,10 @@ fine-tuning experiments (pieces only, and pieces + legal moves).
 
 ## Main conclusion (draft)
 
-The models behave like **pattern matchers, not players**. Five lines of evidence point the same way.
-Each is "more consistent with" pattern matching; none proves it.
+The tested local models show **limited, unreliable chess competence under this
+harness**. Five lines of evidence are consistent with fragile pattern-based
+behaviour, but these measurements do not identify an internal reasoning mechanism
+or establish an absence of reasoning.
 
 1. **They rarely produce a legal move unaided.** Asked for an evaluation, a move and an explanation
    together, the model's own move is legal only about 1 time in 10. The 97% legality figure is reached
@@ -124,9 +134,11 @@ intervals:
 <!-- /table:models -->
 
 **How to read this table:**
-- **Model ranks.** Every model's interval overlaps its neighbour's, so adjacent ranks are
-  statistically tied. Only gaps across several places are real, such as Gemma 4 31B/26B (36–37%)
-  against the rest (40–45%).
+- **Model ranks.** Interval overlap describes the uncertainty display; it does
+  not establish statistical ties. Some adjacent intervals overlap and others do
+  not. Treat the ordering as point estimates until paired position-cluster
+  comparisons are available. Gemma 4 31B/26B have lower blunder point estimates
+  (36–37%) than the other models (40–45%).
 - **"Best move ×random"** compares the model's rate of playing the engine's top move with a random
   legal move on the same positions, which on average have about 27 legal moves to choose from. Most
   models sit between 0.94× and 1.23×. Only Gemma 4 31B and 26B reach about 1.5–1.6×. The old "3–4×

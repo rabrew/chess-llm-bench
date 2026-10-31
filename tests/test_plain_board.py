@@ -16,6 +16,7 @@ sys.path.insert(0, str(REPO_ROOT / "fine-tuning" / "src"))
 from board_state import fen_to_board_description  # noqa: E402
 from scripts.plain_board_compare import (  # noqa: E402
     MAJOR_BARRIER,
+    PENDING,
     bootstrap_ci,
     MIXED,
     NOT_BARRIER,
@@ -24,6 +25,7 @@ from scripts.plain_board_compare import (  # noqa: E402
     pooled_measures,
     verdict,
 )
+from scripts import plain_board_compare as comparison  # noqa: E402
 from scripts.plain_board_probe import longest_prompt_position, truncated  # noqa: E402
 from src.board_text import fen_to_board_text, piece_line  # noqa: E402
 from src.job_generator import subsample_per_tier  # noqa: E402
@@ -267,6 +269,154 @@ def test_bootstrap_is_repeatable_with_the_seed():
     first = bootstrap_ci(rows, lambda r: float((r["t2_cpl_clamped"] >= 1000).mean()), seed=42, resamples=200)
     again = bootstrap_ci(rows, lambda r: float((r["t2_cpl_clamped"] >= 1000).mean()), seed=42, resamples=200)
     assert first == again and first[0] < 2 / 3 < first[1]
+
+
+def _summary_rows(cpl=None):
+    return pd.concat([
+        _rows(fmt, "m", range(4), t2_cpl_clamped=[cpl] * 4,
+              t2_first_attempt_legal=[0, 1, 0, 1], t1_model_eval=[-100, -30, 30, 100],
+              t1_stockfish_eval=[-200, -70, 70, 200],
+              t3_side_claimed=["Black", "Black", "White", "White"])
+        for fmt in ("fen_only", "board_text", "board_text+legal")
+    ], ignore_index=True)
+
+
+def _fast_summary(monkeypatch, rows):
+    original = comparison.bootstrap_ci
+    monkeypatch.setattr(comparison, "bootstrap_ci", lambda rows, measure: original(rows, measure, resamples=20))
+    return comparison.build_summary(rows)
+
+
+def test_unenriched_summary_is_pending_and_keeps_available_measures(monkeypatch):
+    summary = _fast_summary(monkeypatch, _summary_rows())
+    assert summary["verdict"] == PENDING
+    assert summary["primary"]["blunder_rate"]["left_value"] is None
+    assert summary["primary"]["blunder_rate"]["left_ci"] is None
+    assert summary["primary"]["t1_rho"]["right_value"] == pytest.approx(1)
+    assert "blunder_rate" in summary["pending_measures"]
+
+
+def test_empty_summary_and_constant_correlation_are_pending(monkeypatch):
+    summary = _fast_summary(monkeypatch, pd.DataFrame())
+    assert summary["models"] == [] and summary["positions"] == 0
+    assert summary["verdict"] == PENDING
+    constant = _summary_rows(10)
+    constant["t1_model_eval"] = 0
+    assert comparison.build_summary(constant)["verdict"] == PENDING
+
+
+@pytest.mark.parametrize("column, changed", [
+    ("t1_model_eval", {"t1_stockfish_eval": np.nan}),
+    ("t1_model_eval", {"t1_model_eval": np.inf}),
+    ("t3_side_claimed", {"t3_side_claimed": "unknown"}),
+    ("t3_side_claimed", {"t1_stockfish_eval": np.inf}),
+    ("t2_first_attempt_legal", {"t2_first_attempt_legal": 2}),
+    ("t2_cpl_clamped", {"t2_cpl_clamped": -1}),
+])
+def test_pairing_excludes_invalid_measurements_on_either_side(column, changed):
+    rows = _summary_rows(10)
+    for field, value in changed.items():
+        if isinstance(value, float) and field != "t3_side_claimed":
+            rows[field] = rows[field].astype(float)
+        rows.loc[(rows.prompt_format == "board_text") & (rows.position_id == 0), field] = value
+    left, right = pair_rows(rows, "fen_only", "board_text", column)
+    assert list(left.position_id) == list(right.position_id) == [1, 2, 3]
+
+
+def test_measure_coverage_reports_missing_unmatched_and_duplicates(monkeypatch):
+    rows = _summary_rows(10)
+    rows.loc[(rows.prompt_format == "board_text") & (rows.position_id == 0), "t1_model_eval"] = np.nan
+    rows = pd.concat([rows, rows.iloc[[0]]], ignore_index=True)
+    result = _fast_summary(monkeypatch, rows)["primary"]["t1_rho"]
+    assert result["n_pairs"] == 3
+    coverage = result["coverage"]
+    assert coverage["left"]["observed"] == 5
+    assert coverage["left"]["duplicates"] == 1
+    assert coverage["left"]["unmatched_usable"] == 1
+    assert coverage["right"]["missing_or_invalid"] == 1
+    assert coverage["by_model"]["m"]["n_pairs"] == 3
+
+
+def test_summary_preserves_absolute_registered_rule_but_warns(monkeypatch):
+    summary = _fast_summary(monkeypatch, _summary_rows(10))
+    assert summary["verdict"] == MAJOR_BARRIER
+    assert summary["primary"]["t1_rho"]["difference"] == pytest.approx(0)
+    assert any("absolute" in warning for warning in summary["interpretation_warnings"])
+    assert summary["per_model"][0]["model"] == "m"
+
+
+def test_summary_is_strict_json_with_missing_measurements(monkeypatch):
+    import json
+    summary = _fast_summary(monkeypatch, _summary_rows())
+    assert "NaN" not in json.dumps(summary, allow_nan=False)
+
+
+def test_summary_with_missing_columns_is_pending(monkeypatch):
+    rows = pd.DataFrame({"model": ["m"], "position_id": [1], "prompt_format": ["fen_only"]})
+    summary = _fast_summary(monkeypatch, rows)
+    assert summary["verdict"] == PENDING
+    assert summary["primary"]["side_kappa"]["coverage"]["left"]["missing_or_invalid"] == 1
+
+
+def test_expected_cohort_keeps_partial_run_pending(monkeypatch):
+    _fast_summary(monkeypatch, _summary_rows(10))
+    summary = comparison.build_summary(_summary_rows(10), expected_models=["m", "missing"], expected_positions=4)
+    assert summary["verdict"] == PENDING
+    assert summary["cohort"]["complete"] is False
+    assert summary["cohort"]["missing_models"] == ["missing"]
+
+
+def test_expected_cohort_requires_every_format_position_and_no_unexpected_model(monkeypatch):
+    _fast_summary(monkeypatch, _summary_rows(10))
+    complete = comparison.build_summary(_summary_rows(10), expected_models=["m"], expected_positions=4)
+    assert complete["cohort"]["complete"] is True
+    assert complete["verdict"] == MAJOR_BARRIER
+    rows = _summary_rows(10)
+    rows = rows[~((rows.prompt_format == "board_text+legal") & (rows.position_id == 3))]
+    partial = comparison.build_summary(rows, expected_models=["m"], expected_positions=4)
+    assert partial["verdict"] == PENDING
+    assert partial["cohort"]["by_model"]["m"]["board_text+legal"] == 3
+    extra = _summary_rows(10).copy()
+    extra["model"] = "unexpected"
+    summary = comparison.build_summary(pd.concat([_summary_rows(10), extra]), expected_models=["m"], expected_positions=4)
+    assert summary["verdict"] == PENDING
+    assert summary["cohort"]["unexpected_models"] == ["unexpected"]
+
+
+def test_expected_cohort_rejects_equal_counts_with_different_positions(monkeypatch):
+    _fast_summary(monkeypatch, _summary_rows(10))
+    rows = _summary_rows(10)
+    rows.loc[rows.prompt_format == "board_text", "position_id"] += 10
+    summary = comparison.build_summary(rows, expected_models=["m"], expected_positions=4)
+    assert summary["verdict"] == PENDING
+    assert summary["cohort"]["positions_shared_across_models_and_formats"] == 0
+
+
+def test_expected_sample_comes_from_config_not_observed_data():
+    assert comparison.expected_sample_size({"benchmark": {"sample_per_tier": 125}}) == 500
+    assert comparison.expected_sample_size({"benchmark": {"sample_per_tier": 0, "max_positions_per_tier": 1000}}) == 4000
+    assert comparison.expected_sample_size({}) is None
+
+
+@pytest.mark.parametrize("sample, maximum, expected", [
+    (125, 1000, 500), (1000, 125, 500), (0, 125, 500),
+    (125, 0, 500), (125, -1, 500), (0, 0, None), (0, -1, None),
+])
+def test_expected_sample_uses_effective_positive_sampling_caps(sample, maximum, expected):
+    config = {"benchmark": {"sample_per_tier": sample, "max_positions_per_tier": maximum}}
+    assert comparison.expected_sample_size(config) == expected
+
+
+def test_constant_rho_bootstrap_is_missing_without_runtime_warnings(monkeypatch):
+    import warnings
+    rows = _summary_rows(10)
+    rows["t1_model_eval"] = 0
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", RuntimeWarning)
+        summary = _fast_summary(monkeypatch, rows)
+    assert summary["verdict"] == PENDING
+    assert summary["primary"]["t1_rho"]["left_value"] is None
+    assert summary["primary"]["t1_rho"]["left_ci"] == [None, None]
 
 
 # ---------- probe ----------

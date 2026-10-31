@@ -30,12 +30,16 @@ except Gemma; fine-tuning taught board reading but not play. Full detail: `docs/
 
 | tmux session | What | State |
 |---|---|---|
-| `plainboard` | `BENCH_CONFIG=config/config_plain_board.yaml SKIP_INSTALL=1 bin/run_all.sh > ~/plainboard.log` | Finishing codellama:34b (model 14 of 21) |
-| `pausewatch` | `~/pause_after_codellama.sh`: sends Ctrl-C to `plainboard` when the log shows `MODEL: yi:34b` | Waiting; Ryan asked to pause after codellama (he may reboot) |
+| `plainboard` | Plain-board run using `config/config_plain_board.yaml` | Paused after codellama:34b (14 of 21 models); do not resume without Ryan |
+| `pausewatch` | `~/pause_after_codellama.sh` | Pause recorded at 23:00:09 GMT on 31 Oct 2026 |
 
-**When paused**, 14 models are done; 7 remain: yi:34b, command-r:35b, gemma4:26b, gemma4:31b,
+**Paused state:** 14 models have finished their collection pass; 7 remain: yi:34b, command-r:35b, gemma4:26b, gemma4:31b,
 mixtral:8x7b, deepseek-r1:7b, deepseek-r1:14b (~2 h each for the 30B+, ~11 h total). The pause
 note is appended to `~/plainboard_pause.log`.
+
+There are 20,991 saved plain-board responses: 13 models have 1,500 each and
+WizardLM has 1,491. All CPL values are still null. Completion of a model's
+collection pass therefore does not imply a complete analysis cohort.
 
 **To resume** (it skips finished tiers and resets stale jobs itself). Note `>>`, not `>`:
 ```
@@ -80,10 +84,16 @@ then you run `enrich_cpl.py` and `generate_plots.py --save-metrics` (check the l
   replies when it runs). C2/C3 not tested yet.
 - **Interim (no CPL yet), FEN prompt:** Opus first-answer legal 93.8%, T1 ρ 0.58 (0.50–0.65), side κ
   0.36; Haiku 88.8%, 0.49, 0.26. Best local so far: 38% legal, ρ 0.35, κ 0.16. Plain board doesn't
-  help Claude (Opus ρ 0.58 → 0.53, κ 0.36 → 0.29), so C4: notation is not a barrier for Claude.
+  help Claude descriptively (Opus ρ 0.58 → 0.53, κ 0.36 → 0.29). **C4 is pending:**
+  CPL is absent and the registered rule has an interpretation limitation: its
+  absolute board-text ρ ≥ 0.30 branch would label this a "major barrier" despite
+  a decline from FEN. Keep the rule unchanged and report that limitation next to
+  the descriptive paired changes; do not claim a completed C4 result.
 - C1 (Claude vs gemma4:31b blunder rate) needs CPL and gemma4:31b's plain-board run.
-- Story change for the write-up: open models up to 70B show no reasoning signal; **frontier models
-  show real but limited competence**. Contamination caveat (public puzzles) applies more to them.
+- Story change for the write-up: the tested local models show weak and unreliable
+  chess competence; **frontier results provisionally suggest stronger competence**.
+  These measures do not identify an internal reasoning mechanism. Contamination
+  caveat (public puzzles) applies more to frontier models.
 
 ### GPT illustration
 - `codex exec` (CLI 0.166.0, Ryan's ChatGPT login, model reported `gpt-6.1-sol`) on 12 seeded
@@ -123,3 +133,20 @@ on claude.ai can't be updated by Codex; edit the HTML in the repo instead.
 ## 7. Ryan's own open items
 R-3 review with Dr Brew; R-5; A-1 turn off Tailscale key expiry; A-2 off-PC backup. Emails to AI
 companies for credits (Gary gave a free Codex subscription, not API credits).
+
+## Post-handoff correction notes (2026-10-31)
+
+- The plain-board run remains paused after codellama; do not resume without Ryan.
+- Analysis fixes follow `specs/analysis-review-corrections.md`. Historical CSVs,
+  JSON summaries, responses, and datasets have not been regenerated or modified.
+  Existing blunder CIs are row-based and need an explicitly requested rebuild
+  before they can be described as position-cluster intervals.
+- No-CPL/partial analysis must report pending measures and a pending verdict.
+  Report measure-specific coverage, per-model correlations and legal-output
+  selection alongside the registered pooled measures. Do not change N/C criteria.
+- Inspect `bin/run_all.sh` before resumption: it currently invokes enrichment
+  and plotting automatically after retries. Enrichment checks Ollama's loaded
+  model status and refuses to launch Lc0 if models are loaded or state is unknown;
+  it does not stop or unload anything. Arrange the GPU handover explicitly.
+- Haiku has 41 token-capped initial replies among 1,500 saved records. "Zero
+  failures" means no missing scored records, not an absence of truncated replies.

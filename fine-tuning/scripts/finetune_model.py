@@ -335,6 +335,7 @@ def _build_trainer(plan: RunPlan, deps: tuple, model: Any, tokenizer: Any,
 
 
 def _export_gguf(plan: RunPlan, model: Any, tokenizer: Any, logger: Any) -> Path | None:
+    merge_dir_existed = plan.gguf_dir.exists()
     plan.gguf_dir.mkdir(parents=True, exist_ok=True)
     logger.info(f"Exporting GGUF to {plan.gguf_dir}...")
     model.save_pretrained_gguf(
@@ -345,7 +346,7 @@ def _export_gguf(plan: RunPlan, model: Any, tokenizer: Any, logger: Any) -> Path
     if not gguf_files:
         logger.warning(f"No .gguf file found in {merge_dir} or {suffix_dir} — check Unsloth output above.")
         return None
-    if gguf_files[0].parent == suffix_dir and merge_dir.exists():
+    if gguf_files[0].parent == suffix_dir and merge_dir.exists() and not merge_dir_existed:
         shutil.rmtree(merge_dir)
         logger.info(f"Removed the 16-bit merge {merge_dir} (rebuildable with reexport_gguf.py)")
     logger.info(f"GGUF saved: {gguf_files[0]}")
@@ -376,6 +377,8 @@ def record_run(plan: RunPlan, config_path: str, metrics: dict, gguf_path: Path |
 
 def _train_and_export(plan: RunPlan, split: tuple[list[dict], list[dict]], resume: bool,
                       logger: Any) -> tuple[Any, Any, Path | None]:
+    output_dirs = _output_dirs(plan.checkpoint_dir, plan.gguf_dir)
+    new_dirs = [directory for directory in output_dirs if not directory.exists()]
     deps = _import_training_deps(logger)
     model, tokenizer = _load_model(plan, deps[0], logger)
     train_records, held_out = split
@@ -386,9 +389,9 @@ def _train_and_export(plan: RunPlan, split: tuple[list[dict], list[dict]], resum
         logger.info("Starting training...")
         trainer.train(resume_from_checkpoint=True if resume else None)
         logger.info("Training complete.")
-    except Exception as exc:  # partial training is useless: remove this run's outputs, then re-raise
+    except Exception as exc:  # never delete directories inherited from a resumed run
         logger.error(f"Trainer setup or training failed: {exc}")
-        _remove_dirs(_output_dirs(plan.checkpoint_dir, plan.gguf_dir), logger)
+        _remove_dirs(new_dirs, logger)
         raise
     try:
         gguf_path = _export_gguf(plan, model, tokenizer, logger)
@@ -397,7 +400,7 @@ def _train_and_export(plan: RunPlan, split: tuple[list[dict], list[dict]], resum
             f"GGUF export failed: {exc}. The checkpoint is kept; re-export with: "
             f"python fine-tuning/scripts/reexport_gguf.py {plan.ollama_base} --config <the --config used for this run>"
         )
-        _remove_dirs(_gguf_dirs(plan.gguf_dir), logger)
+        _remove_dirs([directory for directory in _gguf_dirs(plan.gguf_dir) if directory in new_dirs], logger)
         raise
     return trainer, callback, gguf_path
 

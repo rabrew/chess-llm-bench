@@ -2,12 +2,22 @@
 import json
 import math
 import sqlite3
+import sys
 from collections import defaultdict
+from functools import lru_cache, wraps
 from pathlib import Path
+from threading import RLock
 
 from flask import Flask, jsonify, send_from_directory
 
 BASE_DIR = Path(__file__).parent.parent
+sys.path.insert(0, str(BASE_DIR))
+
+from src.metrics import (  # noqa: E402
+    COMBINED_PROMPT_FORMATS, MATE_SCORE_THRESHOLD_CP, MOVE_PROMPT_FORMATS,
+    _white_to_move_from_fen, compute_clamped_cpl, rescore_t3_theme,
+)
+
 DB_PATH = str(BASE_DIR / "jobs" / "db" / "jobs.db")
 EVALUATIONS_PATH = str(BASE_DIR / "results" / "evaluations.jsonl")
 
@@ -18,6 +28,24 @@ JOBS_PER_TIER = 5900
 # Earlier versions of this dashboard used 150 cp, which diverged from the
 # published findings. Keep this in sync with the docs.
 DIRECTION_THRESHOLD = 100
+T3_MAX_SCORE = 2
+METRIC_DEFINITIONS = {
+    "t2_cpl_mean": {"metric": "t2_cpl_clamped", "reference": "stored t2_eval_before", "range": [0, 2000]},
+    "t3_score_mean": {"metric": "t3_score_v2", "matcher": "whole word", "range": [0, T3_MAX_SCORE]},
+    "t1_mae_mean": {"metric": "t1_abs_error_excl_mate", "reference": "stored engine evaluation"},
+    "t1_direction_correct_mean": {"threshold_cp": DIRECTION_THRESHOLD},
+    "t2_legal_mean": {"denominator": "move-requesting prompts, including missing requested answers"},
+}
+_METRICS_CACHE = {}
+_METRICS_LOCK = RLock()
+
+
+def _synchronized(function):
+    @wraps(function)
+    def locked(*args, **kwargs):
+        with _METRICS_LOCK:
+            return function(*args, **kwargs)
+    return locked
 
 
 def _direction(eval_cp, threshold=DIRECTION_THRESHOLD):
@@ -75,52 +103,122 @@ def _mean(values):
     return sum(vals) / len(vals) if vals else None
 
 
+@lru_cache(maxsize=10000)
+def _turn(fen):
+    return _white_to_move_from_fen(fen) if isinstance(fen, str) else None
+
+
+def _corrected_cpl(record, quality):
+    cpl = _null(record.get("t2_cpl"))
+    if cpl is None:
+        return None
+    before = _null(record.get("t2_eval_before"))
+    if before is None:
+        quality["excluded_cpl_missing_reference"] += 1
+        return None
+    turn = _turn(record.get("fen"))
+    if turn is None or cpl < 0:
+        quality["excluded_cpl_invalid_input"] += 1
+        return None
+    after = before - cpl if turn else before + cpl
+    return compute_clamped_cpl(before, after, turn)
+
+
+def _corrected_t3(record, quality):
+    score = _null(record.get("t3_score_v2"))
+    if score is not None and 0 <= score <= T3_MAX_SCORE:
+        return score
+    p1 = _null(record.get("t3_p1_side_correct"))
+    p2 = rescore_t3_theme(record.get("theme"), record.get("t3_explanation"))
+    if p1 in (0, 1) and p2 is not None:
+        return p1 + p2
+    if record.get("t3_score") is not None:
+        quality["excluded_t3_missing_corrected_score"] += 1
+    return None
+
+
+def _metric_values(record, quality):
+    """Shared pure scoring helpers; never load datasets or start an engine."""
+    fmt = record.get("prompt_format")
+    legacy = not fmt
+    if legacy:
+        quality["missing_prompt_format"] += 1
+    values = {}
+    if legacy or fmt in (*COMBINED_PROMPT_FORMATS, "eval_only"):
+        truth, predicted = _null(record.get("t1_stockfish_eval")), _null(record.get("t1_model_eval"))
+        if truth is not None and predicted is not None:
+            values["t1_direction_correct"] = float(_direction(predicted) == _direction(truth))
+        if truth is not None and abs(truth) < MATE_SCORE_THRESHOLD_CP:
+            values["t1_absolute_error"] = _null(record.get("t1_absolute_error"))
+    if legacy or fmt in MOVE_PROMPT_FORMATS:
+        legal = record.get("t2_legal") is True
+        values["t2_legal"] = float(legal)
+        values["t2_cpl"] = _corrected_cpl(record, quality) if legal else None
+    if legacy or fmt in (*COMBINED_PROMPT_FORMATS, "explanation_only"):
+        values["t3_score"] = _corrected_t3(record, quality)
+    return values
+
+
+@_synchronized
+def _metric_snapshot():
+    """Reuse scored data across API routes until the JSONL file changes."""
+    try:
+        stat = Path(EVALUATIONS_PATH).stat()
+        signature = (EVALUATIONS_PATH, stat.st_ino, stat.st_size, stat.st_mtime_ns)
+    except FileNotFoundError:
+        signature = (EVALUATIONS_PATH, None)
+    if _METRICS_CACHE.get("signature") == signature:
+        return _METRICS_CACHE["snapshot"]
+    snapshot = _read_metric_snapshot()
+    _METRICS_CACHE.update(signature=signature, snapshot=snapshot)
+    return snapshot
+
+
+def _read_metric_snapshot():
+    acc = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
+    counts = defaultdict(lambda: defaultdict(int))
+    last_ts, quality = {}, defaultdict(int)
+    try:
+        with open(EVALUATIONS_PATH, "rb") as source:
+            while line := source.readline():
+                if not line.endswith(b"\n"):
+                    break  # Leave an in-flight append for the next refresh.
+                try:
+                    record = json.loads(line)
+                except (json.JSONDecodeError, UnicodeDecodeError):
+                    continue
+                if not isinstance(record, dict) or not record.get("model"):
+                    continue
+                model, tier = record["model"], record.get("difficulty", "unknown")
+                counts[model][tier] += 1
+                timestamp = record.get("timestamp")
+                if timestamp and timestamp > last_ts.get(model, ""):
+                    last_ts[model] = timestamp
+                for field, value in _metric_values(record, quality).items():
+                    if value is not None:
+                        acc[model][tier][field].append(value)
+    except FileNotFoundError:
+        pass
+    return {"acc": acc, "counts": counts, "last_ts": last_ts, "quality": dict(quality)}
+
+
+def _metric_metadata():
+    quality = _metric_snapshot()["quality"]
+    explanations = {
+        "excluded_cpl_missing_reference": "CPL without stored T2 reference excluded; no T1 fallback is used.",
+        "excluded_cpl_invalid_input": "CPL with invalid FEN or negative loss excluded.",
+        "excluded_t3_missing_corrected_score": "Legacy T3 scores without rescorable evidence excluded.",
+        "missing_prompt_format": "Legacy records without prompt format retain uncertain task applicability.",
+    }
+    return {"metric_definitions": METRIC_DEFINITIONS, "metric_quality": quality,
+            "warnings": [text for key, text in explanations.items() if quality.get(key, 0)]}
+
+
+@_synchronized
 def _compute_metrics():
     """Read evaluations.jsonl and compute per-model and per-model×difficulty metrics."""
     # Accumulators: model -> difficulty -> field -> [values]
-    acc = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
-
-    try:
-        with open(EVALUATIONS_PATH) as f:
-            for line in f:
-                line = line.strip()
-                if not line:
-                    continue
-                try:
-                    r = json.loads(line)
-                except json.JSONDecodeError:
-                    continue
-                model = r.get("model")
-                diff  = r.get("difficulty", "unknown")
-                if not model:
-                    continue
-                a = acc[model][diff]
-                fmt = r.get("prompt_format", "")
-                # Only score t1 direction on formats that actually request an eval.
-                # Recompute from raw evals using current threshold (stored t1_direction_correct
-                # used the old 50cp threshold).
-                if fmt not in ("move_only", "explanation_only"):
-                    sf = r.get("t1_stockfish_eval")
-                    me = r.get("t1_model_eval")
-                    if sf is not None and me is not None:
-                        v = float(_direction(me) == _direction(sf))
-                        a["t1_direction_correct"].append(v)
-                    ae = r.get("t1_absolute_error")
-                    if ae is not None:
-                        a["t1_absolute_error"].append(float(ae))
-                # Only score t2_legal on formats that actually request a move
-                if fmt not in ("eval_only", "explanation_only"):
-                    v = r.get("t2_legal")
-                    if v is not None:
-                        a["t2_legal"].append(float(v))
-                v = r.get("t2_cpl")
-                if v is not None:
-                    a["t2_cpl"].append(float(v))
-                v = r.get("t3_score")
-                if v is not None:
-                    a["t3_score"].append(float(v))
-    except FileNotFoundError:
-        pass
+    acc = _metric_snapshot()["acc"]
 
     DIFFICULTIES = ["easy", "medium", "hard", "extreme"]
 
@@ -181,25 +279,10 @@ def index():
     return send_from_directory(str(Path(__file__).parent), "index.html")
 
 
+@_synchronized
 def _compute_pipeline_progress():
     """Count completed tiers from evaluations.jsonl for full pipeline view."""
-    counts = defaultdict(lambda: defaultdict(int))
-    try:
-        with open(EVALUATIONS_PATH) as f:
-            for line in f:
-                line = line.strip()
-                if not line:
-                    continue
-                try:
-                    r = json.loads(line)
-                except json.JSONDecodeError:
-                    continue
-                model = r.get("model")
-                diff = r.get("difficulty")
-                if model and diff:
-                    counts[model][diff] += 1
-    except FileNotFoundError:
-        pass
+    counts = _metric_snapshot()["counts"]
 
     total_tiers = len(MODEL_ORDER) * len(TIERS)
     done_tiers = 0
@@ -238,7 +321,6 @@ def api_progress():
     for model, status, n in rows:
         counts[model][status] = n
 
-    all_models = set(counts.keys()) | {m for m, _ in MODEL_ORDER}
     total_done = total_jobs = 0
 
     model_list = []
@@ -277,61 +359,27 @@ def api_progress():
 
 
 @app.route("/api/metrics")
+@_synchronized
 def api_metrics():
     by_model, by_difficulty, hallucination = _compute_metrics()
     return jsonify({
         "by_model":      by_model,
         "by_difficulty": by_difficulty,
         "hallucination": hallucination,
+        **_metric_metadata(),
     })
 
 
 @app.route("/api/current")
+@_synchronized
 def api_current():
     """Per-tier metrics + ETA for the currently active model."""
     from datetime import datetime, timezone, timedelta
 
     TOTAL_PER_MODEL = JOBS_PER_TIER * len(TIERS)
 
-    counts = defaultdict(lambda: defaultdict(int))
-    tier_acc = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
-    last_ts = {}
-
-    try:
-        with open(EVALUATIONS_PATH, "rb") as f:
-            for raw in f:
-                line = raw.strip()
-                if not line:
-                    continue
-                try:
-                    r = json.loads(line)
-                    m = r.get("model")
-                    tier = r.get("difficulty")
-                    if not m or not tier:
-                        continue
-                    counts[m][tier] += 1
-                    ts = r.get("timestamp")
-                    if ts and (m not in last_ts or ts > last_ts[m]):
-                        last_ts[m] = ts
-                    fmt = r.get("prompt_format", "")
-                    if fmt not in ("eval_only", "explanation_only"):
-                        v = r.get("t2_legal")
-                        if v is not None:
-                            tier_acc[m][tier]["legal"].append(float(v))
-                    if fmt not in ("move_only", "explanation_only"):
-                        sf = r.get("t1_stockfish_eval")
-                        me = r.get("t1_model_eval")
-                        if sf is not None and me is not None:
-                            tier_acc[m][tier]["direction"].append(
-                                float(_direction(me) == _direction(sf))
-                            )
-                    v = r.get("t3_score")
-                    if v is not None:
-                        tier_acc[m][tier]["t3"].append(float(v))
-                except Exception:
-                    continue
-    except FileNotFoundError:
-        pass
+    snapshot = _metric_snapshot()
+    counts, tier_acc, last_ts = snapshot["counts"], snapshot["acc"], snapshot["last_ts"]
 
     # Find active model via DB, fallback to most-recently-updated incomplete
     active_model = None
@@ -365,15 +413,15 @@ def api_current():
     for tier in TIERS:
         n = counts[active_model].get(tier, 0)
         a = tier_acc[active_model][tier]
-        legal = _mean(a.get("legal", []))
-        direction = _mean(a.get("direction", []))
-        t3 = _mean(a.get("t3", []))
+        legal = _mean(a.get("t2_legal", []))
+        direction = _mean(a.get("t1_direction_correct", []))
+        t3 = _mean(a.get("t3_score", []))
         tier_data[tier] = {
             "done": n,
             "complete": n >= JOBS_PER_TIER,
             "legal": _null(legal * 100) if legal is not None else None,
             "direction": _null(direction * 100) if direction is not None else None,
-            "t3": _null(t3 * 100) if t3 is not None else None,
+            "t3": _null(t3 / T3_MAX_SCORE * 100) if t3 is not None else None,
         }
 
     # Throughput from jobs completed in the last 10 minutes
@@ -423,6 +471,7 @@ def api_current():
         "jobs_per_min": jobs_per_min,
         "eta_secs": eta_secs,
         "tier_data": tier_data,
+        **_metric_metadata(),
     })
 
 

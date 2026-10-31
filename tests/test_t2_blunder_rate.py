@@ -87,15 +87,15 @@ def test_sorted_best_first_with_mean_and_median():
     assert good["median_cpl_clamped"] == 0
 
 
-def test_far_apart_models_not_tied_identical_models_tied():
+def test_far_apart_intervals_do_not_overlap_identical_intervals_do():
     far = compute_blunder_rates(_df({"a": [0] * 500, "b": [1000] * 500}))
-    assert not far["rank_tied"].any()
+    assert not far["interval_overlap_with_neighbor"].any()
     same = compute_blunder_rates(_df({"a": [0, 1000] * 200, "b": [0, 1000] * 200}))
-    assert same["rank_tied"].all()
+    assert same["interval_overlap_with_neighbor"].all()
 
 
-def test_single_model_not_tied():
-    assert not compute_blunder_rates(_df({"m": [0, 1000]})).iloc[0]["rank_tied"]
+def test_single_model_has_no_neighbor_overlap():
+    assert not compute_blunder_rates(_df({"m": [0, 1000]})).iloc[0]["interval_overlap_with_neighbor"]
 
 
 def test_model_without_cpl_rows_omitted():

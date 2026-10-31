@@ -2,11 +2,61 @@
 
 import subprocess
 import logging
+import os
+import select
+import time
+from collections import deque
 from typing import Any
 
 import chess
 
 logger = logging.getLogger("chess_llm_bench")
+
+DEFAULT_PROTOCOL_TIMEOUT = 120.0
+PROTOCOL_READ_BYTES = 65536
+MAX_PROTOCOL_LINES = 10000
+
+
+def _read_uci_line(stream, pending: bytes, timeout: float) -> tuple[str, bytes]:
+    """Read a complete line within a deadline, retaining already-buffered bytes."""
+    try:
+        descriptor = stream.fileno()
+    except (AttributeError, OSError):
+        descriptor = None
+    if not isinstance(descriptor, int):  # In-memory streams and test doubles.
+        line = stream.readline()
+        if line == "":
+            raise EOFError("Engine closed its output before the expected response")
+        return line.strip(), pending
+    deadline = time.monotonic() + timeout
+    while b"\n" not in pending:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0 or not select.select([descriptor], [], [], remaining)[0]:
+            raise TimeoutError("Timed out waiting for an engine response")
+        chunk = os.read(descriptor, PROTOCOL_READ_BYTES)
+        if not chunk:
+            raise EOFError("Engine closed its output before the expected response")
+        pending += chunk
+        if len(pending) > PROTOCOL_READ_BYTES and b"\n" not in pending:
+            raise RuntimeError("Engine returned an oversized unterminated line")
+    line, pending = pending.split(b"\n", 1)
+    return line.decode("utf-8", errors="replace").strip(), pending
+
+
+def _wait_for_response(engine, target: str) -> list[str]:
+    deadline = time.monotonic() + engine.timeout
+    lines: deque[str] = deque(maxlen=MAX_PROTOCOL_LINES)
+    while True:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise TimeoutError(f"Timed out waiting for engine token {target!r}")
+        if engine.process is None or engine.process.stdout is None:
+            raise EOFError("Engine output is unavailable")
+        line = engine._read_line(timeout=remaining)
+        if line:
+            lines.append(line)
+        if target in line:
+            return list(lines)
 
 
 class StockfishEngine:
@@ -17,6 +67,7 @@ class StockfishEngine:
         path: str = "/usr/games/stockfish",
         depth: int = 22,
         threads: int = 1,
+        timeout: float = DEFAULT_PROTOCOL_TIMEOUT,
     ):
         """Initialize Stockfish engine.
 
@@ -28,11 +79,15 @@ class StockfishEngine:
         self.path = path
         self.depth = depth
         self.threads = threads
+        if timeout <= 0:
+            raise ValueError("Engine timeout must be positive")
+        self.timeout = timeout
         self.process: subprocess.Popen | None = None
         self._start()
 
     def _start(self) -> None:
         """Start the Stockfish subprocess."""
+        self._read_buffer = b""
         try:
             self.process = subprocess.Popen(
                 [self.path],
@@ -51,6 +106,7 @@ class StockfishEngine:
         except FileNotFoundError:
             raise RuntimeError(f"Stockfish not found at {self.path}")
         except Exception as e:
+            self.close()
             raise RuntimeError(f"Failed to start Stockfish: {e}")
 
     def _send(self, command: str) -> None:
@@ -59,10 +115,14 @@ class StockfishEngine:
             self.process.stdin.write(command + "\n")
             self.process.stdin.flush()
 
-    def _read_line(self) -> str:
+    def _read_line(self, timeout: float | None = None) -> str:
         """Read a line from Stockfish output."""
         if self.process and self.process.stdout:
-            return self.process.stdout.readline().strip()
+            line, self._read_buffer = _read_uci_line(
+                self.process.stdout, getattr(self, "_read_buffer", b""),
+                self.timeout if timeout is None else timeout,
+            )
+            return line
         return ""
 
     def _wait_for(self, target: str) -> list[str]:
@@ -71,13 +131,7 @@ class StockfishEngine:
         Returns:
             List of lines read (including the target line)
         """
-        lines = []
-        while True:
-            line = self._read_line()
-            lines.append(line)
-            if target in line:
-                break
-        return lines
+        return _wait_for_response(self, target)
 
     def _restart(self) -> None:
         """Restart the Stockfish subprocess."""
@@ -223,6 +277,7 @@ class Lc0Engine:
         weights: str | None = None,
         nodes: int = 1000,
         backend: str = "cuda-auto",
+        timeout: float = DEFAULT_PROTOCOL_TIMEOUT,
     ):
         """Initialize Lc0 engine.
 
@@ -242,11 +297,15 @@ class Lc0Engine:
         self.weights = weights
         self.nodes = nodes
         self.backend = backend
+        if timeout <= 0:
+            raise ValueError("Engine timeout must be positive")
+        self.timeout = timeout
         self.process: subprocess.Popen | None = None
         self._start()
 
     def _start(self) -> None:
         """Start the Lc0 subprocess."""
+        self._read_buffer = b""
         try:
             self.process = subprocess.Popen(
                 [self.path, f"--weights={self.weights}", f"--backend={self.backend}"],
@@ -264,6 +323,7 @@ class Lc0Engine:
         except FileNotFoundError:
             raise RuntimeError(f"Lc0 not found at {self.path}")
         except Exception as e:
+            self.close()
             raise RuntimeError(f"Failed to start Lc0: {e}")
 
     def _send(self, command: str) -> None:
@@ -272,21 +332,19 @@ class Lc0Engine:
             self.process.stdin.write(command + "\n")
             self.process.stdin.flush()
 
-    def _read_line(self) -> str:
+    def _read_line(self, timeout: float | None = None) -> str:
         """Read a line from Lc0 output."""
         if self.process and self.process.stdout:
-            return self.process.stdout.readline().strip()
+            line, self._read_buffer = _read_uci_line(
+                self.process.stdout, getattr(self, "_read_buffer", b""),
+                self.timeout if timeout is None else timeout,
+            )
+            return line
         return ""
 
     def _wait_for(self, target: str) -> list[str]:
         """Read lines until target string is found."""
-        lines = []
-        while True:
-            line = self._read_line()
-            lines.append(line)
-            if target in line:
-                break
-        return lines
+        return _wait_for_response(self, target)
 
     def _restart(self) -> None:
         """Restart the Lc0 subprocess."""

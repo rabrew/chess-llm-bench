@@ -18,7 +18,7 @@ from src.data_loader import DataLoader
 from src.job_queue import JobQueue
 from src.llm_client import OllamaClient
 from src.utils import load_config, setup_logging, ensure_dir
-from src.worker import run_worker
+from src.worker import STALE_JOB_TIMEOUT_MINUTES, run_worker
 import src.worker as _worker_module
 
 
@@ -125,7 +125,7 @@ def main():  # pragma: no cover
     log_dir = paths.get("logs_dir", "results/logs")
 
     # Initialize job queue
-    job_queue = JobQueue(db_path)
+    job_queue = JobQueue.snapshot(db_path) if args.dry_run else JobQueue(db_path)
 
     if args.status:
         # Show status and exit
@@ -152,7 +152,7 @@ def main():  # pragma: no cover
     num_workers = args.workers or config.get("workers", {}).get("count", 4)
 
     # Reset jobs left in_progress by previously crashed workers
-    stale = job_queue.reset_stale_jobs(timeout_minutes=10)
+    stale = job_queue.reset_stale_jobs(timeout_minutes=STALE_JOB_TIMEOUT_MINUTES)
     if stale:
         logger.info(f"Reset {stale} stale in_progress jobs to pending")
 
@@ -168,15 +168,16 @@ def main():  # pragma: no cover
 
     # Write run log
     run_id = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-    write_run_log(config, run_id, log_dir)
+    if not args.dry_run:
+        write_run_log(config, run_id, log_dir)
 
     print(f"\nStarting {num_workers} workers...")
     print(f"Pending jobs: {progress['pending']}")
     if args.dry_run:
         print("DRY RUN MODE - results will not be saved")
 
-    # For dry run with limited jobs, use single process
-    if args.dry_run and (args.max_jobs or 10) <= 10:
+    # A single snapshot avoids duplicate dry-run work across independent copies.
+    if args.dry_run:
         jobs_processed = run_worker(
             "worker_0",
             args.config,

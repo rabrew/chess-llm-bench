@@ -181,6 +181,31 @@ def test_blunder_rate_compared(tmp_path):
     assert row["delta_t2_blunder_rate"] == pytest.approx(-0.5)
 
 
+def test_legal_quality_selection_is_disclosed_with_matched_sensitivity(tmp_path):
+    base = [_record(BASE, i, "fen_only", move="Nf6", legal=True, cpl=cpl)
+            for i, cpl in enumerate([100, 5000, 5000])]
+    ft = [_record(FT, 0, "fen_only", move="Nf6", legal=True, cpl=100),
+          _record(FT, 1, "fen_only"), _record(FT, 2, "fen_only")]
+    row = _only_row(_compare(tmp_path, base, ft))
+    assert row["n_move_pairs"] == 3
+    assert row["base_t2_legal_n"] == 3 and row["ft_t2_legal_n"] == 1
+    assert row["base_t2_cpl_coverage"] == 1 and row["ft_t2_cpl_coverage"] == pytest.approx(1 / 3)
+    assert row["n_matched_legal_cpl_pairs"] == 1
+    assert row["base_t2_matched_blunder_rate"] == row["ft_t2_matched_blunder_rate"] == 0
+    assert row["delta_t2_matched_blunder_rate"] == 0
+    assert row["base_t2_scored_nonblunder_rate"] == row["ft_t2_scored_nonblunder_rate"] == pytest.approx(1 / 3)
+
+
+def test_missing_engine_scores_are_not_counted_as_nonblunders(tmp_path):
+    records = [_record(BASE, 0, "fen_only", move="Nf6", legal=True),
+               _record(BASE, 1, "fen_only", move="Nf6", legal=True, cpl=100)]
+    ft = [{**record, "model": FT} for record in records]
+    row = _only_row(_compare(tmp_path, records, ft))
+    assert row["base_t2_cpl_n"] == 1
+    assert row["base_t2_unscored_legal_n"] == 1
+    assert row["base_t2_scored_nonblunder_rate"] == pytest.approx(0.5)
+
+
 def test_t3_mean_and_cpl_clamp(tmp_path):
     base = [_record(BASE, 0, "fen_only", move="Nf6", legal=True, cpl=5000, t3=2)]
     ft = [_record(FT, 0, "fen_only", move="Nf6", legal=True, cpl=100, t3=0)]

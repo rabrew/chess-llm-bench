@@ -32,6 +32,7 @@ from .utils import load_config
 # workers inherit it via COW without each independently loading gigabyte-scale
 # JSON files.  Keyed by position_id (int).
 _SHARED_POSITIONS: dict[int, dict] = {}
+STALE_JOB_TIMEOUT_MINUTES = 10
 
 logger = logging.getLogger("chess_llm_bench")
 
@@ -51,7 +52,7 @@ class Worker:
         Args:
             worker_id: Unique identifier for this worker
             config: Configuration dictionary
-            dry_run: If True, don't write results
+            dry_run: If True, use an in-memory queue snapshot and don't write results
             model: If set, only process jobs for this model
         """
         self.worker_id = worker_id
@@ -61,8 +62,11 @@ class Worker:
 
         # Initialize components — resolve paths to absolute to survive multiprocessing cwd changes
         paths = config.get("paths", {})
-        self.job_queue = JobQueue(os.path.abspath(paths.get("jobs_db", "jobs/db/jobs.db")))
-        self.result_writer = ResultWriter(
+        database = os.path.abspath(paths.get("jobs_db", "jobs/db/jobs.db"))
+        self.job_queue = JobQueue.snapshot(database) if dry_run else JobQueue(database)
+        if dry_run:
+            self.job_queue.reset_stale_jobs(timeout_minutes=STALE_JOB_TIMEOUT_MINUTES)
+        self.result_writer = None if dry_run else ResultWriter(
             os.path.abspath(paths.get("results_file", "results/evaluations.jsonl"))
         )
         self.data_loader = DataLoader(os.path.abspath(paths.get("data_dir", "data")))
@@ -266,7 +270,8 @@ class Worker:
             "enabled", True
         )
         if (
-            correction_enabled
+            not self.dry_run
+            and correction_enabled
             and job.get("job_type") == "standard"
             and should_trigger_correction(scores.get("t2_cpl"), self.cpl_threshold)
         ):

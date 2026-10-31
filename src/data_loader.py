@@ -233,3 +233,4 @@ class DataLoader:
     def clear_cache(self) -> None:
         """Clear the position cache."""
         self._cache.clear()
+        self._id_index = None

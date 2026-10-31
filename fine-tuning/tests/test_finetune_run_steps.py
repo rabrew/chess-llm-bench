@@ -218,3 +218,34 @@ def test_export_keeps_dir_holding_the_gguf(tmp_path):
     gguf = fm._export_gguf(plan, _GgufModel(gguf_in_suffix_dir=False), None, _Logger())
     assert gguf == plan.gguf_dir / "Model.Q4_K_M.gguf"
     assert gguf.is_file()
+
+
+@pytest.mark.parametrize("failure", ["setup", "training", "export"])
+def test_resume_failures_preserve_existing_checkpoint_and_export_dirs(tmp_path, monkeypatch, failure):
+    plan = fm.plan_run("qwen2.5:7b", str(_config(tmp_path)))
+    directories = fm._output_dirs(plan.checkpoint_dir, plan.gguf_dir)
+    for directory in directories:
+        directory.mkdir(parents=True)
+        (directory / "previous-success").write_text("keep")
+    _fake_training(monkeypatch, plan, fail_training=failure == "training")
+
+    def fail(*args, **kwargs):
+        raise RuntimeError("injected failure")
+
+    if failure == "setup":
+        monkeypatch.setattr(fm, "_build_trainer", fail)
+    if failure == "export":
+        monkeypatch.setattr(fm, "_export_gguf", fail)
+    with pytest.raises(RuntimeError):
+        fm._train_and_export(plan, ([], []), resume=True, logger=_Logger())
+    assert all((directory / "previous-success").read_text() == "keep" for directory in directories)
+
+
+def test_successful_suffix_export_preserves_preexisting_merge_directory(tmp_path):
+    plan = fm.plan_run("qwen2.5:7b", str(_config(tmp_path)))
+    plan.gguf_dir.mkdir(parents=True)
+    sentinel = plan.gguf_dir / "previous-success"
+    sentinel.write_text("keep")
+    gguf = fm._export_gguf(plan, _GgufModel(gguf_in_suffix_dir=True), None, _Logger())
+    assert gguf.is_file()
+    assert sentinel.read_text() == "keep"

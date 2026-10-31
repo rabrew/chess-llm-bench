@@ -23,6 +23,24 @@ class JobQueue:
         self._conn: sqlite3.Connection | None = None
         self._init_db()
 
+    @classmethod
+    def snapshot(cls, db_path: str) -> "JobQueue":
+        """Copy a read-only source into memory for dry-run claims and updates."""
+        path = Path(db_path).resolve()
+        if not path.is_file():
+            raise FileNotFoundError(f"Job database not found: {path}")
+        queue = cls(":memory:")
+        try:
+            source = sqlite3.connect(path.as_uri() + "?mode=ro", uri=True)
+            try:
+                source.backup(queue._connect())
+            finally:
+                source.close()
+        except Exception:
+            queue.close()
+            raise
+        return queue
+
     def _connect(self) -> sqlite3.Connection:
         """Return the per-process connection, creating it if needed.
 

@@ -17,16 +17,35 @@ from pathlib import Path
 from typing import Any
 
 import chess
+import requests
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from src.engine_wrapper import Lc0Engine
+from src.engine_wrapper import DEFAULT_PROTOCOL_TIMEOUT, Lc0Engine
 from src.utils import load_config, setup_logging
 
 logger = logging.getLogger("chess_llm_bench")
 
 TIERS = ("easy", "medium", "hard", "extreme")
 BACKUP_TIMESTAMP_FORMAT = "%Y%m%dT%H%M%SZ"
+OLLAMA_STATUS_TIMEOUT_SECONDS = 5
+
+
+def ensure_ollama_unloaded(base_url: str) -> None:
+    """Refuse GPU work unless Ollama positively reports no loaded models."""
+    try:
+        response = requests.get(
+            base_url.rstrip("/") + "/api/ps", timeout=OLLAMA_STATUS_TIMEOUT_SECONDS,
+        )
+        response.raise_for_status()
+        payload = response.json()
+        models = payload.get("models")
+        if not isinstance(models, list):
+            raise ValueError("Ollama status omitted its model list")
+    except (requests.RequestException, ValueError, TypeError, AttributeError) as exc:
+        raise RuntimeError("Cannot verify Ollama GPU state; refusing to start Lc0") from exc
+    if models:
+        raise RuntimeError("Ollama has loaded models; release them before starting Lc0 enrichment")
 
 
 # ---------------------------------------------------------------------------
@@ -361,8 +380,10 @@ def main() -> None:
         run(args.results, args.data_dir, engine=None, dry_run=True)
         return
 
+    ensure_ollama_unloaded(config.get("ollama", {}).get("base_url", "http://localhost:11434"))
     logger.info(f"Starting Lc0: {binary} (nodes={nodes})")
-    with Lc0Engine(path=binary, weights=weights, nodes=nodes) as engine:
+    with Lc0Engine(path=binary, weights=weights, nodes=nodes,
+                   timeout=lc0_config.get("timeout", DEFAULT_PROTOCOL_TIMEOUT)) as engine:
         run(args.results, args.data_dir, engine=engine, dry_run=False,
             backfill=args.backfill_eval_before, backup=not args.no_backup)
 

@@ -463,7 +463,7 @@ def plot_summary_heatmap(mdf: pd.DataFrame, output_dir: Path) -> None:
         "t3_score_headline_mean":    True,
     }
 
-    data = mdf[["model", "family", "size_b"] + list(cols.keys())].dropna().copy()
+    data = mdf[["model", "family", "size_b"] + list(cols.keys())].dropna().reset_index(drop=True)
 
     # Normalise each column 0–1 so heatmap colours are comparable
     norm = data.copy()
@@ -479,8 +479,9 @@ def plot_summary_heatmap(mdf: pd.DataFrame, output_dir: Path) -> None:
     # Compute overall rank (mean of normalised scores), sort
     norm["overall"] = norm[list(cols.keys())].mean(axis=1)
     data["overall"] = norm["overall"]
-    data = data.sort_values("overall", ascending=False).reset_index(drop=True)
+    data = data.sort_values("overall", ascending=False)
     norm = norm.loc[data.index].reset_index(drop=True)
+    data = data.reset_index(drop=True)
 
     matrix = norm[list(cols.keys())].values
     raw    = data[list(cols.keys())].values

@@ -67,6 +67,10 @@ CPL_BUCKETS = (
     ("blunder", BLUNDER_CPL_CP, math.inf),
 )
 BOOTSTRAP_RESAMPLES = 10_000
+BOOTSTRAP_BATCH_SIZE = 256
+BOOTSTRAP_MAX_DRAW_ELEMENTS = 1_000_000
+POSITION_CLUSTER_CI = "position_cluster_bootstrap"
+LEGACY_IID_CI = "iid_response_bootstrap_missing_position_id"
 SIDE_MARK_THRESHOLD_CP = 50  # score_t3 uses get_direction's default ±50 cp
 SIDE_CLAIM_LABELS = {"White": "W", "Black": "B", "Equal": "E"}
 PUZZLE_META_FILENAME = "puzzle_meta.json"  # written by scripts/build_puzzle_meta.py
@@ -318,7 +322,7 @@ def _cpl_rows(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def bootstrap_proportion_ci(successes: int, n: int, seed: int = BOOTSTRAP_SEED) -> tuple[float, float]:
-    """Percentile bootstrap CI for a proportion.
+    """Legacy IID percentile bootstrap CI for a proportion without position IDs.
 
     Resampling n 0/1 values with replacement and taking the mean is exactly
     Binomial(n, p_hat) / n, so that form is drawn directly.
@@ -330,6 +334,39 @@ def bootstrap_proportion_ci(successes: int, n: int, seed: int = BOOTSTRAP_SEED) 
     tail = (1 - CI_LEVEL) / 2
     low, high = np.quantile(resampled, [tail, 1 - tail])
     return (float(low), float(high))
+
+
+def _cluster_proportion_ci(clusters: pd.DataFrame, seed: int) -> tuple[float, float]:
+    """Resample position sums/counts together, retaining a row-weighted ratio."""
+    successes = clusters["sum"].to_numpy(dtype=float)
+    counts = clusters["count"].to_numpy(dtype=float)
+    n_positions = len(clusters)
+    batch_size = min(BOOTSTRAP_BATCH_SIZE, max(1, BOOTSTRAP_MAX_DRAW_ELEMENTS // n_positions))
+    rng = np.random.default_rng(seed)
+    estimates = np.empty(BOOTSTRAP_RESAMPLES)
+    for start in range(0, BOOTSTRAP_RESAMPLES, batch_size):
+        stop = min(start + batch_size, BOOTSTRAP_RESAMPLES)
+        drawn = rng.integers(n_positions, size=(stop - start, n_positions))
+        estimates[start:stop] = successes[drawn].sum(axis=1) / counts[drawn].sum(axis=1)
+    tail = (1 - CI_LEVEL) / 2
+    low, high = np.quantile(estimates, [tail, 1 - tail])
+    return float(low), float(high)
+
+
+def _blunder_interval(rows: pd.DataFrame) -> dict[str, Any]:
+    """Describe the sampling unit explicitly, including legacy fallback inputs."""
+    blunders = (rows["t2_cpl_clamped"].astype(float) >= BLUNDER_CPL_CP).astype(int)
+    identified = "position_id" in rows and rows["position_id"].notna().all()
+    if identified:
+        clusters = blunders.groupby(rows["position_id"], sort=True).agg(["sum", "count"])
+        low, high = _cluster_proportion_ci(clusters, BOOTSTRAP_SEED)
+        method, n_positions = POSITION_CLUSTER_CI, len(clusters)
+    else:
+        logger.warning("Missing position IDs: using labelled IID response bootstrap for blunder CI")
+        low, high = bootstrap_proportion_ci(int(blunders.sum()), len(rows))
+        method, n_positions = LEGACY_IID_CI, None
+    return {"ci_low": low, "ci_high": high, "ci_method": method, "n_positions": n_positions,
+            "ci_resamples": BOOTSTRAP_RESAMPLES, "ci_seed": BOOTSTRAP_SEED}
 
 
 def _bucket_row(model: str, cpl: pd.Series) -> dict[str, Any]:
@@ -351,15 +388,14 @@ def compute_cpl_buckets(df: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(records)
 
 
-def _blunder_row(model: str, cpl: pd.Series) -> dict[str, Any]:
+def _blunder_row(model: str, rows: pd.DataFrame) -> dict[str, Any]:
+    cpl = rows["t2_cpl_clamped"].astype(float)
     blunders = int((cpl >= BLUNDER_CPL_CP).sum())
-    ci_low, ci_high = bootstrap_proportion_ci(blunders, len(cpl))
     return {
         "model": model,
         "n": len(cpl),
         "blunder_rate": blunders / len(cpl),
-        "ci_low": ci_low,
-        "ci_high": ci_high,
+        **_blunder_interval(rows),
         "mean_cpl_clamped": float(cpl.mean()),
         "median_cpl_clamped": float(cpl.median()),
     }
@@ -369,8 +405,8 @@ def _intervals_overlap(a: pd.Series, b: pd.Series) -> bool:
     return bool(a["ci_low"] <= b["ci_high"] and b["ci_low"] <= a["ci_high"])
 
 
-def _flag_rank_ties(table: pd.DataFrame) -> pd.Series:
-    """True where a model's CI overlaps the model ranked directly above or below."""
+def _flag_interval_overlap(table: pd.DataFrame) -> pd.Series:
+    """Descriptive interval overlap only; not a paired test or equivalence claim."""
     rows = [table.iloc[i] for i in range(len(table))]
     tied = [
         any(_intervals_overlap(rows[i], rows[j]) for j in (i - 1, i + 1) if 0 <= j < len(rows))
@@ -383,13 +419,13 @@ def compute_blunder_rates(df: pd.DataFrame) -> pd.DataFrame:
     """Per model: share of legal moves with clamped CPL >= 1000, with a 95% bootstrap CI."""
     rows = _cpl_rows(df)
     records = [
-        _blunder_row(model, group["t2_cpl_clamped"].astype(float))
+        _blunder_row(model, group)
         for model, group in rows.groupby("model", sort=True)
     ]
     if not records:
         return pd.DataFrame()
     table = pd.DataFrame(records).sort_values(["blunder_rate", "model"]).reset_index(drop=True)
-    table["rank_tied"] = _flag_rank_ties(table)
+    table["interval_overlap_with_neighbor"] = _flag_interval_overlap(table)
     return table
 
 
@@ -399,8 +435,7 @@ def _overall_blunder_rate(df: pd.DataFrame) -> dict[str, Any] | None:
         return None
     cpl = rows["t2_cpl_clamped"].astype(float)
     blunders = int((cpl >= BLUNDER_CPL_CP).sum())
-    ci_low, ci_high = bootstrap_proportion_ci(blunders, len(cpl))
-    return {"n": int(len(cpl)), "rate": blunders / len(cpl), "ci_low": ci_low, "ci_high": ci_high}
+    return {"n": int(len(cpl)), "rate": blunders / len(cpl), **_blunder_interval(rows)}
 
 
 def _legal_move_count(fen: Any) -> int | None:
@@ -975,20 +1010,35 @@ def _overall_direction_chance_metrics(df: pd.DataFrame) -> dict[str, Any]:
     }
 
 
+def _fen_file_signature(base: Path) -> tuple:
+    """Invalidate cached positions when tier files are created, replaced or edited."""
+    signatures = []
+    for tier in ("easy", "medium", "hard", "extreme"):
+        path = base / f"{tier}.json"
+        try:
+            stat = path.stat()
+            signatures.append((tier, stat.st_ino, stat.st_mtime_ns, stat.st_size))
+        except OSError:
+            signatures.append((tier, None))
+    return tuple(signatures)
+
+
 def _build_fen_lookup(data_dir: str) -> dict[int, str]:
     """Map position_id → fen by reading data/{difficulty}.json files.
 
-    Cached at module level after first call so repeated metrics computations
-    don't re-read the JSON files.
+    Cache separately by resolved directory and invalidate when tier files change.
     """
     global _FEN_LOOKUP_CACHE
-    if _FEN_LOOKUP_CACHE is not None:
-        return _FEN_LOOKUP_CACHE
+    if _FEN_LOOKUP_CACHE is None:
+        _FEN_LOOKUP_CACHE = {}
     lookup: dict[int, str] = {}
-    base = Path(data_dir)
+    base = Path(data_dir).resolve()
+    signature = _fen_file_signature(base)
+    cached = _FEN_LOOKUP_CACHE.get(str(base))
+    if cached is not None and cached[0] == signature:
+        return cached[1]
     if not base.exists():
         logger.warning(f"data_dir {data_dir} not found; skipping FEN lookup")
-        _FEN_LOOKUP_CACHE = lookup
         return lookup
     for tier in ("easy", "medium", "hard", "extreme"):
         path = base / f"{tier}.json"
@@ -1004,11 +1054,11 @@ def _build_fen_lookup(data_dir: str) -> dict[int, str]:
                     lookup[pid] = fen
         except Exception as e:
             logger.warning(f"Failed to load {path}: {e}")
-    _FEN_LOOKUP_CACHE = lookup
+    _FEN_LOOKUP_CACHE[str(base)] = (signature, lookup)
     return lookup
 
 
-_FEN_LOOKUP_CACHE: dict[int, str] | None = None
+_FEN_LOOKUP_CACHE: dict[str, tuple[tuple, dict[int, str]]] | None = None
 
 
 def aggregate_by_model(df: pd.DataFrame) -> pd.DataFrame:
@@ -1228,14 +1278,26 @@ def calculate_hallucination_rate(df: pd.DataFrame) -> pd.DataFrame:
     if df.empty:
         return pd.DataFrame()
 
-    # Hallucination = not legal move
-    df = df.copy()
-    df["hallucination"] = ~df["t2_legal"].fillna(False)
+    if "prompt_format" in df.columns:
+        applicable = df["prompt_format"].isin(MOVE_PROMPT_FORMATS)
+        known_formats = (*MOVE_PROMPT_FORMATS, "eval_only", "explanation_only")
+        unknown = int((~df["prompt_format"].isin(known_formats)).sum())
+        if unknown:
+            logger.warning(f"Excluding {unknown} rows with unknown prompt_format from hallucination rate")
+        df = df[applicable].copy()
+        method = "move_requesting_prompts"
+    else:
+        logger.warning("No prompt_format column: hallucination rate uses legacy all-record denominator")
+        df = df.copy()
+        method = "all_records_legacy_unknown_applicability"
+    df["hallucination"] = ~df["t2_legal"].astype("boolean").fillna(False)
 
-    return df.groupby(["model", "difficulty"]).agg({
+    result = df.groupby(["model", "difficulty"]).agg({
         "hallucination": "mean",
         "job_id": "count",
     }).reset_index().rename(columns={"hallucination": "hallucination_rate"})
+    result["denominator_method"] = method
+    return result
 
 
 def calculate_learning_deltas(df: pd.DataFrame) -> pd.DataFrame:

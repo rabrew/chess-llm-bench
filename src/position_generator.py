@@ -27,7 +27,7 @@ def validate_position(board: chess.Board) -> bool:
         return False
 
     # Must have both kings
-    if not board.king(chess.WHITE) or not board.king(chess.BLACK):
+    if board.king(chess.WHITE) is None or board.king(chess.BLACK) is None:
         return False
 
     # Must have at least one legal move

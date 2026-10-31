@@ -31,6 +31,7 @@ from pathlib import Path
 from typing import Any
 
 import pandas as pd
+import numpy as np
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
@@ -171,6 +172,48 @@ def shared_zero_mae(base_rows: pd.DataFrame, ft_rows: pd.DataFrame) -> float:
     return _mean(truth[usable].abs())
 
 
+def _scored_moves(rows: pd.DataFrame) -> tuple[pd.Series, pd.Series, pd.Series]:
+    requested = rows["prompt_format"].isin(MOVE_PROMPT_FORMATS)
+    legal = requested & rows["t2_legal"].fillna(False).eq(True)
+    cpl = pd.to_numeric(rows["t2_cpl_clamped"], errors="coerce")
+    scored = legal & np.isfinite(cpl) & (cpl >= 0)
+    return requested, legal, scored
+
+
+def _move_coverage(rows: pd.DataFrame) -> dict[str, Any]:
+    requested, legal, scored = _scored_moves(rows)
+    n = int(requested.sum())
+    cpl = pd.to_numeric(rows["t2_cpl_clamped"], errors="coerce")
+    nonblunder = scored & (cpl < BLUNDER_CPL_CP)
+    return {
+        "t2_legal_n": int(legal.sum()), "t2_cpl_n": int(scored.sum()),
+        "t2_cpl_coverage": float(scored.sum() / n) if n else math.nan,
+        "t2_unscored_legal_n": int((legal & ~scored).sum()),
+        "t2_scored_nonblunder_rate": float(nonblunder.sum() / n) if n else math.nan,
+    }
+
+
+def matched_move_sensitivity(base: pd.DataFrame, ft: pd.DataFrame) -> dict[str, Any]:
+    """Quality on identical legal/scored pairs, plus success coverage over all move requests.
+
+    Scored-nonblunder rates use all requested move pairs as denominator, with
+    unscored legal responses explicitly counted separately rather than imputed.
+    """
+    requested, _, base_scored = _scored_moves(base)
+    _, _, ft_scored = _scored_moves(ft)
+    shared = base_scored & ft_scored
+    result: dict[str, Any] = {"n_move_pairs": int(requested.sum()),
+                              "n_matched_legal_cpl_pairs": int(shared.sum())}
+    for prefix, rows in (("base", base), ("ft", ft)):
+        result.update({f"{prefix}_{key}": value for key, value in _move_coverage(rows).items()})
+        cpl = pd.to_numeric(rows.loc[shared, "t2_cpl_clamped"], errors="coerce")
+        result[f"{prefix}_t2_matched_blunder_rate"] = _blunder_rate(cpl)
+        result[f"{prefix}_t2_matched_mean_cpl"] = _mean(cpl)
+    for metric in ("t2_matched_blunder_rate", "t2_matched_mean_cpl", "t2_scored_nonblunder_rate"):
+        result[f"delta_{metric}"] = result[f"ft_{metric}"] - result[f"base_{metric}"]
+    return result
+
+
 def compare(base_df: pd.DataFrame, ft_df: pd.DataFrame) -> pd.DataFrame:
     """One row per fine-tuned model with a base partner: base_, ft_ and delta_ per metric."""
     if base_df.empty or ft_df.empty:
@@ -187,6 +230,7 @@ def compare(base_df: pd.DataFrame, ft_df: pd.DataFrame) -> pd.DataFrame:
             "ft_model": ft_model,
             "n_pairs": len(ft_rows),
             "zero_mae": shared_zero_mae(base_rows, ft_rows),
+            **matched_move_sensitivity(base_rows, ft_rows),
         }
         for metric in METRICS:
             row[f"base_{metric}"] = base_metrics[metric]
@@ -211,6 +255,8 @@ def print_summary(table: pd.DataFrame) -> None:
         ]
         logger.info(f"{row['base_model'][:16]:<16} {row['n_pairs']:>6} " + " ".join(f"{c:>18}" for c in cells))
     logger.info("T1 MAE/zero < 1 beats always answering 0 cp; ρ near 0 means evals ignore the position.")
+    logger.info("Conditional blunder rates may use different legal subsets. Inspect matched legal/CPL pairs and coverage.")
+    logger.info("Scored-nonblunder rates count demonstrated successes over all move requests; unscored legal outcomes stay unknown.")
 
 
 def main() -> None:

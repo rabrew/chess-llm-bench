@@ -98,29 +98,31 @@
       <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-widest">Results — All Models</h2>
       <button onclick="loadMetrics()" class="text-xs text-gray-500 hover:text-gray-300 px-2 py-1 rounded bg-gray-800 hover:bg-gray-700 transition-colors">↻ Refresh</button>
     </div>
+    <p class="text-xs text-gray-500 mb-3">Stored engine reference · CPL clamps both endpoints to ±1,000 cp · T3 uses whole-word themes · MAE excludes mate-reference positions.</p>
+    <p id="metric-warnings" role="status" class="text-xs text-amber-400 mb-3" hidden></p>
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
       <div>
         <p class="text-xs text-gray-600 mb-2">Legal Move %</p>
         <div style="position:relative;height:190px"><canvas id="chart-legal"></canvas></div>
       </div>
       <div>
-        <p class="text-xs text-gray-600 mb-2">Hallucination Rate by Difficulty</p>
+        <p class="text-xs text-gray-600 mb-2">Unsuccessful Move Requests by Difficulty</p>
         <div style="position:relative;height:190px"><canvas id="chart-halluc"></canvas></div>
       </div>
       <div>
-        <p class="text-xs text-gray-600 mb-2">Centipawn Loss (lower = better)</p>
+        <p class="text-xs text-gray-600 mb-2">Clamped Centipawn Loss (stored T2 reference)</p>
         <div style="position:relative;height:190px"><canvas id="chart-cpl"></canvas></div>
       </div>
       <div>
-        <p class="text-xs text-gray-600 mb-2">Eval Direction Accuracy</p>
+        <p class="text-xs text-gray-600 mb-2">Eval Direction Accuracy (±100 cp)</p>
         <div style="position:relative;height:190px"><canvas id="chart-eval"></canvas></div>
       </div>
       <div>
-        <p class="text-xs text-gray-600 mb-2">Explanation Score (T3)</p>
+        <p class="text-xs text-gray-600 mb-2">Explanation Score (whole-word T3, % of 2 points)</p>
         <div style="position:relative;height:190px"><canvas id="chart-t3"></canvas></div>
       </div>
       <div>
-        <p class="text-xs text-gray-600 mb-2">Eval MAE vs Stockfish (lower = better)</p>
+        <p class="text-xs text-gray-600 mb-2">Eval MAE vs Stored Reference (mate positions excluded)</p>
         <div style="position:relative;height:190px"><canvas id="chart-mae"></canvas></div>
       </div>
     </div>
@@ -354,6 +356,9 @@ async function loadMetrics() {
     data = await r.json();
   } catch { return; }
 
+  const warnings = document.getElementById("metric-warnings");
+  warnings.textContent = (data.warnings || []).join(" ");
+  warnings.hidden = !warnings.textContent;
   const models = data.by_model.filter(r => r.t2_legal_mean !== null || r.t1_direction_correct_mean !== null);
   const labels = models.map(r => r.model.replace(/:(\w+)$/, "\n$1"));
 
@@ -413,7 +418,7 @@ async function loadMetrics() {
   // T3
   makeChart("chart-t3", "bar", {
     labels,
-    datasets: [{ label: "Explanation Score", data: models.map(r => r.t3_score_mean !== null ? +(r.t3_score_mean * 100).toFixed(1) : null), backgroundColor: "rgba(167,139,250,0.8)", borderRadius: 3 }],
+    datasets: [{ label: "Explanation Score (% of 2)", data: models.map(r => r.t3_score_mean !== null ? +(r.t3_score_mean / 2 * 100).toFixed(1) : null), backgroundColor: "rgba(167,139,250,0.8)", borderRadius: 3 }],
   }, { scales: scaleY01, plugins: { legend: { display: false } } });
 
   // MAE

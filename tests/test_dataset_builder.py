@@ -3,7 +3,10 @@
 import json
 from unittest.mock import patch
 
+import pandas as pd
+import pytest
 
+from src import dataset_builder as db
 from src.dataset_builder import (
     rating_to_difficulty,
     _validate_puzzle_row,
@@ -191,7 +194,6 @@ class TestBuildDataset:
         result = build_dataset(config, output_dir=str(tmp_path / "data"))
         assert isinstance(result, dict)
         assert "medium" in result
-        # JSON files should exist
         assert (tmp_path / "data" / "easy.json").exists()
         assert (tmp_path / "data" / "medium.json").exists()
 
@@ -228,3 +230,96 @@ class TestBuildDataset:
         }
         result = build_dataset(config, output_dir=str(tmp_path / "data"))
         assert isinstance(result, dict)
+
+
+class _ImmediateFuture:
+    def __init__(self, value):
+        self.value = value
+
+    def result(self):
+        return self.value
+
+
+class _OutOfOrderExecutor:
+    """Finish in reverse order without creating processes or generating boards."""
+
+    def __init__(self, **kwargs):
+        pass
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        return False
+
+    def submit(self, fn, item):
+        return _ImmediateFuture(fn(item))
+
+    def map(self, fn, items):
+        return map(fn, items)
+
+
+@pytest.mark.parametrize("count", [1, 0])
+def test_csv_cohort_preserves_seeded_input_order_not_completion_order(tmp_path, monkeypatch, count):
+    csv_path = tmp_path / "puzzles.csv"
+    csv_path.touch()
+    frame = pd.DataFrame({"FEN": [f"fen{i}" for i in range(6)], "Rating": [500] * 6,
+                          "Themes": ["pin"] * 6})
+    monkeypatch.setattr(db.pd, "read_csv", lambda *args, **kwargs: frame.copy())
+    monkeypatch.setattr(db, "ProcessPoolExecutor", _OutOfOrderExecutor)
+    monkeypatch.setattr(db, "as_completed", lambda futures: reversed(list(futures)), raising=False)
+    monkeypatch.setattr(db, "_validate_puzzle_row", lambda row: {"fen": row["FEN"], "difficulty": "easy"})
+    expected = frame.sample(n=3, random_state=42)["FEN"].tolist()[:count] if count else frame["FEN"].tolist()
+    actual = LichessPuzzleFetcher(csv_path=str(csv_path)).fetch_from_csv(count_per_tier=count, seed=42)
+    assert [row["fen"] for row in actual["easy"]] == expected
+
+
+def _fake_puzzles(count):
+    return {tier: [{"fen": f"{tier}-{i}", "difficulty": tier, "source": "lichess_puzzles"}
+                   for i in range(count)] for tier in db.DIFFICULTY_TIERS}
+
+
+def test_local_source_requests_full_quota_and_does_not_mix_sources(tmp_path):
+    pgn = tmp_path / "games.pgn"
+    pgn.touch()
+    config = {"benchmark": {"max_positions_per_tier": 3, "random_seed": 42},
+              "dataset": {"lichess_source": "local", "lichess_csv_path": "fake.csv", "pgn_path": str(pgn)}}
+    with patch.object(LichessPuzzleFetcher, "fetch_from_csv", return_value=_fake_puzzles(3)) as fetch, \
+         patch.object(db, "generate_positions") as generated, \
+         patch.object(PGNPositionSampler, "sample_positions") as games:
+        result = build_dataset(config, output_dir=str(tmp_path / "built"))
+    fetch.assert_called_once_with(count_per_tier=3, seed=42)
+    generated.assert_not_called()
+    games.assert_not_called()
+    assert {tier: len(rows) for tier, rows in result.items()} == dict.fromkeys(db.DIFFICULTY_TIERS, 3)
+    assert all(row["source"] == "lichess_puzzles" for rows in result.values() for row in rows)
+
+
+def test_mixed_sources_require_explicit_opt_in(tmp_path):
+    pgn = tmp_path / "games.pgn"
+    pgn.touch()
+    config = {"benchmark": {"max_positions_per_tier": 6, "random_seed": 42},
+              "dataset": {"lichess_source": "local", "lichess_csv_path": "fake.csv",
+                          "pgn_path": str(pgn), "include_generated": True, "include_pgn": True}}
+    with patch.object(LichessPuzzleFetcher, "fetch_from_csv", return_value=_fake_puzzles(1)), \
+         patch.object(db, "generate_positions", return_value=[{"fen": "generated", "source": "generated"}]), \
+         patch.object(PGNPositionSampler, "sample_positions", return_value={"opening": [{"fen": "game", "source": "real_game"}]}):
+        result = build_dataset(config, output_dir=str(tmp_path / "built"))
+    assert {row["source"] for row in result["medium"]} == {"lichess_puzzles", "generated", "real_game"}
+
+
+@pytest.mark.parametrize("count", [0, -1])
+def test_api_source_requires_finite_positive_quota_before_network(tmp_path, count):
+    config = {"benchmark": {"max_positions_per_tier": count}, "dataset": {"lichess_source": "api"}}
+    with patch.object(LichessPuzzleFetcher, "fetch_from_api") as fetch:
+        with pytest.raises(ValueError, match="positive"):
+            build_dataset(config, output_dir=str(tmp_path / "built"))
+    fetch.assert_not_called()
+
+
+def test_configured_local_source_without_csv_does_not_fall_back_to_generated(tmp_path):
+    config = {"dataset": {"lichess_source": "local"}}
+    with patch.object(db, "generate_positions") as generated:
+        with pytest.raises(ValueError, match="lichess_csv_path"):
+            build_dataset(config, output_dir=str(tmp_path / "built"))
+    generated.assert_not_called()
