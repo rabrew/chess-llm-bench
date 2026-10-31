@@ -16,6 +16,7 @@ from .llm_client import (
     build_move_prompt,
     build_eval_prompt,
     build_explanation_prompt,
+    retry_move_prompt,
     MOVE_SYSTEM_PROMPT,
     EVAL_SYSTEM_PROMPT,
     EXPLANATION_SYSTEM_PROMPT,
@@ -211,8 +212,8 @@ class Worker:
                 if rescued:
                     parsed["move"] = rescued
                 else:
-                    move_prompt = build_move_prompt(fen)
-                    move_result = self.llm_client.chat(job["model"], move_prompt, system_prompt=MOVE_SYSTEM_PROMPT, temperature=0)
+                    move_prompt, move_system_prompt = retry_move_prompt(fen, prompt_format)
+                    move_result = self.llm_client.chat(job["model"], move_prompt, system_prompt=move_system_prompt, temperature=0)
                     move_retry_reply = move_result.get("response", "")
                     extracted = None
                     if move_result["success"] and move_result["response"].strip():

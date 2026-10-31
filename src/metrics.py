@@ -44,8 +44,8 @@ DIRECTION_THRESHOLDS_CP = (0, 50, 100, 200)
 
 # Prompt formats that ask the model for a move (T2). eval_only and
 # explanation_only do not.
-MOVE_PROMPT_FORMATS = ("fen_only", "pgn+fen", "cot", "move_only")
-COMBINED_PROMPT_FORMATS = ("fen_only", "pgn+fen", "cot")
+MOVE_PROMPT_FORMATS = ("fen_only", "pgn+fen", "cot", "move_only", "board_text", "board_text+legal")
+COMBINED_PROMPT_FORMATS = ("fen_only", "pgn+fen", "cot", "board_text", "board_text+legal")
 ISOLATED_MOVE_FORMAT = "move_only"
 
 # Where the final move on a move-asking row came from (specs/t2-move-source.md).

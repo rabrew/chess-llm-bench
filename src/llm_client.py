@@ -7,6 +7,8 @@ from typing import Any
 
 import requests
 
+from .board_text import fen_to_board_text, side_name, sorted_legal_moves
+
 logger = logging.getLogger("chess_llm_bench")
 
 
@@ -158,6 +160,7 @@ class OllamaClient:
                     "inference_ms": inference_ms,
                     "success": True,
                     "model": model,
+                    "prompt_tokens": data.get("prompt_eval_count"),
                 }
 
             except requests.Timeout:
@@ -304,6 +307,47 @@ def build_move_prompt(fen: str) -> str:
     )
 
 
+BOARD_TEXT_FORMAT = "board_text"
+BOARD_TEXT_LEGAL_FORMAT = "board_text+legal"
+BOARD_TEXT_FORMATS = (BOARD_TEXT_FORMAT, BOARD_TEXT_LEGAL_FORMAT)
+
+# The move re-ask for plain-board prompts: MOVE_SYSTEM_PROMPT with every mention of FEN removed.
+BOARD_MOVE_SYSTEM_PROMPT = MOVE_SYSTEM_PROMPT.replace(
+    "When given a FEN position", "When given a chess position"
+).replace("if the FEN en-passant square is set", "if an en passant square is given")
+
+
+def _legal_moves_line(fen: str) -> str:
+    return "Legal moves: " + (", ".join(sorted_legal_moves(fen)) or "none")
+
+
+def build_board_move_prompt(fen: str) -> str:
+    """The move_only re-ask with the plain board in place of the FEN (specs/plain-board-prompts.md)."""
+    import chess as _chess
+    side = side_name(_chess.Board(fen).turn)
+    return (
+        f"Position:\n{fen_to_board_text(fen)}\n\n"
+        f"It is {side} to move.\n\n"
+        f"{_legal_moves_line(fen)}\n\n"
+        f"What is the best move for {side}? You MUST pick one of the listed legal moves. Respond with the SAN move only."
+    )
+
+
+def retry_move_prompt(fen: str, prompt_format: str) -> tuple[str, str]:
+    """(prompt, system prompt) for the isolated move re-ask; plain formats never see a FEN."""
+    if prompt_format in BOARD_TEXT_FORMATS:
+        return build_board_move_prompt(fen), BOARD_MOVE_SYSTEM_PROMPT
+    return build_move_prompt(fen), MOVE_SYSTEM_PROMPT
+
+
+def _position_section(fen: str, prompt_format: str) -> str:
+    if prompt_format == BOARD_TEXT_FORMAT:
+        return f"\nCurrent position:\n{fen_to_board_text(fen)}"
+    if prompt_format == BOARD_TEXT_LEGAL_FORMAT:
+        return f"\nCurrent position:\n{fen_to_board_text(fen)}\n{_legal_moves_line(fen)}"
+    return f"\nCurrent position (FEN):\n{fen}"
+
+
 def build_prompt(
     fen: str,
     pgn_moves: str | None = None,
@@ -314,7 +358,7 @@ def build_prompt(
     Args:
         fen: FEN string of the position
         pgn_moves: PGN move history (optional)
-        prompt_format: One of "fen_only", "pgn+fen", or "cot"
+        prompt_format: One of "fen_only", "pgn+fen", "cot", "board_text" or "board_text+legal"
 
     Returns:
         Formatted prompt string
@@ -326,7 +370,7 @@ def build_prompt(
     if prompt_format in ("pgn+fen", "cot") and pgn_moves:
         moves_section = f"\nMoves played so far:\n{pgn_moves}\n"
 
-    fen_section = f"\nCurrent position (FEN):\n{fen}"
+    fen_section = _position_section(fen, prompt_format)
 
     questions = """
 Answer all three questions below.

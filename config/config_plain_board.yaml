@@ -1,0 +1,84 @@
+# Chess LLM Benchmark Configuration — plain-board prompts, the notation check (specs/plain-board-prompts.md)
+
+stockfish:
+  path: /usr/games/stockfish
+  depth: 15  # Reduced from 22 for ~4x speedup
+  threads: 1
+  workers: 24  # Parallel Stockfish instances
+
+lc0:
+  binary: /home/rabrew/lc0-src/build/release/lc0
+  weights: /home/rabrew/lc0-nets/network.pb
+  onnx_model: /home/rabrew/lc0-nets/network.onnx
+  nodes: 800  # Search budget per position for CPL ground truth (enrich_cpl.py)
+
+ollama:
+  base_url: http://localhost:11434
+  timeout: 600
+  max_retries: 3
+
+models:
+  # The 22 base models minus llama3.3:70b, which crashes the PC when loaded (memory).
+  - llama3.2:3b
+  - gemma3:4b
+  - qwen2.5:7b
+  - mistral:7b
+  - wizardlm2:7b
+  - llama3.1:8b
+  - gemma3:12b
+  - qwen2.5:14b
+  - phi4:14b
+  - solar:10.7b
+  - gemma4:e4b
+  - gemma4:e2b
+  - qwen2.5:32b
+  - codellama:34b
+  - yi:34b
+  - command-r:35b
+  - gemma4:26b
+  - gemma4:31b
+  - mixtral:8x7b
+  - deepseek-r1:7b
+  - deepseek-r1:14b
+
+dataset:
+  lichess_source: local  # "api" or "local"
+  lichess_csv_path: data/lichess_puzzles.csv
+  pgn_path: data/games.pgn
+
+benchmark:
+  max_positions_per_tier: 1000  # 1000 x 4 tiers = 4,000 total positions
+  random_seed: 42
+  sample_per_tier: 125  # second seeded draw from the 1,000 per tier: 500 positions
+  prompt_formats:
+    - fen_only  # same-run control
+    - board_text
+    - board_text+legal
+
+evaluation:
+  cpl_threshold: 50
+  centipawn_eval_range:
+    min: -2000
+    max: 2000
+
+workers:
+  count: 1
+
+correction_loop:
+  # DISABLED — dead code. The trigger checks t2_cpl > threshold at the
+  # end of each job, but the worker runs with engine=None so t2_cpl is
+  # never computed inline (CPL is filled in post-hoc by enrich_cpl.py).
+  # Result: 0 correction jobs were ever produced. See FINDINGS.md
+  # methodology for details. Setting `enabled: false` to be honest about
+  # what's actually running.
+  enabled: false
+  control_group: true
+  max_attempts: 2
+
+paths:
+  data_dir: data
+  jobs_db: jobs/db/jobs_plain_board.db
+  results_file: results/plain_board/evaluations.jsonl
+  logs_dir: results/plain_board/logs
+  plots_dir: results/plain_board/plots
+  metrics_dir: results/plain_board/metrics

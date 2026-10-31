@@ -81,8 +81,9 @@ Side to move: White
 Castling still possible: White king side, White queen side, Black king side
 En passant: none
 ```
-- The piece lists reuse the wording of `fine-tuning/src/board_state.py` (`fen_to_board_description`), moved
-  or imported so there is one implementation.
+- The piece lists use the exact wording of `fine-tuning/src/board_state.py` (`fen_to_board_description`),
+  including "Queen a1 b1" for two queens. `src/` can't import from `fine-tuning/` cleanly, so the
+  wording is kept in `src/board_text.py` and a test fails if the two ever differ.
 - Castling reads "none" when no rights are left; en passant names the target square, e.g. "e3".
 
 ### 3. Prompt formats (`src/llm_client.py`)

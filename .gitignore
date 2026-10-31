@@ -46,3 +46,6 @@ dashboard/tailwind.min.js
 
 # T2-5 engine-strength evaluation caches (regenerable)
 results/engine_strength/
+# Plain-board run (specs/plain-board-prompts.md): only the metrics are tracked
+results/plain_board/*
+!results/plain_board/metrics/

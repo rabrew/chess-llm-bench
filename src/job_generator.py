@@ -1,6 +1,7 @@
 """Generate benchmark jobs from dataset positions."""
 
 import logging
+import random
 from typing import Any
 
 from .data_loader import DataLoader
@@ -8,6 +9,21 @@ from .job_queue import JobQueue
 from .utils import compute_hash
 
 logger = logging.getLogger("chess_llm_bench")
+
+
+def subsample_per_tier(positions: list[dict[str, Any]], count: int, seed: int) -> list[dict[str, Any]]:
+    """A second seeded draw of `count` positions per difficulty tier (specs/plain-board-prompts.md).
+
+    Each tier is sorted by id first, so the draw doesn't depend on input order. 0 keeps everything.
+    """
+    if not count:
+        return positions
+    rng = random.Random(seed)
+    sampled = []
+    for tier in sorted({p["difficulty"] for p in positions}):
+        tier_positions = sorted((p for p in positions if p["difficulty"] == tier), key=lambda p: p["id"])
+        sampled += rng.sample(tier_positions, min(count, len(tier_positions)))
+    return sampled
 
 
 def generate_job_id(position_id: int, model: str, prompt_format: str, trial: int = 1) -> str:
@@ -199,6 +215,7 @@ def populate_job_queue(
             positions.extend(data_loader.sample(tier_positions, count=max_per_tier, seed=seed))
         else:
             positions.extend(tier_positions)
+    positions = subsample_per_tier(positions, config.get("benchmark", {}).get("sample_per_tier", 0), seed)
 
     if not positions:
         logger.error("No positions loaded from dataset")
