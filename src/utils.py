@@ -171,6 +171,16 @@ MODEL_REGISTRY: dict[str, tuple[str, float, float]] = {
 }
 
 
+# API models whose parameter counts aren't published: tag -> family. Their size is None, never a
+# guess, so they stay out of MODEL_REGISTRY and the size-based plots (specs/commercial-models.md).
+API_MODEL_FAMILIES: dict[str, str] = {
+    "claude-haiku:5.5": "claude",
+    "claude-sonnet:5.5-nothink": "claude",
+    "claude-sonnet:5.5-think": "claude",
+    "claude-opus:5.5-low": "claude",
+}
+
+
 def base_model_tag(model_tag: str) -> str:
     """The base Ollama tag of a fine-tuned tag; a base tag is returned unchanged."""
     for suffix in FINE_TUNED_SUFFIXES:
@@ -188,6 +198,16 @@ def parse_model_info(model_tag: str) -> dict[str, Any]:
         ValueError: if the tag is not in MODEL_REGISTRY. Add new models there
             rather than letting them fall into an "unknown" bucket.
     """
+    if model_tag in API_MODEL_FAMILIES:
+        return {
+            "family": API_MODEL_FAMILIES[model_tag],
+            "size_str": model_tag.split(":", 1)[1],
+            "size_b": None,
+            "active_b": None,
+            "is_moe": False,
+            "fine_tuned": False,
+            "full_tag": model_tag,
+        }
     base_tag = base_model_tag(model_tag)
     fine_tuned = base_tag != model_tag
     if base_tag not in MODEL_REGISTRY:

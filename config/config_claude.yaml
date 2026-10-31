@@ -1,0 +1,63 @@
+# Claude models through the Message Batches API (specs/commercial-models.md).
+# Same positions and prompt formats as the plain-board run, so results pair with the local models.
+
+claude:
+  budget_usd: 22.0           # about EUR 20 of credit
+  key_file: ~/.config/chess-llm-bench/anthropic.env   # outside the repo; ANTHROPIC_API_KEY env var wins
+  poll_seconds: 60
+  batch_discount: 0.5        # Message Batches API bills half the standard price
+  min_samples_for_estimate: 10
+  default_estimate_tokens:   # per request, used until a variant has enough stored results
+    input: 800
+    output: 3000
+  prices_per_mtok:           # USD per million tokens, standard (pre-discount) rates, 2026-10
+    claude-haiku-5-5: {input: 0.10, output: 0.50}
+    claude-sonnet-5-5: {input: 2.00, output: 10.00}
+    claude-opus-5-5: {input: 4.00, output: 20.00}
+  variants:                  # run order: cheapest first
+    - tag: claude-haiku:5.5
+      model: claude-haiku-5-5
+      max_tokens: 4000
+    - tag: claude-sonnet:5.5-nothink
+      model: claude-sonnet-5-5
+      thinking: between_tools  # thinking off (no tools are given)
+      effort: high
+      max_tokens: 1024
+    - tag: claude-sonnet:5.5-think
+      model: claude-sonnet-5-5
+      thinking: adaptive
+      effort: high
+      max_tokens: 8000
+    - tag: claude-opus:5.5-low
+      model: claude-opus-5-5
+      effort: low
+      max_tokens: 4000
+
+benchmark:
+  max_positions_per_tier: 1000
+  random_seed: 42
+  sample_per_tier: 125       # the plain-board sample: 500 positions
+  prompt_formats:
+    - fen_only
+    - board_text
+    - board_text+legal
+
+evaluation:
+  centipawn_eval_range:
+    min: -2000
+    max: 2000
+
+lc0:
+  binary: /home/rabrew/lc0-src/build/release/lc0
+  weights: /home/rabrew/lc0-nets/network.pb
+  onnx_model: /home/rabrew/lc0-nets/network.onnx
+  nodes: 800
+
+paths:
+  data_dir: data
+  results_file: results/claude/evaluations.jsonl
+  responses_file: results/claude/responses.jsonl
+  batches_file: results/claude/batches.json
+  failures_file: results/claude/failures.jsonl
+  logs_dir: results/claude/logs
+  metrics_dir: results/claude/metrics
