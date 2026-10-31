@@ -8,6 +8,7 @@ Usage (from the repo root):
 """
 
 import argparse
+import html
 import json
 import math
 import re
@@ -20,6 +21,9 @@ import pandas as pd
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from src.metrics import COMBINED_PROMPT_FORMATS, CPL_BUCKETS  # noqa: E402
+from scripts.plain_board_compare import (  # noqa: E402
+    BLUNDER_DROP_LIMIT, FIRST_LEGAL_NOT_BARRIER, KAPPA_NOT_BARRIER, RHO_NOT_BARRIER,
+)
 
 BUCKET_KEYS = [key for key, _, _ in CPL_BUCKETS]
 BUCKET_LABELS = {
@@ -44,6 +48,9 @@ class Sources:
     board_test: Path
     legal_comparison: Path = Path("results/finetuning_experiment/comparison_legal.csv")
     legal_board_test: Path = Path("results/finetuning_experiment/board_legal_t0_training_prompt_summary.csv")
+    plain_summary: Path = Path("results/plain_board/metrics/plain_board_summary.json")
+    claude_summary: Path = Path("results/claude/metrics/claude_summary.json")
+    gpt_summary: Path = Path("results/codex_illustration/summary.json")
 
 
 # ---------- formatting ----------
@@ -70,6 +77,14 @@ def _table(header: list[str], rows: list[list[str]]) -> str:
     lines = ["| " + " | ".join(header) + " |", "|" + "---|" * len(header)]
     lines += ["| " + " | ".join(row) + " |" for row in rows]
     return "\n".join(lines)
+
+
+def _cell(value) -> str:
+    return html.escape(str(value), quote=False).replace("|", "\\|").replace("\r", " ").replace("\n", " ")
+
+
+def _safe_table(header: list[str], rows: list[list[str]]) -> str:
+    return _table([_cell(cell) for cell in header], [[_cell(cell) for cell in row] for row in rows])
 
 
 def _read_csv(path: Path) -> pd.DataFrame | None:
@@ -240,8 +255,153 @@ def formats_table(metrics_dir: Path) -> str:
     return _table(["Prompt format", "T1 ρ", "Legal (final)", "Blunder rate", "T3 (0–2)"], rows)
 
 
+# ---------- additional experiment summaries ----------
+
+NOTATION_MEASURES = (
+    ("N1", "blunder_rate", "Blunder rate", pct, f"drop < {100 * BLUNDER_DROP_LIMIT:g} percentage points"),
+    ("N2", "t1_rho", "T1 ρ", num, f"< {RHO_NOT_BARRIER:.2f}"),
+    ("N3", "side_kappa", "Side κ", num, f"< {KAPPA_NOT_BARRIER:.2f}"),
+    ("N4", "first_answer_legal", "First-answer legality", pct, f"< {pct(FIRST_LEGAL_NOT_BARRIER)}"),
+)
+
+
+def read_optional_summary(path: Path) -> dict | None:
+    if not path.exists():
+        return None
+    summary = json.loads(path.read_text())
+    if not isinstance(summary, dict):
+        raise ValueError(f"Expected a JSON object in {path}")
+    return summary
+
+
+def _finite(value) -> bool:
+    return isinstance(value, (int, float)) and math.isfinite(value)
+
+
+def _stat(value, formatter=num) -> str:
+    return formatter(value) if _finite(value) else DASH
+
+
+def _stat_ci(result: dict, side: str, formatter=num) -> str:
+    value = _stat(result.get(f"{side}_value"), formatter)
+    interval = result.get(f"{side}_ci")
+    if value == DASH or not isinstance(interval, (list, tuple)) or len(interval) != 2:
+        return value
+    if not all(_finite(bound) for bound in interval):
+        return value
+    if formatter is pct:
+        return pct_ci(result[f"{side}_value"], interval[0], interval[1])
+    return f"{value} ({formatter(interval[0])}–{formatter(interval[1])})"
+
+
+def notation_table(summary: dict | None) -> str:
+    if summary is None:
+        return NOT_AVAILABLE
+    rows = []
+    for label, name, title, formatter, condition in NOTATION_MEASURES:
+        result = summary.get("primary", {}).get(name, {})
+        rows.append([f"{label}: {title}", _stat_ci(result, "left", formatter),
+                     _stat_ci(result, "right", formatter), _stat(result.get("n_pairs"), str), condition])
+    table = _safe_table(["Criterion", "FEN (95% CI)", "Plain board (95% CI)", "Paired n", "Registered condition"], rows)
+    status = summary.get("cohort", {}).get("status", "not recorded")
+    verdict = summary.get("verdict", "pending: no stored verdict")
+    return table + f"\n\nStored verdict: **{_cell(verdict)}**. Cohort: {_cell(status)}."
+
+
+def notation_secondary_table(summary: dict | None) -> str:
+    if summary is None:
+        return NOT_AVAILABLE
+    rows = []
+    for name, title in (("first_answer_legal", "First-answer legality"), ("blunder_rate", "Blunder rate")):
+        result = summary.get("secondary", {}).get(name, {})
+        rows.append([title, _stat_ci(result, "left", pct), _stat_ci(result, "right", pct),
+                     _stat(result.get("n_pairs"), str)])
+    return _safe_table(["Secondary measure", "Plain board (95% CI)", "Plain + legal list (95% CI)", "Paired n"], rows)
+
+
+def _best_move_cell(result: dict | None) -> str:
+    if not isinstance(result, dict):
+        return DASH
+    best = _stat(result.get("best_move_rate"), pct)
+    random = _stat(result.get("random_best_move_rate"), pct)
+    ratio = _stat(result.get("ratio_vs_random"))
+    return f"{best} vs {random} ({ratio}×)"
+
+
+def _cost_cell(cost: dict) -> str:
+    value = cost.get("cost_usd")
+    status = cost.get("status", "unavailable")
+    if not _finite(value):
+        return str(status)
+    suffix = "" if status in ("complete", "available") else f" ({status})"
+    return f"${value:.2f}{suffix}"
+
+
+def _measured_stat(result: dict, name: str, formatter=num) -> str:
+    value = _stat(result.get(name), formatter)
+    count = result.get(f"{name}_n")
+    return f"{value} (n={count})" if value != DASH and _finite(count) else value
+
+
+def claude_table(summary: dict | None) -> str:
+    if summary is None or not summary.get("variants"):
+        return NOT_AVAILABLE
+    rows = []
+    for tag, variant in summary["variants"].items():
+        for fmt, result in variant.get("by_format", {}).items():
+            rows.append([tag, fmt, _stat(result.get("records"), str),
+                         _measured_stat(result, "first_answer_legal", pct), _measured_stat(result, "t1_rho"),
+                         _measured_stat(result, "side_kappa"), _best_move_cell(result.get("best_move_vs_random")),
+                         _cost_cell(variant.get("cost", {}))])
+    table = _safe_table(["Variant", "Format", "Records", "First-answer legal", "T1 ρ", "Side κ",
+                    "Best move vs random", "Recorded variant cost (USD)"], rows)
+    return table + "\n\nCost is a variant total repeated across formats; do not sum repeated cells. Model sizes are unknown."
+
+
+def _claude_criterion_rows(tag: str, variant: dict) -> list[list[str]]:
+    c1, c4 = variant.get("C1", {}), variant.get("C4", {})
+    comparison = c1.get("comparison") or {}
+    rows = [[tag, "C1", _stat_ci(comparison, "left", pct), _stat_ci(comparison, "right", pct),
+             _stat(comparison.get("n_pairs"), str), c1.get("status", "pending"), c1.get("verdict", "pending")]]
+    for label, name, title, formatter, _ in NOTATION_MEASURES:
+        result = c4.get("primary", {}).get(name, {})
+        rows.append([tag, f"C4 / {label}: {title}", _stat_ci(result, "left", formatter),
+                     _stat_ci(result, "right", formatter), _stat(result.get("n_pairs"), str),
+                     c4.get("status", "pending"), c4.get("verdict", "pending")])
+    return rows
+
+
+def claude_criteria_table(summary: dict | None) -> str:
+    if summary is None:
+        return NOT_AVAILABLE
+    rows = []
+    for tag, variant in summary.get("variants", {}).items():
+        rows.extend(_claude_criterion_rows(tag, variant))
+    for name in ("C2", "C3"):
+        result = summary.get(name, {})
+        rows.append([DASH, name, DASH, DASH, DASH, result.get("status", "not run"), result.get("reason", "Sonnet deferred")])
+    table = _safe_table(["Variant", "Criterion", "Local (C1) / FEN (C4)", "Claude (C1) / plain (C4)",
+                    "Paired n", "Status", "Stored verdict / reason"], rows)
+    return table + "\n\nC4 retains the registered absolute-correlation rule; its label alone does not establish improvement over FEN."
+
+
+def gpt_illustration_table(summary: dict | None) -> str:
+    if summary is None:
+        return NOT_AVAILABLE
+    total = summary.get("n_positions")
+    def count(name):
+        value = summary.get(name)
+        return f"{value}/{total}" if _finite(value) and _finite(total) and total > 0 else DASH
+    rows = [[summary.get("model", "not recorded"), _stat(total, str), count("first_answer_legal_count"),
+             count("final_legal_count"), count("side_correct_count")]]
+    return "Illustration only — not a benchmark; no population inference.\n\n" + _safe_table(
+        ["Model label", "Positions", "First-answer legal", "Final legal", "Side correct"], rows)
+
+
 def render_all(sources: Sources) -> dict[str, str]:
     summary = json.loads((sources.metrics / "summary.json").read_text())
+    plain = read_optional_summary(sources.plain_summary)
+    claude = read_optional_summary(sources.claude_summary)
     return {
         "headline": headline_table(summary, sources.rerun_metrics),
         "models": models_table(sources.metrics),
@@ -252,6 +412,11 @@ def render_all(sources: Sources) -> dict[str, str]:
         "finetune_legal": finetune_legal_table(sources.legal_comparison, sources.legal_board_test),
         "difficulty": difficulty_table(summary),
         "formats": formats_table(sources.metrics),
+        "notation": notation_table(plain),
+        "notation_secondary": notation_secondary_table(plain),
+        "claude": claude_table(claude),
+        "claude_criteria": claude_criteria_table(claude),
+        "gpt_illustration": gpt_illustration_table(read_optional_summary(sources.gpt_summary)),
     }
 
 
@@ -281,12 +446,16 @@ def main() -> None:
     parser.add_argument("--board-test", default="results/finetuning_experiment/board_t0_summary.csv")
     parser.add_argument("--legal-comparison", default=str(Sources.legal_comparison))
     parser.add_argument("--legal-board-test", default=str(Sources.legal_board_test))
+    parser.add_argument("--plain-summary", default=str(Sources.plain_summary))
+    parser.add_argument("--claude-summary", default=str(Sources.claude_summary))
+    parser.add_argument("--gpt-summary", default=str(Sources.gpt_summary))
     parser.add_argument("--doc", action="append", help=f"Document to update (repeatable; default {', '.join(DEFAULT_DOCS)})")
     parser.add_argument("--check", action="store_true", help="Exit 1 if any table is stale; write nothing")
     args = parser.parse_args()
 
     sources = Sources(Path(args.metrics), Path(args.rerun_metrics), Path(args.comparison), Path(args.board_test),
-                      Path(args.legal_comparison), Path(args.legal_board_test))
+                      Path(args.legal_comparison), Path(args.legal_board_test), Path(args.plain_summary),
+                      Path(args.claude_summary), Path(args.gpt_summary))
     if not (sources.metrics / "summary.json").exists():
         print(f"ERROR: {sources.metrics / 'summary.json'} not found", file=sys.stderr)
         sys.exit(1)

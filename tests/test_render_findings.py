@@ -251,3 +251,157 @@ def test_finetune_legal_table(tmp_path):
     assert "10.0% → 97.0%" in table  # criterion 0: precision
     assert "10.3% → 31.0%" in table  # criterion 1
     assert "98.4% → 99.0%" in table
+
+
+def _plain_summary():
+    measures = {
+        "blunder_rate": (0.42, 0.38), "t1_rho": (0.10, 0.14),
+        "side_kappa": (0.08, 0.09), "first_answer_legal": (0.17, 0.24),
+    }
+    primary = {
+        name: {"left_value": left, "right_value": right, "left_ci": [left - 0.01, left + 0.01],
+               "right_ci": [right - 0.01, right + 0.01], "n_pairs": 20}
+        for name, (left, right) in measures.items()
+    }
+    return {"primary": primary, "secondary": {"first_answer_legal": {
+        "left_value": 0.24, "right_value": 0.89, "left_ci": [0.23, 0.25],
+        "right_ci": [0.88, 0.90], "n_pairs": 19}}, "models": ["a", "b"],
+        "positions": 10, "cohort": {"status": "complete"}, "verdict": "mixed"}
+
+
+def test_notation_tables_report_stored_verdict_and_registered_conditions():
+    summary = _plain_summary()
+    text = rf.notation_table(summary)
+    assert "N1" in text and "42.0% (41.0–43.0%)" in text
+    assert "N2" in text and "0.14 (0.13–0.15)" in text
+    assert "N3" in text and "N4" in text
+    assert "&lt; 5" in text and "&lt; 0.20" in text and "&lt; 25.0%" in text
+    assert "mixed" in text and "complete" in text
+    secondary = rf.notation_secondary_table(summary)
+    assert "24.0% (23.0–25.0%)" in secondary and "89.0% (88.0–90.0%)" in secondary
+    assert "19" in secondary
+
+
+def test_notation_pending_and_missing_intervals_are_not_finalised():
+    summary = _plain_summary()
+    summary["verdict"] = "pending: incomplete measures"
+    summary["cohort"]["status"] = "incomplete"
+    summary["primary"]["blunder_rate"].update(left_value=None, right_value=None, left_ci=None, right_ci=None, n_pairs=0)
+    summary["primary"]["t1_rho"].update(left_ci=[None, None], right_ci=[float("nan"), float("inf")])
+    text = rf.notation_table(summary)
+    assert "pending: incomplete measures" in text and "incomplete" in text
+    assert "nan" not in text.lower() and "inf" not in text.lower()
+    assert "—" in text and "0.14" in text
+
+
+def test_new_summary_cells_cannot_break_markdown_structure():
+    summary = _plain_summary()
+    summary["verdict"] = "pending | <script>\nsecond line"
+    text = rf.notation_table(summary)
+    assert "<script>" not in text
+    assert "&lt;script&gt;" in text and "\\|" in text
+    assert "\nsecond line" not in text
+
+
+def test_missing_experiment_inputs_render_unavailable(tmp_path):
+    sources = _sources(tmp_path)
+    tables = rf.render_all(sources)
+    for name in ("notation", "notation_secondary", "claude", "claude_criteria", "gpt_illustration"):
+        assert tables[name] == rf.NOT_AVAILABLE
+
+
+def test_gpt_counts_are_labelled_illustrative_only():
+    text = rf.gpt_illustration_table({"model": "gpt-example", "n_positions": 12,
+                                    "first_answer_legal_count": 10, "final_legal_count": 12,
+                                    "side_correct_count": 6})
+    assert "Illustration only" in text and "not a benchmark" in text
+    assert "10/12" in text and "12/12" in text and "6/12" in text
+    assert "gpt-example" in text
+
+
+def test_new_cli_sources_and_check_preserve_document_bytes(tmp_path, monkeypatch):
+    sources = _sources(tmp_path)
+    summary = tmp_path / "plain.json"
+    summary.write_text(json.dumps(_plain_summary()))
+    doc = tmp_path / "experiments.md"
+    doc.write_text("Before\n<!-- table:notation -->\nstale\n<!-- /table:notation -->\nAfter\n")
+    argv = ["render", "--metrics", str(sources.metrics), "--doc", str(doc),
+            "--plain-summary", str(summary), "--claude-summary", str(tmp_path / "no-claude.json"),
+            "--gpt-summary", str(tmp_path / "no-gpt.json")]
+    before = doc.read_bytes()
+    monkeypatch.setattr(sys, "argv", [*argv, "--check"])
+    with pytest.raises(SystemExit) as exc:
+        rf.main()
+    assert exc.value.code == 1 and doc.read_bytes() == before
+    monkeypatch.setattr(sys, "argv", argv)
+    rf.main()
+    rendered = doc.read_bytes()
+    monkeypatch.setattr(sys, "argv", [*argv, "--check"])
+    rf.main()
+    assert doc.read_bytes() == rendered and b"Before" in rendered and b"After" in rendered
+
+
+def test_optional_json_requires_object(tmp_path):
+    path = tmp_path / "invalid.json"
+    path.write_text("[]")
+    with pytest.raises(ValueError, match="object"):
+        rf.read_optional_summary(path)
+
+
+def _claude_summary():
+    return {"variants": {"claude-test|<tag>": {
+        "coverage": {"observed_records": 1500, "expected_positions_per_format": 500},
+        "by_format": {"fen_only": {"records": 500, "first_answer_legal": 0.94,
+            "t1_rho": 0.58, "side_kappa": 0.36, "best_move_vs_random": {
+                "best_move_rate": 0.2, "random_best_move_rate": 0.1, "ratio_vs_random": 2.0}}},
+        "cost": {"status": "available", "cost_usd": 2.34, "source": "raw ledger"},
+        "C1": {"status": "complete", "verdict": "frontier model plays clearly better",
+            "comparison": {"left_value": 0.4, "right_value": 0.2, "left_ci": [0.39, 0.41],
+                           "right_ci": [0.19, 0.21], "n_pairs": 500}},
+        "C4": {"status": "pending", "verdict": "pending: missing CPL"},
+    }}, "C2": {"status": "not run"}, "C3": {"status": "not run"}}
+
+
+def test_claude_descriptions_use_actual_summary_contract():
+    text = rf.claude_table(_claude_summary())
+    assert "94.0%" in text and "0.58" in text and "0.36" in text
+    assert "20.0% vs 10.0% (2.00×)" in text and "$2.34" in text
+    assert "claude-test\\|&lt;tag&gt;" in text and "500" in text
+    criteria = rf.claude_criteria_table(_claude_summary())
+    assert "frontier model plays clearly better" in criteria
+    assert "40.0% (39.0–41.0%)" in criteria and "20.0% (19.0–21.0%)" in criteria
+    assert "pending: missing CPL" in criteria and criteria.count("not run") >= 2
+
+
+def test_claude_null_values_and_cost_remain_unavailable():
+    summary = _claude_summary()
+    variant = next(iter(summary["variants"].values()))
+    variant["cost"] = {"status": "unavailable", "cost_usd": None}
+    variant["by_format"]["fen_only"].update(t1_rho=None, best_move_vs_random=None)
+    text = rf.claude_table(summary)
+    assert "$0.00" not in text and "None" not in text and "—" in text
+    assert "unavailable" in text
+
+
+def test_claude_incomplete_cost_and_measurement_counts_are_visible():
+    summary = _claude_summary()
+    variant = next(iter(summary["variants"].values()))
+    variant["cost"].update(status="incomplete", cost_usd=1.25)
+    variant["by_format"]["fen_only"].update(t1_rho_n=491, first_answer_legal_n=500)
+    text = rf.claude_table(summary)
+    assert "$1.25 (incomplete)" in text and "0.58 (n=491)" in text
+    assert "94.0% (n=500)" in text
+
+
+def test_render_all_reads_explicit_experiment_summary_paths(tmp_path):
+    sources = _sources(tmp_path)
+    sources.plain_summary = tmp_path / "plain.json"
+    sources.claude_summary = tmp_path / "claude.json"
+    sources.gpt_summary = tmp_path / "gpt.json"
+    sources.plain_summary.write_text(json.dumps(_plain_summary()))
+    sources.claude_summary.write_text(json.dumps(_claude_summary()))
+    sources.gpt_summary.write_text(json.dumps({"model": "gpt-example", "n_positions": 12,
+                                             "first_answer_legal_count": 10}))
+    tables = rf.render_all(sources)
+    assert "mixed" in tables["notation"] and "$2.34" in tables["claude"]
+    assert "10/12" in tables["gpt_illustration"] and "0.11" in tables["headline"]
