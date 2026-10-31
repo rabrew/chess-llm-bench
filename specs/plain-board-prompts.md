@@ -62,6 +62,10 @@ paired differences, and the share of illegal first answers that are moves for th
   seed 42, the job generator takes a second seeded draw of 125 per tier from those 1,000 (from sorted
   ids, `random.Random(42)`), so every position is one of the benchmark positions. 500 positions in all.
 - Unset or 0: no second draw, so every existing config behaves as before.
+- `run_all.sh` generates jobs one tier at a time (`--tier`), so each tier's draw starts from a fresh
+  `random.Random(42)`. The sample is still fixed and the same for every model and format, which is what
+  the pairing needs. The probe drew all four tiers in one pass, so its positions differ slightly from the
+  run's; that affects only the context check, which had a wide margin (669 of 1,024 tokens).
 
 ### 2. Plain board text (`src/board_text.py`, new)
 `fen_to_board_text(fen)` returns, with no FEN or FEN fragment:
