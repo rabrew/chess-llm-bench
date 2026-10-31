@@ -1,70 +1,126 @@
-# Chess LLM Benchmark
+# Do LLMs Reason? Benchmarking Logical Performance via Chess
 
-**Research question:** Do locally-run open-source LLMs reason about chess positions, or pattern-match? How well do they evaluate positions, choose legal and good moves, and explain them; does that scale with model size; and does fine-tuning them to read the board change it?
+**Ryan Brew · Project PR09426 · Stripe Young Scientist Award 2027**
 
-Benchmarks 22 local models via Ollama on **4,000 stratified Lichess puzzle positions** (1,000 per difficulty tier × 4 tiers). Each position is probed with 6 prompt formats per model, giving **~526k total evaluations**. Ground truth: for evaluation, a single forward pass of the Lc0 neural network (no search), with its win/draw/loss output converted to centipawns and capped at ±10,000; for move quality / centipawn loss, Lc0 @ 800 nodes. Lc0 was chosen because it runs on the GPU, which on this machine is far faster than CPU Stockfish. (Fields named `stockfish_*` are legacy names and hold Lc0 values.)
+Do open-source language models reason about a chess position, or do they pattern-match on familiar
+chess text? This repository holds the benchmark, every experiment, all results and the audit trail.
 
-For the findings see [docs/FINDINGS.md](docs/FINDINGS.md). For a non-technical summary see [docs/SIMPLE_SUMMARY.md](docs/SIMPLE_SUMMARY.md). The tables in both are generated from `results/metrics/` by `scripts/render_findings.py` (`--check` fails if they are stale). Known measurement issues and their fixes are logged in [docs/issues-log.md](docs/issues-log.md).
-
----
-
-## Quick Start
-
-```bash
-# Run the full benchmark pipeline
-bash bin/run_pipeline.sh
-```
-
-For step-by-step instructions see [docs/RUNBOOK.md](docs/RUNBOOK.md).
-For a description of every script see [docs/SCRIPTS.md](docs/SCRIPTS.md).
+| Section | What's in it |
+|---|---|
+| [1. The project in brief](#1-the-project-in-brief) | Question, method and headline result in one page |
+| [2. Where to start reading](#2-where-to-start-reading) | A reading order for a reviewer |
+| [3. The experiments](#3-the-experiments) | Each experiment with its spec, config, results and write-up |
+| [4. How the benchmark works](#4-how-the-benchmark-works) | Positions, models, tasks, scoring |
+| [5. Repository map](#5-repository-map) | What each folder is for |
+| [6. Raw data](#6-raw-data) | The full answer-by-answer records and how to get them |
+| [7. Reproducibility](#7-reproducibility) | What can and can't be reproduced |
+| [8. Running it yourself](#8-running-it-yourself) | Commands for the pipeline, tests and checks |
 
 ---
 
-## Project Layout
+## 1. The project in brief
 
-```
-chess-llm-bench/
-├── bin/               Shell scripts (pipeline, monitoring, utilities)
-├── config/            config.yaml — models, paths, thresholds
-├── dashboard/         Live web dashboard (Flask + Chart.js)
-├── data/              Puzzle datasets by difficulty tier (gitignored)
-├── docs/              Runbook, scripts reference, change log, research notes
-├── jobs/              Runtime job queue — SQLite DB + skipped-tier list (gitignored)
-├── results/           Metrics, plots, logs (raw evaluations: see "Results and raw data")
-│   ├── metrics/                 base benchmark metrics (summary.json, per-model CSVs)
-│   ├── plots/
-│   ├── engine_strength/         T2-5 engine check (Lc0 800 vs 8,000 nodes)
-│   ├── finetuning_experiment/   base re-run, pieces-only and legal-moves fine-tunes
-│   ├── plain_board/             notation check (specs/plain-board-prompts.md)
-│   ├── evaluations_retried.jsonl
-│   └── logs/
-├── scripts/           Python scripts (dataset build, workers, analysis)
-├── specs/             Feature specifications
-├── src/               Library modules
-└── tests/             pytest test suite
-```
+- **What was tested:** 22 open-source models (2B–70B parameters, 12 families) run locally through Ollama.
+- **On what:** 4,000 Lichess puzzle positions, 1,000 in each of four rating tiers.
+- **Three tasks per position:** evaluate it (T1), choose a move (T2), explain who stands better and why (T3).
+- **Against what:** the Lc0 chess engine as ground truth, plus chance and trivial-answer baselines.
+- **Scale:** 6 prompt formats, 526,662 evaluations in the base benchmark.
+
+**Headline result.** The models' own first moves are legal about 1 time in 10; their move choices are
+1.16× better than a random legal move; their evaluations are worse than always answering "0"; and
+size doesn't help except within Google's Gemma models. Fine-tuning small models to read the board
+taught them to read the board, but not to play better. All of it fits pattern matching better than
+reasoning. Full detail: [docs/FINDINGS.md](docs/FINDINGS.md).
 
 ---
 
-## Results and raw data
+## 2. Where to start reading
 
-**For a reviewer, start here:**
-1. [docs/FINDINGS.md](docs/FINDINGS.md): every result, with tables generated from the metrics.
-2. [docs/issues-log.md](docs/issues-log.md): every measurement problem found and how it was fixed.
-3. `results/metrics/summary.json`: the headline numbers, with provenance (git commit, data hash, engine).
-4. `results/finetuning_experiment/comparison.csv` and `comparison_legal.csv`: the fine-tuning results.
-5. `specs/`: what each experiment set out to test, written before it ran.
+1. **[docs/SIMPLE_SUMMARY.md](docs/SIMPLE_SUMMARY.md)**: the whole project in plain language.
+2. **[docs/FINDINGS.md](docs/FINDINGS.md)**: every result. Its tables are generated from the metrics,
+   and `scripts/render_findings.py --check` fails if they go stale.
+3. **[docs/issues-log.md](docs/issues-log.md)**: every measurement problem found, and how it was fixed.
+   The section "How the audit changed the numbers" in FINDINGS summarises it.
+4. **[specs/](specs/)**: what each experiment set out to test, written before it ran. The folder's
+   README groups them by topic.
+5. **[results/](results/)**: the numbers themselves. The folder's README says which file holds what.
 
-**Raw evaluations.** One JSON record per model answer (prompt format, position, the model's answers,
-the engine's values and the scores; later runs also keep the raw reply). The files are 110–460 MB, over
+---
+
+## 3. The experiments
+
+| # | Experiment | Status | Spec (written first) | Config | Results | Write-up |
+|---|---|---|---|---|---|---|
+| 1 | **Base benchmark**: 22 models × 4,000 positions × 6 formats | Done | [specs/benchmark.md](specs/benchmark.md) | `config/config.yaml` | `results/metrics/` | FINDINGS 1–6 |
+| 2 | **Base re-run**: 5 models again, saving raw replies (first-answer legality) | Done | [specs/t2-move-source.md](specs/t2-move-source.md) | `config/config_base_rerun.yaml` | `results/finetuning_experiment/base_rerun/` | FINDINGS 2, F |
+| 3 | **Pieces-only fine-tune**: teach 5 models to read the board | Done | [fine-tuning/specs/chess-board-finetuning.md](fine-tuning/specs/chess-board-finetuning.md) | `config/config_finetuned.yaml` | `results/finetuning_experiment/` | FINDINGS F |
+| 4 | **Pieces + legal moves fine-tune**: also teach the legal moves | Done (criteria fixed in advance) | [fine-tuning/specs/legal-moves-finetuning.md](fine-tuning/specs/legal-moves-finetuning.md) | `config/config_legal_ft.yaml` | `results/finetuning_experiment/legal_ft/` | FINDINGS F |
+| 5 | **Engine-strength check**: does a 10× stronger engine change the ranking? | Done | [specs/engine-strength-check.md](specs/engine-strength-check.md) | — | `results/engine_strength/`, `results/metrics/engine_strength*` | FINDINGS, Limitations |
+| 6 | **Notation check**: same positions as a plain-English board, no FEN | **Running** | [specs/plain-board-prompts.md](specs/plain-board-prompts.md) | `config/config_plain_board.yaml` | `results/plain_board/` | To be added |
+| 7 | **Commercial models** (Claude and others via API) | Planned | [specs/commercial-models.md](specs/commercial-models.md) | — | — | — |
+
+---
+
+## 4. How the benchmark works
+
+**Positions.** 4,000 Lichess puzzles, 1,000 per rating tier (easy < 1200, medium 1200–1800,
+hard 1800–2400, extreme 2400+), sampled with seed 42.
+
+**Prompt formats.** Three combined prompts ask all three questions at once (`fen_only`, `pgn+fen`, `cot`).
+Three isolated prompts ask one question each (`eval_only`, `move_only`, `explanation_only`).
+
+**Ground truth.** Lc0, chosen because it runs on the GPU:
+- T1: a single forward pass of the network, converted to centipawns, capped at ±10,000.
+- T2: Lc0 at 800 nodes for the best move and centipawn loss (CPL), clamped to ±1,000.
+- Fields named `stockfish_*` are legacy names and hold Lc0 values.
+
+**Scoring.**
+
+| Task | What is measured | Headline metric |
+|---|---|---|
+| **T1: Evaluation** | The model's centipawn estimate | Spearman ρ against Lc0; error compared with always answering 0; chance-corrected direction agreement (κ) |
+| **T2: Move** | A legal, good move | Blunder rate (clamped CPL ≥ 1,000, bootstrap CI); CPL buckets; best-move rate against a random legal move; legality on the first answer and after re-asking |
+| **T3: Explanation** | Who stands better, and why | Side mark against a majority baseline (κ); whole-word theme mark |
+
+**Models.** The full list with sizes and families is in [config/config.yaml](config/config.yaml).
+
+**Hardware.** One PC: RTX 5080 (16 GB), 32 GB RAM. Models run through Ollama; Lc0 runs on the GPU.
+
+---
+
+## 5. Repository map
+
+| Folder | What's there | Guide |
+|---|---|---|
+| `docs/` | Findings, plain summary, issues log, research notes, runbook | [docs/README.md](docs/README.md) |
+| `specs/` | One spec per feature or experiment, written before the code | [specs/README.md](specs/README.md) |
+| `results/` | Metrics, plots, logs and comparison tables for every run | [results/README.md](results/README.md) |
+| `fine-tuning/` | The fine-tuning experiments: data, training, export, comparison | [fine-tuning/README.md](fine-tuning/README.md) |
+| `src/` | The library: prompts, model client, scoring, metrics, job queue | — |
+| `scripts/` | Command-line tools: build data, run workers, analyse, plot | [docs/SCRIPTS.md](docs/SCRIPTS.md) |
+| `bin/` | Shell scripts that run the whole pipeline | [docs/SCRIPTS.md](docs/SCRIPTS.md) |
+| `config/` | One YAML file per run: models, prompt formats, paths | — |
+| `tests/` | pytest suite for `src/` and `scripts/` (fine-tuning tests are in `fine-tuning/tests/`) | — |
+| `runs/` | One record per training run: config, git commit, seed, data hash, metrics | — |
+| `dashboard/` | Live web dashboard used while runs were in progress | [specs/dashboard.md](specs/dashboard.md) |
+
+Not in the repository: `data/` (the Lichess dataset, downloadable), `jobs/` (runtime job queues) and
+the fine-tuned model weights.
+
+---
+
+## 6. Raw data
+
+One JSON record per model answer: the prompt format, the position, the model's answers, the engine's
+values and the scores. Later runs also keep the model's full reply. The files are 110–460 MB, over
 GitHub's 100 MB limit, so they are attached xz-compressed to the release
 [`data-2026-10-31`](https://github.com/rabrew/chess-llm-bench/releases/tag/data-2026-10-31), with
-SHA-256 checksums:
+SHA-256 checksums.
 
 | Release file | Goes to | What it is |
 |---|---|---|
 | `base_evaluations.jsonl.xz` | `results/evaluations.jsonl` | Base benchmark, 22 models, 526,662 records |
-| `base_rerun_evaluations.jsonl.xz` | `results/finetuning_experiment/` | Base re-run of the 5 fine-tuned models, with raw replies |
+| `base_rerun_evaluations.jsonl.xz` | `results/finetuning_experiment/evaluations_base_rerun.jsonl` | Base re-run of the 5 fine-tuned models, with raw replies |
 | `pieces_ft_evaluations.jsonl.xz` | `results/finetuning_experiment/evaluations_ft.jsonl` | Pieces-only fine-tune |
 | `legal_ft_evaluations.jsonl.xz` | `results/finetuning_experiment/evaluations_legal_ft.jsonl` | Pieces + legal moves fine-tune |
 | `plain_board_evaluations_PARTIAL_*.jsonl.xz` | `results/plain_board/evaluations.jsonl` | Notation check, **in progress** (snapshot) |
@@ -75,79 +131,32 @@ gh release download data-2026-10-31 --repo rabrew/chess-llm-bench --dir release_
 cd release_data && sha256sum -c SHA256SUMS.txt && xz -dk *.xz
 ```
 
-Not published: the Lichess source dataset (download from [database.lichess.org](https://database.lichess.org/#puzzles)),
-the job-queue databases (runtime state) and the fine-tuned model weights (several GB each).
-
 ---
 
-## Scoring
-
-Each position is evaluated on three tasks:
-
-| Task | What is measured | Metric |
-|------|-----------------|--------|
-| **T1 — Eval** | Model estimates centipawn evaluation | **Spearman ρ** vs Lc0 (headline); error relative to always answering 0; chance-corrected direction agreement (κ) at four thresholds |
-| **T2 — Move** | Model selects a legal, good move | **Blunder rate** (clamped CPL ≥ 1000, bootstrap CI); CPL buckets; best-move rate vs a random legal move; legality, both final and first-answer |
-| **T3 — Explanation** | Model explains who stands better and why | Side mark with majority baseline and κ; whole-word theme mark (tactical themes from the full Lichess list) |
-
----
-
-## Fine-tuning experiment
-
-`fine-tuning/` trains LoRA adapters on five of the models and re-runs the same benchmark on them:
-- **Pieces only:** done. Spec: `fine-tuning/specs/chess-board-finetuning.md`.
-- **Pieces + legal moves:** done; judged against success criteria committed before any results
-  (FINDINGS section F).
-  Spec: `fine-tuning/specs/legal-moves-finetuning.md`.
-
-`fine-tuning/scripts/compare_finetuning_results.py` pairs base and fine-tuned answers on the same
-position and prompt. Each training run is recorded in `runs/`.
-
----
-
-## Models
-
-22 Ollama models from 2B to 70B parameters, spanning 9 architecture families (LLaMA 3, Gemma 3, Gemma 4, Qwen 2.5, DeepSeek-R1, Mistral, Solar, Phi-4, WizardLM, CodeLlama, Yi, Command-R). See [config/config.yaml](config/config.yaml) for the full list.
-
----
-
-## Hardware
-
-- GPU: RTX 5080 (Lc0 ONNX batch inference for CPL ground truth)
-- GPU: Lc0 network (single forward pass, `scripts/precompute_lc0_batch_v2.py`) for T1 ground truth, precomputed once into the dataset
-- Models split across main SSD and shared NTFS partition via symlinks
-
----
-
-## Reproducibility
+## 7. Reproducibility
 
 **Reproducible:** the dataset, the engine ground truth and the scoring.
 - **Positions:** sampled with `random_seed: 42` (`config/config.yaml`). Position IDs are a hash of the
   FEN, so they are stable across rebuilds.
-- **Engine truth:** Lc0, precomputed and stored. T1 uses the no-search network; CPL uses 800 nodes. The
-  node count is stored on every record (`t2_eval_nodes`).
+- **Engine truth:** Lc0, precomputed and stored. The node count is on every record (`t2_eval_nodes`).
 - **Provenance:** every `summary.json` records the git commit, the results-file hash, the Lc0 weights
-  hash and the config (`provenance`).
-- **Dependencies:** pinned in `requirements.txt`. Dev tools (ruff) are in `requirements-dev.txt`.
+  hash and the config.
+- **Dependencies:** pinned in `requirements.txt`; dev tools (ruff) in `requirements-dev.txt`.
 
-**Not reproducible:** the model outputs.
-- Five of the six prompt formats ran at Ollama's default temperature.
-- Asked the identical prompt twice, a model gave the same move 68.7% of the time (Issue 23).
-
-## Development
-
-```bash
-venv/bin/python -m pytest -q tests fine-tuning/tests   # full test suite
-venv/bin/ruff check src scripts fine-tuning tests      # lint (config: ruff.toml)
-venv/bin/python scripts/render_findings.py --check     # docs match the metrics
-```
-
-Every change follows `CLAUDE.md`: spec, then tests, then code, then commit.
+**Not reproducible:** the model outputs. Five of the six prompt formats ran at Ollama's default
+temperature, and given the identical prompt twice a model gave the same move 68.7% of the time
+(Issue 23).
 
 ---
 
-## Research Context
+## 8. Running it yourself
 
-Stripe Young Scientist Award 2027. Full research framing: [docs/RESEARCH.md](docs/RESEARCH.md).
-Detailed benchmark specification: [specs/benchmark-detailed.md](specs/benchmark-detailed.md).
-Full audit findings + methodology: [docs/FINDINGS.md](docs/FINDINGS.md), [specs/artefact-fixes.md](specs/artefact-fixes.md).
+```bash
+bash bin/run_pipeline.sh                                 # the full benchmark pipeline
+venv/bin/python -m pytest -q tests fine-tuning/tests     # full test suite
+venv/bin/ruff check src scripts fine-tuning tests        # lint (config: ruff.toml)
+venv/bin/python scripts/render_findings.py --check       # FINDINGS tables match the metrics
+```
+
+Step-by-step instructions: [docs/RUNBOOK.md](docs/RUNBOOK.md). Every change follows `CLAUDE.md`:
+spec, then tests, then code, then commit.
