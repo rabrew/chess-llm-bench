@@ -1,0 +1,525 @@
+<title>Do LLMs Reason? Draft</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,600;0,7..72,700;1,7..72,400&family=Public+Sans:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: long-form paper, one reading column, sticky contents rail on wide screens; citations as green superscripts, flags as amber chips. */
+:root {
+  --bg: #f6f7f4; --surface: #ffffff; --fg: #1d2420; --muted: #5d6a62; --line: #d9ded8;
+  --accent: #4a7a3a; --accent-soft: #e6eedf; --warn: #9a5b12; --warn-soft: #f6ead8;
+  --serif: "Literata", Georgia, "Times New Roman", serif;
+  --sans: "Public Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #141815; --surface: #1c211d; --fg: #e4e9e4; --muted: #9aa69e; --line: #2f3731;
+  --accent: #8cc070; --accent-soft: #24301f; --warn: #e3a95c; --warn-soft: #33281a; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #141815; --surface: #1c211d; --fg: #e4e9e4; --muted: #9aa69e; --line: #2f3731;
+  --accent: #8cc070; --accent-soft: #24301f; --warn: #e3a95c; --warn-soft: #33281a; color-scheme: dark }
+
+body { background: var(--bg); color: var(--fg); font-family: var(--serif); font-size: 17px; line-height: 1.65; }
+.wrap { max-width: 1120px; margin: 0 auto; padding-block: 40px 96px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 48px; }
+@media (max-width: 860px) { .wrap { grid-template-columns: minmax(0, 1fr); gap: 24px; } nav.toc { position: static !important; } }
+nav.toc { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 24px); align-self: start; font-family: var(--sans); font-size: 14px; max-height: calc(100vh - 48px); overflow-y: auto; }
+nav.toc p { text-transform: uppercase; letter-spacing: .08em; font-size: 12px; color: var(--muted); margin: 0 0 8px; font-weight: 600; }
+nav.toc ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 3px; }
+nav.toc a { color: var(--fg); text-decoration: none; display: block; padding: 3px 0 3px 10px; border-left: 2px solid var(--line); }
+nav.toc a:hover, nav.toc a:focus-visible { border-left-color: var(--accent); color: var(--accent); outline: none; }
+main { min-width: 0; max-width: 72ch; }
+header.top { border-bottom: 1px solid var(--line); padding-bottom: 20px; margin-bottom: 8px; }
+.eyebrow { font-family: var(--sans); text-transform: uppercase; letter-spacing: .1em; font-size: 12px; color: var(--accent); font-weight: 700; margin: 0; }
+h1 { font-size: 2.2rem; line-height: 1.15; margin: 6px 0 10px; text-wrap: balance; }
+h2 { font-size: 1.55rem; margin: 56px 0 12px; text-wrap: balance; scroll-margin-top: 16px; }
+h3 { font-size: 1.15rem; margin: 32px 0 8px; text-wrap: balance; scroll-margin-top: 16px; }
+h4 { font-family: var(--sans); font-size: .98rem; margin: 22px 0 6px; }
+.byline { font-family: var(--sans); color: var(--muted); font-size: 14px; margin: 0; }
+p, ul, ol { margin: 0 0 14px; }
+ul, ol { padding-left: 1.3em; }
+li { margin-bottom: 5px; }
+code { font-family: var(--mono); font-size: .84em; }
+sup.c { font-family: var(--sans); font-size: .68em; font-weight: 700; }
+sup.c a { color: var(--accent); text-decoration: none; }
+.flag { font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: .02em; padding: 1px 6px; border-radius: 4px; background: var(--warn-soft); color: var(--warn); white-space: nowrap; }
+.box { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 16px 18px; margin: 18px 0; }
+.box > :last-child { margin-bottom: 0; }
+.box.note { background: var(--warn-soft); border-color: transparent; font-family: var(--sans); font-size: 15px; line-height: 1.55; }
+.box.note b { color: var(--warn); }
+.box.key { border-left: 4px solid var(--accent); }
+.abstract { font-size: 16px; }
+.tablebox { overflow-x: auto; margin: 14px 0 6px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-family: var(--sans); font-size: 14px; }
+th, td { text-align: left; padding: 7px 11px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-weight: 600; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .05em; }
+tr:last-child td { border-bottom: 0; }
+td.n { font-family: var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.caption { font-family: var(--sans); font-size: 13.5px; color: var(--muted); margin: 0 0 18px; }
+.fen { font-family: var(--mono); font-size: 13px; background: var(--accent-soft); padding: 8px 10px; border-radius: 6px; overflow-x: auto; white-space: nowrap; }
+pre.diagram { font-family: var(--mono); font-size: 13.5px; line-height: 1.35; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; overflow-x: auto; margin: 12px 0 14px; }
+ol.refs { padding-left: 1.6em; font-size: 15px; }
+ol.refs li { margin-bottom: 10px; scroll-margin-top: 16px; }
+ol.refs a { color: var(--accent); word-break: break-word; }
+.status { font-family: var(--sans); font-size: 12px; color: var(--muted); }
+a { color: var(--accent); }
+</style>
+
+<div class="wrap">
+<nav class="toc" aria-label="Contents">
+  <p>Contents</p>
+  <ol>
+    <li><a href="#about">About this draft</a></li>
+    <li><a href="#abstract">Abstract</a></li>
+    <li><a href="#intro">1. Introduction</a></li>
+    <li><a href="#bg-chess">2. Chess and its notation</a></li>
+    <li><a href="#bg-engines">3. How chess engines work</a></li>
+    <li><a href="#bg-llms">4. How language models work</a></li>
+    <li><a href="#bg-reason">5. Do language models reason?</a></li>
+    <li><a href="#bg-prior">6. Language models and chess</a></li>
+    <li><a href="#bg-ft">7. Fine-tuning</a></li>
+    <li><a href="#bg-stats">8. Measuring fairly</a></li>
+    <li><a href="#questions">9. Research questions</a></li>
+    <li><a href="#method">10. Method</a></li>
+    <li><a href="#results">11. Results</a></li>
+    <li><a href="#discussion">12. Discussion</a></li>
+    <li><a href="#limits">13. Limitations</a></li>
+    <li><a href="#conclusion">14. Conclusion</a></li>
+    <li><a href="#refs">References</a></li>
+    <li><a href="#flags">Source checklist</a></li>
+  </ol>
+</nav>
+
+<main>
+<header class="top">
+  <p class="eyebrow">Project PR09426 · First full draft</p>
+  <h1>Do Large Language Models Reason? Benchmarking Logical Performance via Chess</h1>
+  <p class="byline">Ryan Brew · Draft of 31 October 2026 · Numbers from <code>docs/FINDINGS.md</code> at commit <code>f72a525</code></p>
+</header>
+
+<div class="box note" id="about">
+  <p><b>About this draft.</b> It's a starting point to rewrite in your own words, not text to hand in. If the project is assessed, check the rules on AI help and say in your acknowledgements how you used it.</p>
+  <p><b>Sources.</b> Every numbered citation <sup class="c">[n]</sup> is in the reference list. I confirmed each one exists (authors, title, venue, year) by searching for it. I haven't read the full text of most of them, so read each paper's abstract at least before you cite it. Places that still need a source, or a check against the code or data, are marked <span class="flag">CHECK</span>. All of them are collected in the <a href="#flags">source checklist</a> at the end.</p>
+  <p><b>Your own results</b> come from <code>docs/FINDINGS.md</code> and need no outside source. The plain-board experiment is still running, so its section has placeholders.</p>
+</div>
+
+<h2 id="abstract">Abstract</h2>
+<div class="abstract">
+<p>Large language models (LLMs) write fluent explanations of almost anything, including chess. Does that fluency come from reasoning about the position, or from reproducing patterns in their training text? This project tests 22 open-source LLMs, from 2 to 70 billion parameters, on 4,000 Lichess puzzle positions. Each model is asked to evaluate the position, choose a move and explain who stands better, giving 526,662 scored answers. A neural chess engine, Leela Chess Zero, provides the correct answers. Every score is set against a chance baseline.</p>
+<p>The models rarely produce a legal move unaided (9.3% of first answers). When given a list of legal moves, they pick the engine's best move barely more often than a random pick (10.2% against 8.8%). They play the human move that led into the puzzle, usually a mistake, more often than the best move. Their evaluations are no better than answering "equal" every time, and their explanations name the better side less often than a fixed guess. Moves are either essentially perfect (19%) or disastrous (42% blunders), with little in between. Larger models do no better, except in Google's Gemma families. Chain-of-thought prompting changes nothing. Fine-tuning five small models to read the board raised board-reading accuracy from 1–19% to 89–99%, but did not improve play, and legality fell. A check with ten times more engine search left the model ranking unchanged.</p>
+<p>Taken together, the results are more consistent with pattern matching than with reasoning about the position. An audit of the project's own metrics found that naive measures made weak models look capable at every step. The audit itself is a result.</p>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="intro">1. Introduction</h2>
+<p>Since 2022, large language models have gone from research curiosities to tools used by millions of people. They answer questions, write code and explain their answers in confident, well-formed prose. That fluency invites a question with real consequences: when a model explains <em>why</em> something is true, is it working the problem out, or reproducing text that looks like an answer?</p>
+<p>The question is hard to settle in everyday tasks, because there is rarely a single right answer and a fluent answer is easy to mistake for a correct one. Chess avoids both problems. Its rules are fixed and completely specified. Every position has a correct evaluation and best move, which a chess engine can compute far more accurately than any human. Every claim a model makes about a position can be checked. Chess was proposed as a test bed for machine intelligence as early as 1950, for exactly this reason: it is "sharply defined both in allowed operations (the moves) and in the ultimate goal (mate)"<sup class="c"><a href="#r1">[1]</a></sup> <span class="flag">CHECK quote wording against Shannon's paper</span>.</p>
+<p>Chess is also a good test because language models were never designed to play it. A general-purpose LLM has seen chess only as text: game records, puzzle collections, forum posts and commentary. If it can still evaluate a new position, choose a good move and give a correct reason, that is evidence of something like reasoning. If it produces the <em>form</em> of a chess answer without its substance, that points to pattern matching.</p>
+<p>This project measures three abilities separately, on the same positions:</p>
+<ul>
+  <li><b>T1, evaluation:</b> how good is the position, in centipawns?</li>
+  <li><b>T2, move choice:</b> what is the best move?</li>
+  <li><b>T3, explanation:</b> who stands better, and why?</li>
+</ul>
+<p>It then asks whether the results change with model size, prompt style or fine-tuning. Throughout, every score is compared with what a strategy with no chess knowledge would get. Without that comparison, models look far more capable than they are.</p>
+
+<!-- ============================================================ -->
+<h2 id="bg-chess">2. Chess and its notation</h2>
+<h3>2.1 Positions as text: FEN</h3>
+<p>A language model receives only text, so the chess position has to be written down. The standard way is Forsyth–Edwards Notation (FEN). It is based on a nineteenth-century notation by David Forsyth, and Steven Edwards adapted it for computers as part of the Portable Game Notation (PGN) standard of 1994<sup class="c"><a href="#r2">[2]</a></sup>. A FEN string describes a whole position on one line, in six fields:</p>
+<ol>
+  <li>piece placement, rank by rank from rank 8 down to rank 1, with upper case for White, lower case for Black and digits for runs of empty squares</li>
+  <li>side to move (<code>w</code> or <code>b</code>)</li>
+  <li>castling rights</li>
+  <li>en passant target square</li>
+  <li>half-move clock (for the fifty-move rule)</li>
+  <li>full-move number</li>
+</ol>
+<p class="fen">rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1</p>
+<p class="caption">The position after 1.e4. The pawn now on e4 appears as <code>4P3</code> on the fourth rank (four empty squares, a white pawn, three empty), and Black is to move.</p>
+<p>FEN is compact and unambiguous, but it isn't easy for a person to read: they have to rebuild the board in their head. Whether it is also hard for a language model is a fair question, and section 12.2 addresses it directly.</p>
+
+<h3>2.2 Moves as text: SAN</h3>
+<p>Moves are written in Standard Algebraic Notation (SAN), also defined in the PGN standard<sup class="c"><a href="#r2">[2]</a></sup>. A move names the piece (K, Q, R, B, N; nothing for a pawn) and its destination square: <code>Nf3</code>, <code>e4</code>. An <code>x</code> marks a capture (<code>Bxc6</code>), <code>+</code> check, <code>#</code> mate, <code>O-O</code> and <code>O-O-O</code> castling, and <code>e8=Q</code> promotion. A move is <em>legal</em> only if the rules allow it in that exact position for the side to move. A move that would leave your own king in check is illegal, for example, and a pinned piece cannot leave the line of the pin.</p>
+
+<h3>2.3 Evaluation, tactics and puzzles</h3>
+<p>Chess players and engines measure advantage in <b>centipawns</b> (cp): hundredths of a pawn. +150 means White is about one and a half pawns better; −300 means Black is about a minor piece better. By convention, evaluations are given from White's point of view.</p>
+<p>A <b>tactic</b> is a short, forcing sequence that wins material or gives mate, such as a fork, a pin, a skewer or a mating attack. The <b>Lichess puzzle database</b> is a free, public collection of over six million positions from real games on lichess.org, each rated for difficulty and tagged with tactical themes<sup class="c"><a href="#r3">[3]</a></sup>. Each puzzle starts one move before the tactic: the opponent's move (here called the <em>setup move</em>, usually a mistake) creates the opportunity, and the solver must find the reply. This detail matters for interpreting the results (section 13).</p>
+
+<!-- ============================================================ -->
+<h2 id="bg-engines">3. How chess engines work</h2>
+<h3>3.1 Search: minimax and alpha-beta</h3>
+<p>Shannon's 1950 paper laid out the approach classical chess programs still follow<sup class="c"><a href="#r1">[1]</a></sup>: look ahead through the tree of possible moves and replies, score the positions at the end with an <em>evaluation function</em>, and pass the scores back up the tree. <b>Minimax</b> assumes each side picks the move best for itself. The tree grows explosively, since a typical position has 30 or so legal moves, so engines prune it. <b>Alpha-beta pruning</b> skips branches that provably cannot change the final choice. With good move ordering, an engine can search much deeper for the same work<sup class="c"><a href="#r4">[4]</a></sup>.</p>
+<h3>3.2 Evaluation: hand-written, then learned</h3>
+<p>For decades, evaluation functions were written by hand from chess knowledge: material, king safety, piece activity, pawn structure. In 2020, Stockfish, the strongest classical engine, adopted an "efficiently updatable neural network" (NNUE). NNUE is a small network, first developed for the Japanese game shogi, that can be updated cheaply as pieces move<sup class="c"><a href="#r5">[5]</a></sup>. Stockfish still relies on deep alpha-beta search; only its evaluation became learned.</p>
+<h3>3.3 AlphaZero and Monte Carlo tree search</h3>
+<p>DeepMind's AlphaZero (2018) took a different route<sup class="c"><a href="#r6">[6]</a></sup>. It learned chess, shogi and Go from self-play alone, given only the rules. A deep neural network looks at a position and outputs two things:</p>
+<ul>
+  <li>a <b>value</b>: how likely the side to move is to win</li>
+  <li>a <b>policy</b>: which moves look promising</li>
+</ul>
+<p>Instead of alpha-beta, AlphaZero uses <b>Monte Carlo tree search (MCTS)</b>. The search repeatedly picks a line to explore, guided by the policy and by the values found so far, and spends more effort on promising moves<sup class="c"><a href="#r6">[6]</a></sup><sup class="c"><a href="#r7">[7]</a></sup>. Each position the search visits is called a <b>node</b>. More nodes means a deeper, more reliable search.</p>
+<h3>3.4 Leela Chess Zero (Lc0): this project's ground truth</h3>
+<p>Leela Chess Zero (Lc0) is an open-source engine that follows the AlphaZero approach. It was announced in January 2018, is developed by volunteers, and is released under the GPLv3 licence<sup class="c"><a href="#r8">[8]</a></sup>. Lc0 runs on a graphics card (GPU). That made it practical here: it had to check more than half a million answers on one home PC. The project uses it in two ways:</p>
+<ul>
+  <li><b>T1 evaluation truth:</b> a single pass of the network, with no search, converted to centipawns and capped at ±10,000.</li>
+  <li><b>T2 move truth:</b> a search of 800 nodes per position, giving the best move and the evaluations used to score move quality.</li>
+</ul>
+<p>Is 800 nodes enough? A stronger search might judge some moves differently. Section 11.8 tests this directly: re-scoring 1,000 positions at 8,000 nodes left the ranking of models unchanged.</p>
+<p><span class="flag">CHECK</span> Name the exact Lc0 network file (<code>network.pb</code>) and its version in the method, and cite it to the Lc0 networks page.</p>
+
+<h3>3.5 Measuring move quality</h3>
+<p><b>Centipawn loss (CPL)</b> measures how much worse a position is after the model's move than after the engine's best move, from the mover's point of view. A CPL of 0 means the best move. A CPL of 300 means the move threw away about a minor piece. Raw CPL has a problem: a move that misses a forced mate can score a loss of thousands of centipawns, and a few such moves swamp the average (an early version of this project reported a mean CPL of 4,735). Following common practice, both evaluations are clamped to ±1,000 cp before taking the difference <span class="flag">CHECK cite the Lichess source for the ±1,000 clamp</span>. A <b>blunder</b> is defined here as a clamped CPL of 1,000 or more: a move that turns a winning position into a lost one, or worse.</p>
+
+<!-- ============================================================ -->
+<h2 id="bg-llms">4. How language models work</h2>
+<h3>4.1 Tokens and next-token prediction</h3>
+<p>A language model reads and writes <b>tokens</b>: short chunks of text, often a word or part of a word. A FEN string such as <code>r1bqkbnr/pppp1ppp/2n5/…</code> is split into tokens too. The model has no built-in idea that these characters describe an 8×8 board.</p>
+<p>A model is trained by showing it huge amounts of text and adjusting it to predict the next token better. Everything it "knows" comes from statistical patterns in that text. Chess is part of the web, so the training text includes game records, puzzles, FEN strings and annotated analysis. One influential paper argues that LLMs are best understood through this training objective. They do much better when the task, the input and the correct output are all likely under the training data, and worse when they are not<sup class="c"><a href="#r9">[9]</a></sup>.</p>
+<h3>4.2 Transformers and attention</h3>
+<p>Modern LLMs are built on the <b>Transformer</b> architecture<sup class="c"><a href="#r10">[10]</a></sup>. Its key mechanism, <b>attention</b>, lets each token draw on information from every earlier token, weighted by how relevant it is. A model can only attend to a limited number of tokens at once, its <b>context window</b>. If a prompt is longer than the window, the excess is cut off. This mattered in practice for one model in this project (section 13).</p>
+<h3>4.3 From base models to assistants and "reasoning" models</h3>
+<p>A model trained only on next-token prediction is a <b>base model</b>. The models tested here are <b>instruction-tuned</b>: trained further to follow instructions and answer in a chat format. Some newer models are trained to write out intermediate steps before answering. DeepSeek-R1, two of whose distilled versions are tested here, was trained with reinforcement learning to produce long reasoning chains<sup class="c"><a href="#r11">[11]</a></sup>. Simply <em>asking</em> a model to "think step by step" is called <b>chain-of-thought prompting</b>. In very large models, it improves results on arithmetic and logic problems<sup class="c"><a href="#r12">[12]</a></sup>. This project tests whether it helps with chess.</p>
+<h3>4.4 Size, quantisation and running models locally</h3>
+<p>Model size is counted in <b>parameters</b>, the numbers adjusted during training. The models here range from 2 to 70 billion. Larger models trained on more data reliably reach lower prediction error, following smooth "scaling laws"<sup class="c"><a href="#r13">[13]</a></sup>. A natural guess is that bigger models will also reason better, which this project tests (H4). To run large models on a home PC, their parameters are <b>quantised</b>: stored in about 4 bits instead of 16, which cuts memory roughly fourfold. All models were run through Ollama, which runs quantised models locally <span class="flag">CHECK cite Ollama (ollama.com) and the GGUF/llama.cpp format</span>.</p>
+<h3>4.5 Sampling and temperature</h3>
+<p>A model doesn't produce one fixed answer. At each step it gives a probability for every possible next token, and a token is drawn from that distribution. The <b>temperature</b> setting controls how much randomness the draw allows. All models here ran at Ollama's default temperature, so the same prompt can give different answers. The project measured how much (section 11.7).</p>
+
+<!-- ============================================================ -->
+<h2 id="bg-reason">5. Do language models reason?</h2>
+<p>Whether LLMs reason or "merely" match patterns is one of the central debates about them. Two positions mark out the ends of it.</p>
+<p><b>The sceptical view.</b> Bender and Koller argued that a system trained only on linguistic form cannot learn meaning<sup class="c"><a href="#r14">[14]</a></sup>. Bender, Gebru and colleagues described LLMs as "stochastic parrots" that stitch together sequences of words probabilistically, without reference to meaning<sup class="c"><a href="#r15">[15]</a></sup>. Recent experiments support a version of this view:</p>
+<ul>
+  <li><b>GSM-Symbolic:</b> Apple researchers took grade-school maths problems and changed only the numbers or added one irrelevant sentence. Model accuracy dropped, in the worst cases sharply. The authors suggest the models replicate reasoning steps seen in training rather than reasoning formally<sup class="c"><a href="#r16">[16]</a></sup>.</li>
+  <li><b>Faith and Fate:</b> Dziri and colleagues found that Transformers solve multi-step problems such as multiplication and logic puzzles largely by matching sub-patterns seen in training. Accuracy falls quickly as problems grow beyond the training distribution<sup class="c"><a href="#r17">[17]</a></sup>.</li>
+</ul>
+<p><b>The "world model" view.</b> On the other side, some studies find structured internal representations. Li and colleagues trained a GPT-style model only on lists of legal Othello moves. They found that it built an internal representation of the board, and that editing that representation changed its predictions<sup class="c"><a href="#r18">[18]</a></sup>. Karvonen extended this to chess: a small model trained only on chess game records developed internal board representations, and even an estimate of the players' skill<sup class="c"><a href="#r19">[19]</a></sup>.</p>
+<p><b>Where this project fits.</b> Those world-model studies trained small, specialised models on games alone. The models tested here are general-purpose chat models, for which chess is a tiny fraction of training. The question here is not whether a model <em>could</em> learn a board representation, but whether widely used models <em>do</em> reason about positions when asked. The answer is judged by what they get right, compared against chance.</p>
+<p><b>Contamination.</b> Benchmarks are only meaningful if the test items weren't in the training data. Sainz and colleagues argue this "data contamination" is widespread, hard to measure, and can lead to wrong conclusions<sup class="c"><a href="#r20">[20]</a></sup>. Lichess puzzles are public, so the models may have seen these positions. Section 13 explains why that makes this project's negative results stronger, not weaker.</p>
+
+<!-- ============================================================ -->
+<h2 id="bg-prior">6. Language models and chess: previous work</h2>
+<ul>
+  <li><b>LLMs can sometimes play.</b> In 2023, Nicholas Carlini reported that OpenAI's GPT-3.5-turbo-instruct, given a game as a PGN move list, could play reasonable chess and beat him, while GPT-4 made illegal moves<sup class="c"><a href="#r21">[21]</a></sup>. Widely shared estimates put its strength around 1,800 Elo, but that figure is disputed and not from a controlled study <span class="flag">CHECK whether Carlini's post gives its own Elo estimate before quoting one</span>. Format mattered: the same family of models did much worse in chat form.</li>
+  <li><b>Transformers trained for chess can be very strong.</b> DeepMind trained a 270-million-parameter Transformer to predict a strong engine's judgements on positions from ten million games. It reached a Lichess blitz rating of about 2,895 against humans without any search<sup class="c"><a href="#r22">[22]</a></sup>. The architecture isn't the limit. A model built and trained for chess can be very strong.</li>
+  <li><b>Models trained on games build board representations</b><sup class="c"><a href="#r19">[19]</a></sup>, as above.</li>
+</ul>
+<p><b>The gap this project fills.</b> Most previous work tests one model, one task (usually playing games), or a model trained specifically for chess. This project tests many general-purpose open models (22, from 2B to 70B) on 4,000 real positions across difficulty levels. It uses three separate tasks (evaluate, move, explain) with engine-checked answers, compares every score with a chance baseline, and tests whether fine-tuning on board reading helps. <span class="flag">CHECK search for any 2024–2026 LLM chess benchmark papers and mention the closest one</span></p>
+
+<!-- ============================================================ -->
+<h2 id="bg-ft">7. Fine-tuning</h2>
+<p><b>Fine-tuning</b> means continuing to train an existing model on a small, focused dataset so it learns a specific skill. Updating every parameter of a 7B model needs far more GPU memory than a home PC has. <b>LoRA</b> (low-rank adaptation) freezes the original weights and trains small add-on matrices in each layer. That cuts the number of trainable parameters by orders of magnitude, with little loss in quality<sup class="c"><a href="#r23">[23]</a></sup>. <b>QLoRA</b> goes further by keeping the frozen model in 4-bit form while training the adapters<sup class="c"><a href="#r24">[24]</a></sup>. This project used 4-bit QLoRA (rank 16, alpha 32) to fine-tune five 3–7B models on one RTX 5080 graphics card. <span class="flag">CHECK confirm rank/alpha/epochs for the pieces-only run in fine-tuning/config/finetune_config.yaml</span></p>
+<p><b>Why fine-tune at all?</b> If models fail at chess because they can't picture the board from a FEN, teaching them to read it should help. That makes it a direct test of the "they just can't read the board" explanation. Two versions were trained: one that lists every piece and its square, and one that also lists every legal move.</p>
+<p><b>Held-out data.</b> A model tested on positions it trained on measures memory, not skill. None of the 20,000 training positions were among the 4,000 benchmark positions. A further 200 positions were held out from training to check that each model had learned its task.</p>
+
+<!-- ============================================================ -->
+<h2 id="bg-stats">8. Measuring fairly</h2>
+<h3>8.1 Baselines</h3>
+<p>A score means little on its own. "Picks the best move 10% of the time" sounds poor. But if a random legal move would also be best 9% of the time, it is barely better than chance. Every measure here is compared with a simple strategy that uses no chess knowledge:</p>
+<ul>
+  <li><b>Move choice:</b> a uniformly random legal move. Positions here have about 27 legal moves on average, but the chance level is the <em>average of 1 ÷ (number of legal moves)</em> over the actual positions (8.8%), not 1 ÷ 27.</li>
+  <li><b>Evaluation:</b> answering "0" (equal) every time.</li>
+  <li><b>Who is better:</b> always naming whichever side is better most often in the dataset.</li>
+</ul>
+<h3>8.2 Rank correlation</h3>
+<p>Spearman's rank correlation (ρ) measures whether two sets of numbers go up and down together, using only their order<sup class="c"><a href="#r25">[25]</a></sup>. ρ = 1 means the model ranks positions in exactly the same order as the engine. ρ = 0 means no relationship. Using ranks means a few huge evaluations (such as forced mates) can't dominate the result.</p>
+<h3>8.3 Agreement beyond chance: Cohen's κ</h3>
+<p>If 54% of positions favour one side, a model that always names that side is "right" 54% of the time without looking at the board. Cohen's kappa (κ) corrects agreement for what the label frequencies alone would produce<sup class="c"><a href="#r26">[26]</a></sup>. κ = 0 means no better than chance, κ = 1 means perfect agreement.</p>
+<h3>8.4 Confidence intervals and the bootstrap</h3>
+<p>Any rate measured on a sample would come out slightly differently on another sample. The <b>bootstrap</b> estimates that uncertainty by resampling the data with replacement many times and recomputing the statistic each time<sup class="c"><a href="#r27">[27]</a></sup>. The middle 95% of those values gives a 95% confidence interval. Two models whose intervals overlap are treated as statistically tied. All resampling here uses a fixed seed (42), so the intervals reproduce exactly.</p>
+<h3>8.5 Deciding the pass mark in advance</h3>
+<p>If you choose what counts as success after seeing the results, it's easy, even unintentionally, to pick the version that looks best. To avoid this, the pass marks for the legal-moves fine-tune, the engine-strength check and the plain-board experiment were written down and committed to the project's version history <em>before</em> any results existed. This practice is called pre-registration <span class="flag">CHECK add a general source on pre-registration, e.g. Nosek et al. 2018, PNAS</span>. The pieces-only fine-tune's criteria came after its results, and the write-up says so.</p>
+
+<!-- ============================================================ -->
+<h2 id="questions">9. Research questions and hypotheses</h2>
+<p><b>Main question:</b> do open-source LLMs reason about chess positions, or do they pattern-match?</p>
+<ul>
+  <li><b>H1–H3 (difficulty):</b> evaluation error (H1), move quality (H2) and explanation quality (H3) get worse as puzzle difficulty rises.</li>
+  <li><b>H4 (size):</b> within a model family, larger models do better.</li>
+  <li><b>Prompting:</b> does asking for step-by-step reasoning help?</li>
+  <li><b>Fine-tuning:</b> does teaching a model to read the board, and then the legal moves, improve its evaluations, moves and explanations?</li>
+  <li><b>Notation (in progress):</b> do the models do better if the position is given as a plain board diagram instead of a FEN?</li>
+</ul>
+<p>If the models reason, we'd expect performance well above chance, gains with size, and gains when they're helped to read the board. If they pattern-match, we'd expect near-chance performance, familiar-looking but wrong answers, and little benefit from extra help.</p>
+
+<!-- ============================================================ -->
+<h2 id="method">10. Method</h2>
+<h3>10.1 Positions</h3>
+<p>Positions come from the Lichess puzzle database<sup class="c"><a href="#r3">[3]</a></sup>. They were grouped into four tiers by puzzle rating: easy (below 1,200), medium (1,200–1,800), hard (1,800–2,400) and extreme (2,400 and above). Then 1,000 per tier were drawn with a fixed random seed (42), giving 4,000 positions. Each position is the one before the puzzle's setup move: the position the human was in when they made it.</p>
+<h3>10.2 Models</h3>
+<p>Twenty-two open-source models from ten families were run locally through Ollama: Llama 3 (3B, 8B, 70B), Qwen 2.5 (7B, 14B, 32B), Gemma 3 (4B, 12B), Gemma 4 (E2B, E4B, 26B, 31B), DeepSeek-R1 distilled (7B, 14B), Mistral 7B, Mixtral 8×7B, Phi-4 14B, Solar 10.7B, Yi 34B, Command-R 35B, CodeLlama 34B and WizardLM-2 7B. <span class="flag">CHECK cite each model's release page or paper in an appendix table</span></p>
+<h3>10.3 Prompts and tasks</h3>
+<p>Each position was given to each model in six prompt formats:</p>
+<ul>
+  <li><b>Three combined prompts</b> asking all three questions at once:
+    <ul>
+      <li><code>fen_only</code>: the FEN alone</li>
+      <li><code>pgn+fen</code>: the FEN plus the moves played so far</li>
+      <li><code>cot</code>: the FEN plus an instruction to think step by step</li>
+    </ul>
+  </li>
+  <li><b>Three single-task prompts</b> (<code>eval_only</code>, <code>move_only</code>, <code>explanation_only</code>), so each ability could be measured without the others getting in the way.</li>
+</ul>
+<p>The combined prompt asked for a reply in a fixed format:</p>
+<pre class="diagram">Eval: &lt;integer&gt;
+Move: &lt;SAN move&gt;
+Explanation: &lt;White / Black / Equal&gt; — &lt;one sentence reason&gt;</pre>
+<p>That gives 4,000 positions × 22 models × 6 formats ≈ 528,000 jobs. After failures, 526,662 answers were scored. In practice <code>pgn+fen</code> turned out identical to <code>fen_only</code>, because none of the positions had a stored move history (Issue 23).</p>
+<h3>10.4 Getting a legal move</h3>
+<p>Most first answers were illegal, so on combined prompts a move was accepted in three steps:</p>
+<ol>
+  <li>take the model's <code>Move:</code> answer</li>
+  <li>if it was illegal, look for any legal move elsewhere in the reply</li>
+  <li>if that failed, ask again with a list of every legal move and an instruction to pick one</li>
+</ol>
+<p>The "final" legality figure therefore includes copying from a list. The raw replies were saved in the later runs, so the model's own first answer can be scored separately. This distinction is one of the most important findings (section 11.2).</p>
+<h3>10.5 Scoring</h3>
+<ul>
+  <li><b>T1:</b> Spearman ρ between the model's evaluation and Lc0's, plus the model's average error divided by the error of always answering 0.</li>
+  <li><b>T2:</b> legality; clamped CPL against Lc0 at 800 nodes; blunder rate (clamped CPL ≥ 1,000) with bootstrap 95% CIs; best-move rate against a random legal move; and how often the model played the human setup move.</li>
+  <li><b>T3:</b> one mark for naming the better side (judged at ±50 cp, with κ against the majority baseline), and one mark for naming a theme of the puzzle, using whole-word matching. The 0–2 T3 score is the sum.</li>
+</ul>
+<h3>10.6 Fine-tuning</h3>
+<p>Five models (Llama 3.2 3B, Gemma 3 4B, Qwen 2.5 7B, Mistral 7B, DeepSeek-R1 7B) were fine-tuned with QLoRA on 20,000 positions, none from the benchmark, in two versions:</p>
+<ul>
+  <li><b>pieces only:</b> list every piece and its square from a FEN</li>
+  <li><b>pieces + legal moves:</b> the same, plus every legal move in sorted SAN</li>
+</ul>
+<p>Each fine-tuned model was run on the same benchmark and compared with its base model re-run on the same code, so any difference comes from the training alone.</p>
+<h3>10.7 The audit</h3>
+<p>Before writing up, every metric was audited against the raw data. Each defect found got a written specification, automated tests and an entry in the project's issues log (Issues 14–25). Every table in the results is generated from the data by a script, and a check fails if any table no longer matches. The audit is summarised in section 11.10.</p>
+<h3>10.8 Reproducibility</h3>
+<p>The positions (seed 42), the engine truth and all scoring are fully reproducible from the code and data. Each results summary records the exact code version (git commit), a fingerprint of the data, and the engine settings. The model outputs are <em>not</em> exactly reproducible, because the models sample at their default temperature (section 11.7).</p>
+
+<!-- ============================================================ -->
+<h2 id="results">11. Results</h2>
+<div class="tablebox"><table>
+  <tr><th>Measure</th><th>Value</th></tr>
+  <tr><td>Records / models / positions</td><td class="n">526,662 / 22 / 4,000</td></tr>
+  <tr><td>T1: Spearman ρ, model vs engine (pooled)</td><td class="n">0.11</td></tr>
+  <tr><td>T1: error ÷ error of always answering 0</td><td class="n">3.04</td></tr>
+  <tr><td>T2: legal, after re-asking with the list</td><td class="n">97.0%</td></tr>
+  <tr><td>T2: legal, model's own first answer</td><td class="n">9.3%</td></tr>
+  <tr><td>T2: blunder rate (95% CI)</td><td class="n">41.9% (41.7–42.0%)</td></tr>
+  <tr><td>T2: plays the engine's best move</td><td class="n">10.2% vs 8.8% random</td></tr>
+  <tr><td>T2: plays the human setup move</td><td class="n">11.5%</td></tr>
+  <tr><td>T3: names the better side</td><td class="n">30.3% vs 54.2% baseline (κ 0.07)</td></tr>
+  <tr><td>T3: names a tactical theme</td><td class="n">6.0%</td></tr>
+</table></div>
+<p class="caption">Table 1. Headline numbers. First-answer legality is from the five models whose raw replies were saved.</p>
+
+<h3>11.1 Move quality is "perfect or disaster", and barely above chance</h3>
+<div class="tablebox"><table>
+  <tr><th>Clamped CPL</th><th>Share of legal moves</th></tr>
+  <tr><td>Essentially perfect (&lt; 25)</td><td class="n">18.7%</td></tr>
+  <tr><td>Strong (25–100)</td><td class="n">4.9%</td></tr>
+  <tr><td>Decent (100–500)</td><td class="n">12.7%</td></tr>
+  <tr><td>Very weak (500–1,000)</td><td class="n">21.9%</td></tr>
+  <tr><td>Blunder (≥ 1,000)</td><td class="n">41.9%</td></tr>
+</table></div>
+<p class="caption">Table 2. Distribution of move quality over all legal moves.</p>
+<p>The distribution has two peaks and almost nothing in between. A player who understood the position would make many "decent" moves and few disasters. These models either find a good move or throw the position away, more often the latter.</p>
+<p>Compared with chance, the picture is starker. Models played the engine's best move 10.2% of the time. A random legal move would have been best 8.8% of the time on the same positions, so the models are only 1.16× better than random. Most models sit between 0.94× and 1.23×; only Gemma 4 31B and 26B reach about 1.5–1.6×. Pooled, the models played the <em>human's</em> setup move, usually the mistake that allowed the tactic, 11.5% of the time. That's more often than they found the engine's best move. Reproducing a familiar human move instead of calculating is what pattern matching would predict.</p>
+<p>The best models by blunder rate were Gemma 4 31B (35.8%) and 26B (37.3%), clearly separated from the rest (40–45%). Neighbouring models elsewhere in the ranking have overlapping confidence intervals and should be treated as tied.</p>
+
+<h3>11.2 Models rarely produce a legal move without help</h3>
+<div class="tablebox"><table>
+  <tr><th>Model</th><th>First answer legal</th><th>Final (after re-asking)</th></tr>
+  <tr><td>deepseek-r1:7b</td><td class="n">6.8%</td><td class="n">90.9%</td></tr>
+  <tr><td>gemma3:4b</td><td class="n">9.9%</td><td class="n">98.8%</td></tr>
+  <tr><td>llama3.2:3b</td><td class="n">6.9%</td><td class="n">98.4%</td></tr>
+  <tr><td>mistral:7b</td><td class="n">12.6%</td><td class="n">93.7%</td></tr>
+  <tr><td>qwen2.5:7b</td><td class="n">10.3%</td><td class="n">98.4%</td></tr>
+</table></div>
+<p class="caption">Table 3. Legality before and after help, combined prompts.</p>
+<p>The 97% legality figure is almost entirely the effect of the re-ask with a list. Left to themselves, models produce a legal move about one time in ten. The illegal answers are revealing: they are mostly stock opening moves that ignore the position. Llama 3.2 3B answered "e4" 45% of the time, Qwen 2.5 7B "Nf6" 24%, and Gemma 3 4B "d5" 20%, often for the wrong side or onto an occupied square. These look like the most common chess moves in text, not answers to the position on the board.</p>
+
+<h3>11.3 Evaluations don't follow the position</h3>
+<p>The rank correlation between model and engine evaluations is 0.11 pooled, and at most 0.25 for any model. No model's average error beats answering "0" every time: the ratio runs from 1.31 to 7.03. Most positions are near level, so a model that always guesses a small number gets a low error without reading the board. That is why raw error alone made weak models look good (Issue 14).</p>
+<p>"Who is winning" accuracy rises as the threshold widens (44.5% at ±0 cp, 61.6% at ±100, 78.9% at ±200). Cohen's κ stays at 0.02–0.07 at every threshold, so the high raw figures come from the class balance, not from reading the board. Splitting by side to move showed that no model reports evaluations from the wrong side's point of view.</p>
+
+<h3>11.4 Explanations name the better side less often than a fixed guess</h3>
+<p>Models named the better side correctly 30.3% of the time. Always naming the side that is usually better would score 54.2%, and κ is 0.07. Models rarely say "Equal", so they lose the mark on level positions almost automatically. They named a tactical theme of the puzzle in 6.0% of explanations. That mark is reported but not used as evidence, because the tactic usually isn't on the board yet in the position shown (section 13).</p>
+
+<h3>11.5 Size does not predict performance, except within Gemma</h3>
+<ul>
+  <li><b>Llama 3:</b> blunder rate 41.1% (3B) → 44.4% (8B) → 43.2% (70B). No gain from 23× the parameters.</li>
+  <li><b>Qwen 2.5:</b> 42.1% (7B) → 42.3% (14B) → 44.2% (32B), slightly worse.</li>
+  <li><b>DeepSeek-R1:</b> 7B → 14B, no improvement.</li>
+  <li><b>Gemma 4:</b> blunder rate 44.5% → 42.6% → 37.3% → 35.8% and ρ 0.11 → 0.24, from 2B to 31B.</li>
+  <li><b>Gemma 3:</b> 4B → 12B improves on all three measures (blunder rate 43.0% → 41.0%, ρ 0.03 → 0.20).</li>
+</ul>
+<p>H4 holds for both Gemma families and fails for Llama 3, Qwen 2.5 and DeepSeek-R1, so it is <b>not supported</b> as a general rule. That one developer's models improve with size while others don't points to differences in training data or method, not size itself.</p>
+
+<h3>11.6 Difficulty (H1–H3)</h3>
+<p>None of H1–H3 is supported: scores are flat across tiers. But the tiers are Lichess puzzle ratings, which describe the position <em>after</em> the setup move, not the one the models saw. So the flat result says nothing reliable about difficulty, and no conclusion rests on it.</p>
+
+<h3>11.7 Chain of thought doesn't help, and answers aren't repeatable</h3>
+<div class="tablebox"><table>
+  <tr><th>Prompt</th><th>T1 ρ</th><th>Legal (final)</th><th>Blunder rate</th><th>T3 (0–2)</th></tr>
+  <tr><td>cot</td><td class="n">0.13</td><td class="n">97.2%</td><td class="n">41.5%</td><td class="n">0.49</td></tr>
+  <tr><td>fen_only</td><td class="n">0.12</td><td class="n">97.1%</td><td class="n">41.5%</td><td class="n">0.52</td></tr>
+  <tr><td>pgn+fen</td><td class="n">0.11</td><td class="n">97.1%</td><td class="n">41.5%</td><td class="n">0.51</td></tr>
+  <tr><td>move_only</td><td class="n">—</td><td class="n">96.5%</td><td class="n">42.9%</td><td class="n">—</td></tr>
+</table></div>
+<p class="caption">Table 4. Results by prompt format.</p>
+<p>Asking for step-by-step reasoning gave exactly the same blunder rate as the plain prompt. Chain-of-thought gains have been reported mainly for very large models on maths and logic problems<sup class="c"><a href="#r12">[12]</a></sup>; they don't appear here.</p>
+<p>Because <code>pgn+fen</code> repeated <code>fen_only</code>, it also served as a repeatability test. Given the identical prompt twice, the same model gave the same move only 68.7% of the time, named the same better side 75.0% of the time, and gave an identical evaluation 34.2% of the time.</p>
+
+<h3>11.8 The engine check: does a stronger search change anything?</h3>
+<p>1,000 positions (85,102 moves) were re-scored with Lc0 at 8,000 nodes, ten times the original search. The pass mark was set in advance: the ranking holds if Spearman ρ between the models' blunder rates at the two strengths is at least 0.9. It was 0.97. Re-running at 800 nodes gives 0.99, which shows how much the engine varies on its own. No model moved more than four places, and the overall blunder rate went from 42.0% to 42.1%. The conclusions don't depend on the engine's search depth.</p>
+
+<h3>11.9 Fine-tuning: teaching the board didn't teach chess</h3>
+<div class="tablebox"><table>
+  <tr><th>Model</th><th>Board recall</th><th>T1 ρ</th><th>Legal (final)</th><th>Blunder rate</th></tr>
+  <tr><td>deepseek-r1:7b</td><td class="n">1.4% → 90.1%</td><td class="n">0.00 → −0.00</td><td class="n">90.5% → 69.6%</td><td class="n">41.3% → 42.3%</td></tr>
+  <tr><td>gemma3:4b</td><td class="n">2.2% → 92.6%</td><td class="n">0.03 → 0.05</td><td class="n">98.7% → 58.0%</td><td class="n">43.0% → 43.3%</td></tr>
+  <tr><td>llama3.2:3b</td><td class="n">11.4% → 89.4%</td><td class="n">0.01 → 0.03</td><td class="n">98.4% → 71.7%</td><td class="n">41.0% → 41.5%</td></tr>
+  <tr><td>mistral:7b</td><td class="n">18.7% → 99.4%</td><td class="n">0.07 → 0.02</td><td class="n">93.4% → 90.0%</td><td class="n">39.5% → 42.2%</td></tr>
+  <tr><td>qwen2.5:7b</td><td class="n">5.4% → 96.1%</td><td class="n">0.14 → 0.06</td><td class="n">98.4% → 95.1%</td><td class="n">42.0% → 44.4%</td></tr>
+</table></div>
+<p class="caption">Table 5. Pieces-only fine-tune, base → fine-tuned.</p>
+<p><b>Pieces only.</b> Board reading improved enormously, from 1–19% piece recall to 89–99%. Nothing else improved:</p>
+<ul>
+  <li>T1 ρ stayed near zero.</li>
+  <li>The blunder rate rose slightly for all five models.</li>
+  <li>Final legality <em>fell</em> for all five, by up to 41 points.</li>
+</ul>
+<p>Probing the failures showed well-formed but illegal moves (92 of 100), even with the list of legal moves in the prompt. Knowing where the pieces are did not help the models choose, judge, or even legally form moves.</p>
+<p><b>Pieces + legal moves.</b> This version's criteria were fixed before training. The first criterion asked whether the training itself worked: legal-move recall and precision of at least 0.9 on held-out positions. It failed for all five models: they listed only 65–81% of the legal moves, and only 52–60% of what they listed was legal. By the rule fixed in advance, the training didn't take, so no conclusion about transfer can be drawn. What it does show: even approximate knowledge of the legal moves made answers <em>less</em> legal, not more (final legality fell by 6 to 69 points).</p>
+
+<h3>11.10 The audit: naive metrics flattered the models</h3>
+<div class="tablebox"><table>
+  <tr><th>Claim</th><th>Naive figure</th><th>Corrected</th><th>Why</th></tr>
+  <tr><td>Legal moves</td><td class="n">64.6%</td><td class="n">97.0% final, 9.3% first</td><td>Prompts that never ask for a move were counted as illegal, and the re-ask was hidden inside the figure</td></tr>
+  <tr><td>Mean CPL</td><td class="n">4,735</td><td class="n">788 clamped; 41.9% blunders</td><td>Mate scores, then a mismatched "before" evaluation</td></tr>
+  <tr><td>Best move vs chance</td><td class="n">10.2% vs 3.6%</td><td class="n">10.2% vs 8.8%</td><td>1 ÷ average instead of average of 1 ÷ n</td></tr>
+  <tr><td>T1 skill</td><td>"low error"</td><td>worse than answering 0</td><td>No baseline</td></tr>
+  <tr><td>Direction accuracy</td><td class="n">46% at ±50</td><td class="n">κ 0.02–0.07</td><td>Threshold choice and class balance</td></tr>
+  <tr><td>T3 theme</td><td>substring match</td><td>whole-word match</td><td>"mate" was matched inside "material"</td></tr>
+  <tr><td>Fine-tuned T3 "improved"</td><td class="n">4 of 5</td><td class="n">1 of 5</td><td>Comparison used the old matcher</td></tr>
+</table></div>
+<p class="caption">Table 6. How the audit changed the headline claims. Full detail in <code>docs/issues-log.md</code>, Issues 14–25.</p>
+<p>At every step, the naive version of a metric made the models look more capable. The legality figure turned a 9% skill into 97%. The chance baseline was set nearly three times too low, which made the models look "3–4× better than random". Substring matching gave credit for "mate" inside "material". This is a methodological result in its own right: a benchmark without baselines and without checks on its own metrics can easily report reasoning that isn't there.</p>
+
+<h3>11.11 Plain-board prompts (in progress)</h3>
+<p><span class="flag">PLACEHOLDER</span> Results due when the run finishes. The pass marks were fixed in advance in <code>specs/plain-board-prompts.md</code>. "Notation is not the main barrier" if, on the plain board compared with FEN:</p>
+<ul>
+  <li>the blunder rate improves by less than 5 points,</li>
+  <li>evaluation ρ stays below 0.20,</li>
+  <li>side-naming κ stays below 0.20, and</li>
+  <li>first-answer legality stays below 25%.</li>
+</ul>
+
+<!-- ============================================================ -->
+<h2 id="discussion">12. Discussion</h2>
+<h3>12.1 Pattern matching, not reasoning</h3>
+<p>Five independent lines of evidence point the same way:</p>
+<ol>
+  <li>The models rarely produce a legal move unaided.</li>
+  <li>Their move choice is barely above chance, and they prefer the familiar human move to the best one.</li>
+  <li>Move quality is all-or-nothing.</li>
+  <li>Their evaluations don't track the position.</li>
+  <li>Size doesn't help, outside one developer's models.</li>
+</ol>
+<p>None of these proves an absence of reasoning on its own, and "pattern matching" is a description, not a mechanism. But each is what pattern matching predicts, and each is hard to explain if the models were reasoning about the position. The illegal first answers are especially telling. "e4", "Nf6" and "d5" are among the most common moves in chess text. A system predicting likely text would produce them. A system reasoning about the position in front of it would not. This matches McCoy and colleagues' account: models do well when the expected output is common in their training text and poorly otherwise<sup class="c"><a href="#r9">[9]</a></sup>. It also matches the GSM-Symbolic and Faith-and-Fate findings in other domains<sup class="c"><a href="#r16">[16]</a></sup><sup class="c"><a href="#r17">[17]</a></sup>.</p>
+<p>The world-model studies<sup class="c"><a href="#r18">[18]</a></sup><sup class="c"><a href="#r19">[19]</a></sup> aren't contradicted. They show that a model trained <em>only</em> on games can build a board representation. These results suggest that general chat models don't use one when asked about chess, or don't have a reliable one, at least at the sizes tested. DeepMind's searchless chess model<sup class="c"><a href="#r22">[22]</a></sup> shows the Transformer architecture isn't the limit. What's missing in general chat models is the right training.</p>
+
+<h3>12.2 Is this just a notation test?</h3>
+<p>The most obvious objection is that FEN is hard to read, so the models may be failing at notation rather than chess. The project has four answers to this, plus a direct test.</p>
+<ol>
+  <li><b>Fixing the reading didn't help.</b> The pieces-only fine-tune took board reading from 1–19% to 89–99%. If notation were the bottleneck, evaluations and moves should have improved. They didn't, and legality got worse.</li>
+  <li><b>Choosing from a list needs no notation skill, and is still near chance.</b> On the re-ask, the models pick from a list of legal moves. They still choose the best move only 10.2% of the time, against 8.8% for a random pick.</li>
+  <li><b>Answers with no notation are still below a fixed guess.</b> "Which side is better" is answered with one word, yet models score 30.3% against a 54.2% baseline.</li>
+  <li><b>FEN is a fair format for a language model.</b> It's common on chess websites and forums, so it's very likely in the training data <span class="flag">CHECK find a source or rephrase as reasoning</span>. It's also the standard input in chess-LLM research. Hard for a person to read isn't the same as hard for a text model.</li>
+  <li><b>The direct test.</b> The plain-board experiment gives 21 models the same positions as a board diagram and a plain-English piece list, with no FEN anywhere, against a FEN control in the same run. <span class="flag">PLACEHOLDER: result and verdict</span></li>
+</ol>
+
+<h3>12.3 Why do the Gemma models scale?</h3>
+<p>The Gemma families are the one place where bigger is clearly better. This project can't say why. Differences in training data (more chess or more structured reasoning data), training method, or tokenisation are all possible. It's a good question for future work, and a reminder that "LLMs" aren't one thing.</p>
+
+<h3>12.4 Why did fine-tuning make legality worse?</h3>
+<p>A plausible explanation, not tested here, is that the fine-tuning shifted the models' outputs towards producing <em>board-like text</em>, such as square names and piece lists, at the expense of following the move-answer format. The failure analysis supports part of this: failed answers were well-formed moves that were illegal, often for the wrong side (1,080 of 3,024 for Gemma 3 4B). Either way, the result supports the main conclusion. Supplying knowledge that a reasoning system could use did not produce better reasoning.</p>
+
+<h3>12.5 What the audit teaches</h3>
+<p>The corrections in section 11.10 aren't just housekeeping. Each naive metric was a reasonable first choice, and each one overstated the models. This fits the wider concern that benchmark numbers for LLMs can mislead without careful controls<sup class="c"><a href="#r20">[20]</a></sup>. The practical lessons are: always report a chance baseline, separate what the model did from what the scaffolding did, and fix pass marks in advance.</p>
+
+<!-- ============================================================ -->
+<h2 id="limits">13. Limitations</h2>
+<ul>
+  <li><b>Scope.</b> Open-source models from 2B to 70B, run locally, on chess only. No claims are made about commercial models such as GPT-4 or Claude, or about reasoning in general.</li>
+  <li><b>Tactical positions.</b> Puzzles are tactical by construction. Quiet, strategic positions may behave differently.</li>
+  <li><b>Contamination.</b> Lichess puzzles are public and may be in the training data<sup class="c"><a href="#r20">[20]</a></sup>. If so, the models did badly even on positions they may have seen, which makes the result more striking, not less.</li>
+  <li><b>Setup position (Issue 21).</b> The benchmark shows the position before the setup move. T1, T2 and the side mark are valid on that position. The theme mark and the difficulty tiers describe the next position, so they're reported but not used as evidence.</li>
+  <li><b>Move history not tested.</b> No position had a stored game history, so <code>pgn+fen</code> repeated <code>fen_only</code>.</li>
+  <li><b>Reproducibility.</b> Model outputs vary between runs (68.7% same-move agreement).</li>
+  <li><b>First-answer legality</b> is only available for five models. The plain-board run adds it for all 21 tested there.</li>
+  <li><b>Llama 3.3 70B context.</b> Its 512-token context window was shorter than 8.7% of <code>move_only</code> prompts, which were therefore cut off. This affects its <code>move_only</code> and re-asked moves.</li>
+  <li><b>DeepSeek-R1 thinking mode</b> was probably on in the April runs and off in the October re-run. The results match within 0.3 points.</li>
+  <li><b>T3 is marked by rules</b> (side named, theme words present). It checks whether the right words appear, not whether the reasoning is sound.</li>
+  <li><b>Fine-tuning scope.</b> Only five 3–7B models were fine-tuned. Training larger models needs more GPU memory than a home PC has. The legal-moves version did not reach its own training bar.</li>
+  <li><b>Missing data.</b> DeepSeek-R1 7B is missing about 4% of its base-run answers.</li>
+</ul>
+
+<!-- ============================================================ -->
+<h2 id="conclusion">14. Conclusion and future work</h2>
+<p>Across 22 open-source models, 4,000 positions and more than half a million answers, the models evaluated, chose moves and explained positions at or near the level of strategies that use no chess knowledge at all. Their typical errors were the most common moves in chess text, played regardless of the position. Bigger models, step-by-step prompting and teaching them to read the board did not change this, except for the larger Gemma models. A stronger engine left the conclusions unchanged. The evidence is consistent with general-purpose LLMs producing the form of chess analysis without reasoning about the position. A second, practical conclusion is that naive benchmark metrics can make this look otherwise. Every figure needs a baseline, and the system around the model must be kept separate from the model itself.</p>
+<p><b>Future work:</b></p>
+<ul>
+  <li>Re-run on the actual puzzle positions, so the theme and difficulty measures become valid evidence.</li>
+  <li>Test whether game history helps, using positions with real move histories.</li>
+  <li>Train the legal-moves version longer until it passes its own bar, then test transfer.</li>
+  <li>Fine-tune larger models on cloud hardware.</li>
+  <li>Investigate why the Gemma families scale when others don't.</li>
+  <li>Compare with commercial models.</li>
+</ul>
+
+<!-- ============================================================ -->
+<h2 id="refs">References</h2>
+<p class="status">Each entry was confirmed to exist with these details by a web search on 31 October 2026. "Read before quoting" means only the abstract or summaries were seen, so check any specific number against the paper.</p>
+<ol class="refs">
+  <li id="r1">Shannon, C. E. (1950). Programming a computer for playing chess. <i>Philosophical Magazine</i>, Series 7, 41(314), 256–275. <a href="https://historyofinformation.com/detail.php?entryid=94">historyofinformation.com</a> <span class="status">Read before quoting; the quote in §1 needs checking.</span></li>
+  <li id="r2">Edwards, S. J. (1994). <i>Portable Game Notation Specification and Implementation Guide</i>, which defines PGN, SAN and FEN. <a href="https://en.wikipedia.org/wiki/Forsyth%E2%80%93Edwards_Notation">Wikipedia: FEN</a>; <a href="https://www.chessprogramming.org/PGN">chessprogramming.org/PGN</a> <span class="status">Better: cite the original spec document if you can find a copy.</span></li>
+  <li id="r3">Lichess.org. Lichess open database: puzzles (lichess_db_puzzle.csv.zst; 6,057,356 rated, tagged puzzles as of 2026). <a href="https://database.lichess.org/">database.lichess.org</a> <span class="status">Note the download date you used.</span></li>
+  <li id="r4">Knuth, D. E., &amp; Moore, R. W. (1975). An analysis of alpha-beta pruning. <i>Artificial Intelligence</i>, 6(4), 293–326. doi:10.1016/0004-3702(75)90019-3. <a href="https://doi.org/10.1016/0004-3702(75)90019-3">doi.org</a></li>
+  <li id="r5">Stockfish developers (2020). Stockfish 12 (introduces NNUE evaluation). <a href="https://stockfishchess.org/blog/2020/stockfish-12/">stockfishchess.org/blog/2020/stockfish-12</a>. NNUE originally: Nasu, Y. (2018), for computer shogi (in Japanese). <span class="status">Cite the Stockfish blog.</span></li>
+  <li id="r6">Silver, D., et al. (2018). A general reinforcement learning algorithm that masters chess, shogi, and Go through self-play. <i>Science</i>, 362(6419), 1140–1144. doi:10.1126/science.aar6404. <a href="https://discovery.ucl.ac.uk/id/eprint/10069050/">open-access copy (UCL)</a></li>
+  <li id="r7">Kocsis, L., &amp; Szepesvári, C. (2006). Bandit based Monte-Carlo planning. In <i>Machine Learning: ECML 2006</i>, LNCS 4212, 282–293. <span class="flag">CHECK</span> <span class="status">From memory, not searched. Confirm details, or drop it and cite [6] alone for MCTS.</span></li>
+  <li id="r8">Leela Chess Zero project. Lc0 (open-source, GPLv3). <a href="https://lczero.org/">lczero.org</a>; <a href="https://www.chessprogramming.org/LCZero">chessprogramming.org/LCZero</a> <span class="status">Add the network file you used.</span></li>
+  <li id="r9">McCoy, R. T., Yao, S., Friedman, D., Hardy, M., &amp; Griffiths, T. L. (2024). Embers of autoregression show how large language models are shaped by the problem they are trained to solve. <i>PNAS</i>. Preprint arXiv:2309.13638. <a href="https://arxiv.org/abs/2309.13638">arxiv.org/abs/2309.13638</a></li>
+  <li id="r10">Vaswani, A., et al. (2017). Attention is all you need. <i>Advances in Neural Information Processing Systems 30</i>. arXiv:1706.03762. <a href="https://arxiv.org/abs/1706.03762">arxiv.org/abs/1706.03762</a></li>
+  <li id="r11">DeepSeek-AI (2025). DeepSeek-R1 incentivizes reasoning in LLMs through reinforcement learning. <i>Nature</i>, 645, 633–638. doi:10.1038/s41586-025-09422-z. Preprint arXiv:2501.12948. <a href="https://arxiv.org/abs/2501.12948">arxiv.org/abs/2501.12948</a></li>
+  <li id="r12">Wei, J., et al. (2022). Chain-of-thought prompting elicits reasoning in large language models. <i>Advances in Neural Information Processing Systems 35</i>. arXiv:2201.11903. <a href="https://arxiv.org/abs/2201.11903">arxiv.org/abs/2201.11903</a> <span class="status">Read before quoting: the claim that gains appear mainly in very large models came from a summary.</span></li>
+  <li id="r13">Kaplan, J., et al. (2020). Scaling laws for neural language models. arXiv:2001.08361. <a href="https://arxiv.org/abs/2001.08361">arxiv.org/abs/2001.08361</a></li>
+  <li id="r14">Bender, E. M., &amp; Koller, A. (2020). Climbing towards NLU: On meaning, form, and understanding in the age of data. <i>Proceedings of ACL 2020</i>, 5185–5198. doi:10.18653/v1/2020.acl-main.463. <a href="https://aclanthology.org/2020.acl-main.463">aclanthology.org</a></li>
+  <li id="r15">Bender, E. M., Gebru, T., McMillan-Major, A., &amp; Shmitchell, S. (2021). On the dangers of stochastic parrots: Can language models be too big? <i>Proceedings of FAccT '21</i>, 610–623. <a href="https://faculty.washington.edu/ebender/stochasticparrots">faculty.washington.edu/ebender/stochasticparrots</a> <span class="status">Copy the author list exactly as the ACM entry gives it.</span></li>
+  <li id="r16">Mirzadeh, I., Alizadeh, K., Shahrokhi, H., Tuzel, O., Bengio, S., &amp; Farajtabar, M. (2024). GSM-Symbolic: Understanding the limitations of mathematical reasoning in large language models. arXiv:2410.05229. <a href="https://arxiv.org/abs/2410.05229">arxiv.org/abs/2410.05229</a></li>
+  <li id="r17">Dziri, N., et al. (2023). Faith and fate: Limits of transformers on compositionality. <i>Advances in Neural Information Processing Systems 36</i>. arXiv:2305.18654. <a href="https://arxiv.org/abs/2305.18654">arxiv.org/abs/2305.18654</a></li>
+  <li id="r18">Li, K., Hopkins, A. K., Bau, D., Viégas, F., Pfister, H., &amp; Wattenberg, M. (2023). Emergent world representations: Exploring a sequence model trained on a synthetic task. <i>ICLR 2023</i>. arXiv:2210.13382. <a href="https://arxiv.org/abs/2210.13382">arxiv.org/abs/2210.13382</a></li>
+  <li id="r19">Karvonen, A. (2024). Emergent world models and latent variable estimation in chess-playing language models. <i>Conference on Language Modeling (COLM) 2024</i>. arXiv:2403.15498. <a href="https://arxiv.org/abs/2403.15498">arxiv.org/abs/2403.15498</a></li>
+  <li id="r20">Sainz, O., et al. (2023). NLP evaluation in trouble: On the need to measure LLM data contamination for each benchmark. <i>Findings of EMNLP 2023</i>, 10776–10787. arXiv:2310.18018. <a href="https://aclanthology.org/2023.findings-emnlp.722">aclanthology.org</a></li>
+  <li id="r21">Carlini, N. (2023). Playing chess with large language models [blog post]. <a href="https://nicholas.carlini.com/writing/2023/chess-llm.html">nicholas.carlini.com/writing/2023/chess-llm.html</a> <span class="status">Read before quoting; it's a blog post, so say so in the text.</span></li>
+  <li id="r22">Ruoss, A., Delétang, G., et al. (2024). Grandmaster-level chess without search. arXiv:2402.04494 (v2 retitled "Amortized planning with large-scale transformers: A case study on chess"). <a href="https://arxiv.org/abs/2402.04494">arxiv.org/abs/2402.04494</a></li>
+  <li id="r23">Hu, E. J., et al. (2021). LoRA: Low-rank adaptation of large language models. arXiv:2106.09685 (published at ICLR 2022). <a href="https://arxiv.org/abs/2106.09685">arxiv.org/abs/2106.09685</a> <span class="status">The ICLR 2022 venue is from memory; check it.</span></li>
+  <li id="r24">Dettmers, T., Pagnoni, A., Holtzman, A., &amp; Zettlemoyer, L. (2023). QLoRA: Efficient finetuning of quantized LLMs. <i>Advances in Neural Information Processing Systems 36</i>. arXiv:2305.14314. <a href="https://arxiv.org/abs/2305.14314">arxiv.org/abs/2305.14314</a></li>
+  <li id="r25">Spearman, C. (1904). The proof and measurement of association between two things. <i>American Journal of Psychology</i>, 15(1), 72–101. <span class="flag">CHECK</span> <span class="status">From memory, not searched.</span></li>
+  <li id="r26">Cohen, J. (1960). A coefficient of agreement for nominal scales. <i>Educational and Psychological Measurement</i>, 20(1), 37–46. doi:10.1177/001316446002000104. <a href="https://doi.org/10.1177/001316446002000104">doi.org</a></li>
+  <li id="r27">Efron, B. (1979). Bootstrap methods: Another look at the jackknife. <i>The Annals of Statistics</i>, 7(1), 1–26. doi:10.1214/aos/1176344552. <a href="https://projecteuclid.org/euclid.aos/1176344552">projecteuclid.org</a></li>
+</ol>
+
+<h2 id="flags">Source checklist</h2>
+<p>Everything still marked <span class="flag">CHECK</span>, in order:</p>
+<ol>
+  <li>§1: check the Shannon quote word for word against [1], or paraphrase it.</li>
+  <li>§3.4: name the Lc0 network file and version used.</li>
+  <li>§3.5: find the Lichess source for the ±1,000 cp clamp, or describe the clamp as this project's choice.</li>
+  <li>§4.4: cite Ollama and the GGUF / llama.cpp format.</li>
+  <li>§6: check whether Carlini's post gives its own Elo estimate before quoting one; search for 2024–2026 LLM chess benchmarks and mention the closest.</li>
+  <li>§7: confirm the QLoRA settings for the pieces-only run (rank 16, alpha 32 come from the legal-moves config).</li>
+  <li>§8.5: add a source on pre-registration (e.g. Nosek et al., 2018, "The preregistration revolution", PNAS; check it first).</li>
+  <li>§10.2: add an appendix table citing each model's release page.</li>
+  <li>§12.2: find a source for "FEN is common in web text", or rephrase it as reasoning.</li>
+  <li>References [7], [23] venue and [25]: written from memory, so confirm them.</li>
+  <li>§11.11 and §12.2: fill in the plain-board results when the run finishes.</li>
+</ol>
+</main>
+</div>

@@ -1,0 +1,320 @@
+<title>Write-up Notes</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Literata:opsz,wght@7..72,400;7..72,600;7..72,700&family=Public+Sans:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one reading column with a sticky contents rail on wide screens; board-green accent, numbers in mono. */
+:root {
+  --bg: #f6f7f4; --surface: #ffffff; --fg: #1d2420; --muted: #5d6a62; --line: #d9ded8;
+  --accent: #4a7a3a; --accent-soft: #e6eedf; --warn: #9a5b12; --warn-soft: #f6ead8;
+  --serif: "Literata", Georgia, "Times New Roman", serif;
+  --sans: "Public Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #141815; --surface: #1c211d; --fg: #e4e9e4; --muted: #9aa69e; --line: #2f3731;
+  --accent: #8cc070; --accent-soft: #24301f; --warn: #e3a95c; --warn-soft: #33281a; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #141815; --surface: #1c211d; --fg: #e4e9e4; --muted: #9aa69e; --line: #2f3731;
+  --accent: #8cc070; --accent-soft: #24301f; --warn: #e3a95c; --warn-soft: #33281a; color-scheme: dark }
+
+body { background: var(--bg); color: var(--fg); font-family: var(--serif); font-size: 17px; line-height: 1.6; }
+.wrap { max-width: 1120px; margin: 0 auto; padding-block: 40px 80px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 48px; }
+@media (max-width: 860px) { .wrap { grid-template-columns: minmax(0, 1fr); gap: 24px; } nav.toc { position: static !important; } }
+nav.toc { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 24px); align-self: start; font-family: var(--sans); font-size: 14px; }
+nav.toc p { text-transform: uppercase; letter-spacing: .08em; font-size: 12px; color: var(--muted); margin: 0 0 8px; font-weight: 600; }
+nav.toc ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+nav.toc a { color: var(--fg); text-decoration: none; display: block; padding: 3px 0 3px 10px; border-left: 2px solid var(--line); }
+nav.toc a:hover, nav.toc a:focus-visible { border-left-color: var(--accent); color: var(--accent); outline: none; }
+main { min-width: 0; max-width: 72ch; }
+header.top { border-bottom: 1px solid var(--line); padding-bottom: 20px; margin-bottom: 8px; }
+.eyebrow { font-family: var(--sans); text-transform: uppercase; letter-spacing: .1em; font-size: 12px; color: var(--accent); font-weight: 700; margin: 0; }
+h1 { font-size: 2.2rem; line-height: 1.15; margin: 6px 0 10px; text-wrap: balance; }
+h2 { font-size: 1.5rem; margin: 48px 0 12px; text-wrap: balance; scroll-margin-top: 16px; }
+h3 { font-family: var(--sans); font-size: 1.02rem; margin: 28px 0 6px; }
+.lede { color: var(--muted); margin: 0; }
+p, ul, ol { margin: 0 0 12px; }
+ul, ol { padding-left: 1.3em; }
+li { margin-bottom: 4px; }
+code, .num { font-family: var(--mono); font-size: .86em; }
+.num { font-variant-numeric: tabular-nums; }
+.box { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 16px 18px; margin: 16px 0; }
+.box > :last-child { margin-bottom: 0; }
+.box.key { border-left: 4px solid var(--accent); }
+.box.check { background: var(--warn-soft); border-color: transparent; font-family: var(--sans); font-size: 15px; }
+.box.check b { color: var(--warn); }
+.tag { font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; padding: 2px 7px; border-radius: 4px; background: var(--accent-soft); color: var(--accent); white-space: nowrap; }
+.tag.must { background: var(--warn-soft); color: var(--warn); }
+.tablebox { overflow-x: auto; margin: 12px 0 16px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-family: var(--sans); font-size: 14.5px; }
+th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-weight: 600; color: var(--muted); font-size: 12.5px; text-transform: uppercase; letter-spacing: .05em; }
+tr:last-child td { border-bottom: 0; }
+td.n { font-family: var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.steps { list-style: none; padding: 0; display: grid; gap: 12px; counter-reset: step; }
+.steps > li { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px 14px 52px; position: relative; margin: 0; }
+.steps > li::before { counter-increment: step; content: counter(step); position: absolute; left: 16px; top: 13px; font-family: var(--mono); font-weight: 600; color: var(--accent); font-size: 1.1rem; }
+.steps .meta { font-family: var(--sans); font-size: 13.5px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 6px 12px; margin-top: 6px; align-items: center; }
+.fen { font-family: var(--mono); font-size: 13px; background: var(--accent-soft); padding: 8px 10px; border-radius: 6px; overflow-x: auto; white-space: nowrap; }
+a { color: var(--accent); }
+</style>
+
+<div class="wrap">
+<nav class="toc" aria-label="Contents">
+  <p>Contents</p>
+  <ol>
+    <li><a href="#shape">Shape of the write-up</a></li>
+    <li><a href="#chess">Background: chess basics</a></li>
+    <li><a href="#engines">Background: chess engines</a></li>
+    <li><a href="#llms">Background: how LLMs work</a></li>
+    <li><a href="#prior">Background: LLMs and chess</a></li>
+    <li><a href="#finetune">Background: fine-tuning</a></li>
+    <li><a href="#stats">Background: measuring fairly</a></li>
+    <li><a href="#method">Method</a></li>
+    <li><a href="#results">Results</a></li>
+    <li><a href="#notation">"Is it just a notation test?"</a></li>
+    <li><a href="#limits">Limitations</a></li>
+    <li><a href="#audit">The audit</a></li>
+    <li><a href="#next">Next steps</a></li>
+  </ol>
+</nav>
+
+<main>
+<header class="top">
+  <p class="eyebrow">PR09426 · Do LLMs Reason? Benchmarking Logical Performance via Chess</p>
+  <h1>Write-up notes</h1>
+  <p class="lede">Everything the write-up needs, in note form. Numbers are from <code>docs/FINDINGS.md</code> as of commit <code>f72a525</code> (31 Oct 2026). Items marked "check before citing" are general background from memory: look up the source before quoting them.</p>
+</header>
+
+<h2 id="shape">Shape of the write-up</h2>
+<ol>
+  <li><b>Introduction.</b> The question: do LLMs reason, or pattern-match? Why chess is a good test: fixed rules, every answer can be checked exactly, and a superhuman engine gives the right answer.</li>
+  <li><b>Background.</b> Chess basics, engines, LLMs, previous work, fine-tuning, and the statistics used. Keep each short and tied to something in the results.</li>
+  <li><b>Method.</b> Positions, models, prompts, the three tasks, engine ground truth, baselines, fine-tuning.</li>
+  <li><b>Results.</b> Lead with move quality ("perfect or disaster", near chance), then legality, evaluations, explanations, size, prompts, fine-tuning.</li>
+  <li><b>Discussion.</b> Pattern matching vs reasoning. Answer the notation objection here, before a judge does.</li>
+  <li><b>Limitations and the audit.</b> What can't be claimed, and how naive metrics overstated the models.</li>
+  <li><b>Conclusion and future work.</b></li>
+</ol>
+
+<h2 id="chess">Background: chess basics</h2>
+<p>Only what a reader needs to follow the results. A single box or figure may be enough.</p>
+<h3>How a position is written: FEN</h3>
+<ul>
+  <li>Forsyth–Edwards Notation describes a whole position on one line: piece placement rank by rank (from rank 8 down), side to move, castling rights, en passant square, and two move counters.</li>
+  <li>Upper case is White, lower case is Black; digits count empty squares.</li>
+  <li>This is what every benchmark prompt gave the models. Show one example and decode it in a figure:</li>
+</ul>
+<p class="fen">rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1</p>
+<p>(The starting position after 1.e4: Black to move.)</p>
+<h3>How a move is written: SAN</h3>
+<ul>
+  <li>Standard Algebraic Notation: piece letter plus destination square (<code>Nf3</code>), <code>x</code> for a capture, <code>+</code> check, <code>#</code> mate, <code>O-O</code> castling, <code>e8=Q</code> promotion. Pawn moves have no letter (<code>e4</code>).</li>
+  <li>The models answered in SAN. A move is legal only if it is possible in that exact position for the side to move.</li>
+</ul>
+<h3>Legal moves</h3>
+<ul>
+  <li>The tricky rules cause many illegal answers: you can't leave your own king in check, pinned pieces can't move off the pin line, plus castling conditions, en passant and promotion.</li>
+  <li>A typical puzzle position here has about 27 legal moves. That sets the chance level for "picked the best move".</li>
+</ul>
+<h3>Evaluation and tactics</h3>
+<ul>
+  <li><b>Evaluation:</b> who is better and by how much, in centipawns (100 cp ≈ one pawn). +150 means White is about 1.5 pawns better.</li>
+  <li><b>Tactics:</b> short forcing sequences such as forks, pins, skewers and mate-in-N. Lichess tags each puzzle with themes like these. The T3 theme mark checks for them.</li>
+  <li><b>Lichess puzzles:</b> real positions from online games, where one move (the "setup move", usually a mistake) gives the other side a tactic. The benchmark shows the position <em>before</em> that move (Issue 21).</li>
+</ul>
+
+<h2 id="engines">Background: how chess engines work</h2>
+<h3>Classical engines (Stockfish style)</h3>
+<ul>
+  <li><b>Search:</b> build a tree of moves and replies several moves deep. Minimax assumes both sides play their best; alpha-beta pruning skips branches that can't change the result, so the engine searches much deeper for the same work.</li>
+  <li><b>Evaluation function:</b> scores the positions at the end of the search: material, king safety, piece activity, pawn structure.</li>
+  <li>Stockfish now uses a small neural network (NNUE) for its evaluation, but is still search-heavy. <span class="tag">check before citing</span></li>
+</ul>
+<h3>Neural engines (AlphaZero / Lc0 style), which this project uses</h3>
+<ul>
+  <li>A deep neural network looks at the board and outputs two things: a <b>value</b> (how good the position is) and a <b>policy</b> (which moves look promising).</li>
+  <li><b>Monte Carlo Tree Search (MCTS)</b> uses the policy to choose which moves to explore and the value to score them. Each position explored is a <b>node</b>.</li>
+  <li>Trained only by playing against itself, with no human games. DeepMind's AlphaZero (2017) introduced the method; Leela Chess Zero (Lc0) is the open-source version. <span class="tag">check before citing</span></li>
+  <li><b>Why Lc0 here:</b> it runs on the GPU, so it could check 500,000+ answers in reasonable time. T1 truth uses one pass of the network (no search). T2 truth uses 800 nodes of search.</li>
+  <li><b>Does 800 nodes matter?</b> No, as the T2-5 check showed: at 8,000 nodes the model ranking held (ρ 0.97) and the blunder rate went from 42.0% to 42.1%.</li>
+</ul>
+<h3>Measuring move quality</h3>
+<ul>
+  <li><b>Centipawn loss (CPL):</b> how much the evaluation drops after the model's move compared with the engine's best move. 0 means the best move.</li>
+  <li><b>Clamping to ±1,000 cp:</b> mate scores and huge evaluations would otherwise swamp the average (raw mean CPL was 4,735). Lichess clamps the same way.</li>
+  <li><b>Blunder:</b> clamped CPL ≥ 1,000, meaning the move throws away a winning position or worse.</li>
+  <li><b>Why the engine counts as ground truth:</b> it plays far above any human and any LLM, so its judgement is a sound reference. It is not perfect, which T2-5 tested.</li>
+</ul>
+
+<h2 id="llms">Background: how LLMs work</h2>
+<ul>
+  <li><b>Tokens:</b> text is split into chunks (tokens). A FEN like <code>4k3/8/…</code> becomes a string of tokens with no built-in notion of a board. The model only ever sees text.</li>
+  <li><b>Next-token prediction:</b> the model is trained to predict the next token on huge amounts of web text. Everything it "knows" comes from patterns in that text, and chess text (games, FENs, puzzles) is part of it.</li>
+  <li><b>Transformers and attention:</b> each token can look at every earlier token and weigh how relevant it is. The <b>context window</b> limits how much text it can see at once; Llama-3.3-70B's 512-token setting cut off 8.7% of <code>move_only</code> prompts (M-1).</li>
+  <li><b>Pre-training, then instruction tuning:</b> a base model is tuned to follow instructions and chat. <b>Reasoning ("thinking") models</b> such as DeepSeek-R1 are trained to write out steps before answering.</li>
+  <li><b>Parameters and size:</b> the models here range from 2B to 70B parameters. A common belief is that bigger means better; Finding 5 tests that.</li>
+  <li><b>Quantisation:</b> storing weights in fewer bits (e.g. 4-bit) so big models fit on one GPU. This is how Ollama runs them locally.</li>
+  <li><b>Temperature and sampling:</b> the model picks each token from a probability distribution. At the default temperature the same prompt can give different answers; here the same model gave the same move only 68.7% of the time on a repeated prompt.</li>
+</ul>
+
+<h2 id="prior">Background: LLMs and chess (previous work)</h2>
+<p class="box check"><b>Check before citing.</b> These are well-known results recalled from memory. Find the original papers or posts and confirm the details and dates.</p>
+<ul>
+  <li><b>LLMs playing chess:</b> GPT-3.5-turbo-instruct was reported to play at roughly club level (~1,750–1,800 Elo) from PGN move lists, while chat models did much worse. Suggests the prompt format and training data matter a lot.</li>
+  <li><b>Do models build an internal board?</b> "Othello-GPT" (Li et al., 2023) found a board representation inside a model trained only on Othello moves. Karvonen (2024) found similar linear "probes" for the board in a small model trained on chess games. Those models were trained only on games; yours are general chat models.</li>
+  <li><b>Memorisation vs reasoning:</b> a big debate in LLM research. Benchmarks can be contaminated, meaning the test items were in the training data. Lichess puzzles are public, so yours may be.</li>
+  <li><b>Chess benchmarks for LLMs:</b> earlier ones mostly test move legality or play strength. What's new here: three tasks (evaluate, move, explain), 22 open models, 4,000 positions, engine-checked answers, chance baselines, and a fine-tuning test.</li>
+</ul>
+
+<h2 id="finetune">Background: fine-tuning</h2>
+<ul>
+  <li><b>Fine-tuning:</b> continue training a model on a small, focused dataset so it learns a specific skill.</li>
+  <li><b>LoRA (low-rank adaptation):</b> freezes the original weights and trains small add-on matrices. Far less memory, so 3–7B models fit on one home GPU. <span class="tag">check before citing</span> Hu et al., 2021.</li>
+  <li><b>Held-out data:</b> test positions must never appear in training, or the test measures memory. 20,000 training positions, none from the 4,000 benchmark positions, and 200 held-out positions for checking (F-1, F-2).</li>
+  <li><b>Your idea:</b> if the models fail because they can't picture the board, teaching them to read it should help. Version 1 taught the piece list; version 2 taught the piece list plus every legal move.</li>
+</ul>
+
+<h2 id="stats">Background: measuring fairly</h2>
+<ul>
+  <li><b>Baselines:</b> a score only means something next to what a dumb strategy gets. Random legal move (best move 8.8%), always answering "0" for evaluations, always naming the usually-better side (54.2%).</li>
+  <li><b>Spearman rank correlation (ρ):</b> do the model's evaluations go up and down with the engine's? 1 = same order, 0 = no relation. Uses ranks, so huge outliers don't dominate.</li>
+  <li><b>Cohen's κ:</b> agreement corrected for chance. 0 = no better than guessing using the class balance. Turned 46–79% direction "accuracy" into κ 0.02–0.07.</li>
+  <li><b>Bootstrap confidence intervals:</b> resample the data many times (seeded) to see how much a number could move. Overlapping intervals mean neighbouring models are tied.</li>
+  <li><b>Pre-registration:</b> write the pass marks down before seeing results, so you can't move the goalposts. Done for the legal-moves fine-tune (commit <code>1cf6cd5</code>) and T2-5. The pieces-only criteria came after its results, and the write-up says so.</li>
+</ul>
+
+<h2 id="method">Method</h2>
+<div class="tablebox"><table>
+  <tr><th>Part</th><th>What was done</th></tr>
+  <tr><td>Positions</td><td>4,000 Lichess puzzles, 1,000 per rating tier (easy, medium, hard, extreme), seed 42</td></tr>
+  <tr><td>Models</td><td>22 open-source models, 2B–70B, run locally through Ollama</td></tr>
+  <tr><td>Prompts</td><td>6 formats: 3 combined (<code>fen_only</code>, <code>pgn+fen</code>, <code>cot</code>) and 3 single-task (<code>eval_only</code>, <code>move_only</code>, <code>explanation_only</code>). <code>pgn+fen</code> turned out identical to <code>fen_only</code> (Issue 23)</td></tr>
+  <tr><td>Records</td><td class="n">526,662</td></tr>
+  <tr><td>T1 · evaluate</td><td>Give the evaluation in centipawns. Scored with ρ against Lc0 (one network pass) and against always answering 0</td></tr>
+  <tr><td>T2 · move</td><td>Give the best move. Scored for legality, then CPL against Lc0 at 800 nodes, clamped to ±1,000</td></tr>
+  <tr><td>T3 · explain</td><td>Explain the position. Rule-based mark: names the better side (P1) and a puzzle theme (P2), whole-word matching</td></tr>
+  <tr><td>Move rescue</td><td>If the first move was illegal, look for a legal move elsewhere in the reply, then re-ask with the full legal-move list</td></tr>
+  <tr><td>Fine-tuning</td><td>5 models (llama3.2:3b, gemma3:4b, qwen2.5:7b, mistral:7b, deepseek-r1:7b), LoRA, 20,000 positions, two versions, re-benchmarked against a base re-run on the same code</td></tr>
+</table></div>
+
+<h2 id="results">Results</h2>
+<div class="box key">
+  <p><b>Main conclusion (draft):</b> the models behave like <b>pattern matchers, not players</b>. Five separate lines of evidence point the same way. Each is "more consistent with" pattern matching; none proves it.</p>
+</div>
+<div class="tablebox"><table>
+  <tr><th>Measure</th><th>Value</th></tr>
+  <tr><td>T1 · ρ, model eval vs engine (pooled)</td><td class="n">0.11 (best model 0.25)</td></tr>
+  <tr><td>T1 · error ÷ always-0 error</td><td class="n">3.04 (no model below 1)</td></tr>
+  <tr><td>T2 · legal, model's own first answer</td><td class="n">9.3%</td></tr>
+  <tr><td>T2 · legal, after re-asking with the list</td><td class="n">97.0%</td></tr>
+  <tr><td>T2 · blunder rate (95% CI)</td><td class="n">41.9% (41.7–42.0%)</td></tr>
+  <tr><td>T2 · best move vs random legal move</td><td class="n">10.2% vs 8.8%</td></tr>
+  <tr><td>T2 · plays the human setup move</td><td class="n">11.5%</td></tr>
+  <tr><td>T3 · names the better side</td><td class="n">30.3% vs 54.2% baseline, κ 0.07</td></tr>
+  <tr><td>T3 · names a tactical theme</td><td class="n">6.0% (not used as evidence)</td></tr>
+</table></div>
+
+<h3>1. Move quality is "perfect or disaster", and barely above chance</h3>
+<ul>
+  <li>Legal moves split: 18.7% essentially perfect (CPL &lt; 25), 4.9% strong, 12.7% decent, 21.9% very weak, <b>41.9% blunders</b>. Very little in between.</li>
+  <li>Best move 10.2% vs 8.8% for random (1.16×). Most models 0.94–1.23×; only Gemma 4 31B/26B reach about 1.5–1.6×.</li>
+  <li>They play the human setup move (usually the mistake) <b>more often</b> than the engine's best move. Copying a familiar move is what pattern matching predicts.</li>
+  <li>Best: Gemma 4 31B (35.8% blunders), 26B (37.3%). Worst: Gemma 4 E2B (44.5%). Neighbouring models are statistically tied.</li>
+</ul>
+<h3>2. They rarely produce a legal move unaided</h3>
+<ul>
+  <li>First answers legal 6.8–12.6% (five re-run models). The 97% is mostly copying from the list on the re-ask.</li>
+  <li>Illegal answers are stock opening moves: llama3.2:3b says "e4" 45% of the time, qwen2.5:7b "Nf6" 24%, gemma3:4b "d5" 20%, often for the wrong side.</li>
+</ul>
+<h3>3. Evaluations don't follow the position</h3>
+<ul>
+  <li>ρ 0.11 pooled, at most 0.25. No model beats answering 0 every time (ratio 1.31–7.03).</li>
+  <li>Direction accuracy rises with the threshold (44.5% → 61.6% → 78.9%) but κ stays 0.02–0.07: the high numbers come from the class balance.</li>
+  <li>No model is reporting from the side-to-move's point of view (sign check by side).</li>
+</ul>
+<h3>4. Explanations name the better side less often than a fixed guess</h3>
+<ul>
+  <li>30.3% correct vs 54.2% for always naming the usually-better side. Models rarely say "Equal".</li>
+  <li>T3 score (0–2): Gemma 4 26B 0.76, 31B 0.66 lead; CodeLlama-34B 0.31 worst.</li>
+</ul>
+<h3>5. Size doesn't predict performance, except in Gemma</h3>
+<ul>
+  <li>Llama 3 (3B → 8B → 70B): blunders 41.1% → 44.4% → 43.2%. No gain from 23× the parameters.</li>
+  <li>Qwen 2.5 (7B → 32B): 42.1% → 44.2%, slightly worse. DeepSeek-R1 7B → 14B: no gain.</li>
+  <li>Gemma 4 (2B → 31B): blunders 44.5% → 35.8%, ρ 0.11 → 0.24. Gemma 3 4B → 12B improves too.</li>
+  <li>One developer's models scaling points to training data and method rather than size. H4 not supported as a general rule.</li>
+</ul>
+<h3>6. Chain of thought doesn't help; answers aren't repeatable</h3>
+<ul>
+  <li><code>cot</code> 41.5% blunders, the same as <code>fen_only</code> (41.5%).</li>
+  <li>Same prompt twice: same move 68.7%, same side 75.0%, identical eval 34.2%.</li>
+</ul>
+<h3>7. Fine-tuning (section F)</h3>
+<ul>
+  <li><b>Pieces only:</b> board reading 1–19% → 89–99%. But ρ stayed near 0, blunder rate rose slightly for all five, and final legality <em>fell</em> for all five (gemma3:4b 98.7% → 58.0%). Failures were well-formed but illegal moves, even with the legal-move list in the prompt.</li>
+  <li><b>Pieces + legal moves:</b> pre-registered criterion 0 failed. The models listed 65–81% of legal moves, with 52–60% precision. By the rule fixed in advance, no conclusion about transfer can be drawn.</li>
+  <li>Criterion 1 (first-answer legality +10 pts): no; best +9.3 (qwen2.5:7b). Criterion 2 (final legality held): no; fell 6–69 pts. Criterion 3 (blunders fall): only llama3.2:3b (41.0% → 38.9%); gemma3:4b's drop is a selection effect. Criterion 4 (ρ ≥ 0.10): no.</li>
+  <li><b>Takeaway:</b> knowing where the pieces are, and approximately knowing the rules, did not make answers better or more legal.</li>
+</ul>
+
+<h2 id="notation">"Is it just a notation test?"</h2>
+<p>The objection a judge is most likely to raise: FEN and SAN are hard to read, so maybe the models fail at notation, not chess. Raise it yourself and answer it with evidence.</p>
+<ol>
+  <li><b>Fixing the reading didn't help.</b> Pieces-only fine-tuning took board reading from 1–19% to 89–99%, yet evaluations, move quality and legality didn't improve; legality got worse. If notation were the bottleneck, this should have helped. <i>Strongest point.</i></li>
+  <li><b>No writing needed, still near chance.</b> On the re-ask the models choose from a list of legal moves, so they don't produce SAN at all. They still pick the best move 10.2% vs 8.8% for random.</li>
+  <li><b>No notation in the answer, still below a fixed guess.</b> "Which side is better" is answered with a word. 30.3% vs 54.2%.</li>
+  <li><b>FEN is fair input for an LLM.</b> It is common on the web (Lichess, chess.com, forums), so almost certainly in training data, and it is the standard input in chess-LLM research. Hard for people ≠ hard for a text model.</li>
+  <li><b>Still open:</b> the base models were never given the position in plain English. The planned plain-board experiment (next steps, item 1) would close this.</li>
+</ol>
+
+<h2 id="limits">Limitations</h2>
+<ul>
+  <li><b>Scope:</b> open-source 2B–70B models, local, chess only. No claims about commercial models or reasoning in general. Puzzles are tactical by design.</li>
+  <li><b>Contamination:</b> puzzles may be in training data, which makes the failures more striking.</li>
+  <li><b>Setup position (Issue 21):</b> the theme mark and difficulty tiers describe the next position, so they're reported but not used as evidence.</li>
+  <li><b>Move history not tested (Issue 23).</b></li>
+  <li><b>Reproducibility:</b> data, engine truth and scoring are reproducible; model outputs aren't (default temperature).</li>
+  <li><b>First-answer legality</b> only for the five re-run models.</li>
+  <li><b>Llama-3.3-70B context (M-1):</b> 8.7% of <code>move_only</code> prompts cut off.</li>
+  <li><b>DeepSeek-R1 thinking mode (M-2):</b> probably on in April, off in October; results match within 0.3 points.</li>
+  <li><b>Engine strength:</b> checked; the ranking holds at 10× the search (ρ 0.97).</li>
+  <li><b>T3 is rule-marked</b>, so it checks words, not reasoning.</li>
+  <li><b>Fine-tuning:</b> only five 3–7B models; the legal-moves training fell short of its own bar.</li>
+  <li><b>Missing data:</b> deepseek-r1:7b is missing about 4% of base evaluations.</li>
+</ul>
+
+<h2 id="audit">The audit: how naive metrics flattered the models</h2>
+<div class="tablebox"><table>
+  <tr><th>Claim</th><th>Naive</th><th>Corrected</th></tr>
+  <tr><td>Legal moves</td><td class="n">64.6%</td><td class="n">97.0% final, 9.3% first answer</td></tr>
+  <tr><td>Mean CPL</td><td class="n">4,735 raw</td><td class="n">788 clamped; 41.9% blunders</td></tr>
+  <tr><td>Best move vs chance</td><td class="n">10.2% vs 3.6%</td><td class="n">10.2% vs 8.8%</td></tr>
+  <tr><td>T1 skill</td><td>"low error"</td><td>worse than answering 0</td></tr>
+  <tr><td>Direction accuracy</td><td class="n">46% at ±50</td><td class="n">κ 0.02–0.07</td></tr>
+  <tr><td>T3 theme</td><td>substring</td><td>whole word ("mate" ≠ "material")</td></tr>
+  <tr><td>Fine-tuned T3 improved</td><td class="n">4 of 5</td><td class="n">1 of 5</td></tr>
+</table></div>
+<p>A good discussion point: at every step, the naive metric made weak models look capable. Full detail in <code>docs/issues-log.md</code>, Issues 14–25.</p>
+
+<h2 id="next">Next steps</h2>
+<p>Ordered so the GPU is never idle. Items 1–3 use the PC; the rest are writing or need you.</p>
+<ol class="steps">
+  <li><b>Plain-board experiment (the notation check).</b> Give the base models the same positions as an ASCII board diagram, a plain-English piece list and the legal-move list, then ask the same three questions. A seeded sample (about 500 positions, 125 per tier) keeps it to hours, not weeks. Pre-register the bar first: for example, "notation is not the bottleneck if the blunder rate and side-naming stay within the base CIs".
+    <div class="meta"><span class="tag must">run next</span><span>Spec, tests and code first (I can do this now), then a timing probe on 3 models before the full run. Skip llama3.3:70b (memory crash).</span></div></li>
+  <li><b>Re-run on the actual puzzle positions (Issue 21).</b> Show the position after the setup move, where the tactic exists. That makes the theme mark and the difficulty tiers (H1–H3) valid evidence instead of footnotes. <code>data/puzzle_meta.json</code> already has the positions; it reuses the existing pipeline.
+    <div class="meta"><span class="tag">after 1</span><span>Larger GPU job; a seeded subset first.</span></div></li>
+  <li><b>Temperature-0 repeat (optional).</b> A small run at temperature 0 to show whether the results change when outputs are deterministic. Answers the "not reproducible" limitation.
+    <div class="meta"><span class="tag">optional</span><span>Small; can fill gaps between bigger jobs.</span></div></li>
+  <li><b>Write the background sections</b> from these notes. Start with engines and measuring fairly, the parts judges press on. Look up every "check before citing" source.
+    <div class="meta"><span class="tag">you + me</span><span>Can run alongside items 1–2.</span></div></li>
+  <li><b>Draft the "notation test?" discussion section,</b> then add the plain-board result once item 1 is done.
+    <div class="meta"><span class="tag">you + me</span></div></li>
+  <li><b>Your items:</b> R-5 approve the drafts; R-3 go through results with Dr Brew; A-1 turn off Tailscale key expiry (the PC dropped offline while you were away); A-2 off-PC backup.
+    <div class="meta"><span class="tag must">yours</span></div></li>
+  <li><b>Later, if there's time:</b> batch 2 fine-tunes on a cloud GPU; a longer legal-moves retrain with a new pre-registration (2–3 days of GPU).
+    <div class="meta"><span class="tag">optional</span></div></li>
+</ol>
+</main>
+</div>

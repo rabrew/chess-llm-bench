@@ -1,0 +1,271 @@
+<title>The Notation Experiment</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Literata:opsz,wght@7..72,400;7..72,600;7..72,700&family=Public+Sans:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Same family as the write-up notes and conclusions pages: board-green accent, serif reading column. */
+:root {
+  --bg: #f6f7f4; --surface: #ffffff; --fg: #1d2420; --muted: #5d6a62; --line: #d9ded8; --grid: #e8ebe6;
+  --accent: #4a7a3a; --accent-soft: #e6eedf; --warn: #9a5b12; --warn-soft: #f6ead8;
+  --series-fen: #2a78d6; --series-plain: #eb6834;
+  --serif: "Literata", Georgia, "Times New Roman", serif;
+  --sans: "Public Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #141815; --surface: #1c211d; --fg: #e4e9e4; --muted: #9aa69e; --line: #2f3731; --grid: #262c27;
+  --accent: #8cc070; --accent-soft: #24301f; --warn: #e3a95c; --warn-soft: #33281a;
+  --series-fen: #3987e5; --series-plain: #d95926; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #141815; --surface: #1c211d; --fg: #e4e9e4; --muted: #9aa69e; --line: #2f3731; --grid: #262c27;
+  --accent: #8cc070; --accent-soft: #24301f; --warn: #e3a95c; --warn-soft: #33281a;
+  --series-fen: #3987e5; --series-plain: #d95926; color-scheme: dark }
+
+body { background: var(--bg); color: var(--fg); font-family: var(--serif); font-size: 17px; line-height: 1.6; }
+.wrap { max-width: 860px; margin: 0 auto; padding-block: 40px 80px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+header.top { border-bottom: 1px solid var(--line); padding-bottom: 22px; }
+.eyebrow { font-family: var(--sans); text-transform: uppercase; letter-spacing: .1em; font-size: 12px; color: var(--accent); font-weight: 700; margin: 0; }
+h1 { font-size: 2.3rem; line-height: 1.12; margin: 6px 0 10px; text-wrap: balance; }
+h2 { font-size: 1.55rem; margin: 52px 0 12px; text-wrap: balance; display: flex; gap: 12px; align-items: baseline; }
+h2 .step { font-family: var(--mono); font-size: .9rem; color: var(--accent); font-weight: 600; }
+h3 { font-family: var(--sans); font-size: 1.02rem; margin: 26px 0 6px; }
+.lede { color: var(--muted); margin: 0; max-width: 64ch; }
+p, ul, ol { margin: 0 0 12px; max-width: 68ch; }
+ul, ol { padding-left: 1.3em; }
+li { margin-bottom: 5px; }
+code { font-family: var(--mono); font-size: .86em; }
+.status { display: flex; flex-wrap: wrap; gap: 8px 16px; margin-top: 16px; font-family: var(--sans); font-size: 14px; color: var(--muted); }
+.pill { font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; padding: 3px 8px; border-radius: 4px; background: var(--warn-soft); color: var(--warn); }
+.box { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 16px 18px; margin: 16px 0; }
+.box > :last-child { margin-bottom: 0; }
+.box.key { border-left: 4px solid var(--accent); }
+.box.check { background: var(--warn-soft); border-color: transparent; font-family: var(--sans); font-size: 15px; }
+.box.check b { color: var(--warn); }
+.hyps { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; margin: 16px 0; }
+.hyp { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; }
+.hyp b { font-family: var(--mono); color: var(--accent); }
+.hyp p { margin: 6px 0 0; }
+.tablebox { overflow-x: auto; margin: 12px 0 16px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-family: var(--sans); font-size: 14.5px; }
+th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-weight: 600; color: var(--muted); font-size: 12.5px; text-transform: uppercase; letter-spacing: .05em; }
+tr:last-child td { border-bottom: 0; }
+td.n { font-family: var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ok { color: var(--accent); font-weight: 700; }
+.edge { color: var(--warn); font-weight: 700; }
+.wait { color: var(--muted); }
+.prompts { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; margin: 14px 0; }
+.prompt { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; min-width: 0; }
+.prompt h4 { margin: 0 0 6px; font-family: var(--sans); font-size: 14px; }
+.prompt h4 code { color: var(--accent); }
+.prompt pre { margin: 0; font-family: var(--mono); font-size: 12px; line-height: 1.45; overflow-x: auto; white-space: pre; color: var(--fg); }
+.prompt p { font-family: var(--sans); font-size: 13.5px; color: var(--muted); margin: 8px 0 0; }
+
+/* chart */
+figure { margin: 18px 0; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 16px 16px 10px; }
+figcaption { font-family: var(--sans); }
+figcaption .title { font-weight: 700; font-size: 15px; }
+figcaption .sub { color: var(--muted); font-size: 13.5px; margin-top: 2px; }
+.legend { display: flex; gap: 16px; flex-wrap: wrap; font-family: var(--sans); font-size: 13px; color: var(--muted); margin: 10px 0 4px; }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend i { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+.chartbox { position: relative; overflow-x: auto; }
+svg text { font-family: var(--sans); }
+.tip { position: absolute; pointer-events: none; background: var(--fg); color: var(--bg); font-family: var(--sans); font-size: 12.5px; padding: 6px 9px; border-radius: 6px; white-space: nowrap; transform: translate(-50%, calc(-100% - 10px)); }
+details { font-family: var(--sans); font-size: 14px; margin-top: 8px; }
+summary { cursor: pointer; color: var(--accent); }
+blockquote { margin: 16px 0; padding: 14px 18px; border-left: 4px solid var(--accent); background: var(--surface); border-radius: 0 8px 8px 0; max-width: 68ch; }
+blockquote p:last-child { margin-bottom: 0; }
+footer { margin-top: 56px; padding-top: 16px; border-top: 1px solid var(--line); font-family: var(--sans); font-size: 13.5px; color: var(--muted); }
+</style>
+
+<div class="wrap">
+<header class="top">
+  <p class="eyebrow">PR09426 · Do LLMs Reason? · Experiment 6</p>
+  <h1>Is chess notation the barrier?</h1>
+  <p class="lede">Every benchmark prompt described the position in FEN, a compact code that's hard even for many players. If the models failed only because they couldn't read FEN, the main conclusion would be unfair to them. This experiment removes the notation and asks again.</p>
+  <div class="status"><span class="pill">Interim</span><span>13 of 21 models finished · 31 Oct 2026 · blunder rate not yet scored</span></div>
+</header>
+
+<h2><span class="step">01</span>Hypothesis</h2>
+<div class="hyps">
+  <div class="hyp"><b>H₀</b> Notation is not the main barrier
+    <p>Given the same positions in plain English, with no FEN anywhere, the models still perform close to chance.</p></div>
+  <div class="hyp"><b>H₁</b> Notation is a major barrier
+    <p>In plain English, the models' performance improves substantially.</p></div>
+</div>
+<p>The criteria were fixed <b>before</b> the experiment ran (<code>specs/plain-board-prompts.md</code>), so the results couldn't shape how they were judged. Each compares the plain-board prompt with the FEN prompt on the same positions.</p>
+<div class="tablebox"><table>
+  <thead><tr><th>#</th><th>Measure</th><th>H₀ holds if the plain board…</th></tr></thead>
+  <tbody>
+    <tr><td class="n">N1</td><td>Blunder rate (moves losing ≥ 1,000 centipawns)</td><td>is less than 5 points lower than with FEN</td></tr>
+    <tr><td class="n">N2</td><td>Evaluation accuracy (Spearman ρ with the engine)</td><td>stays below 0.20</td></tr>
+    <tr><td class="n">N3</td><td>Naming the better side (Cohen's κ)</td><td>stays below 0.20</td></tr>
+    <tr><td class="n">N4</td><td>First answer is a legal move</td><td>stays below 25%</td></tr>
+  </tbody>
+</table></div>
+<div class="box"><p style="font-family:var(--sans);font-size:15px"><b>Decision rule.</b> All four hold → notation is not the main barrier. N1 drops by 5 points or more with non-overlapping confidence intervals, or ρ reaches 0.30 → notation was a major barrier. Anything else → <b>mixed</b>, and each measure is reported on its own.</p></div>
+
+<h2><span class="step">02</span>Experiment</h2>
+<ul>
+  <li><b>Positions:</b> 500 benchmark positions, 125 from each difficulty tier, drawn with a fixed seed (42).</li>
+  <li><b>Models:</b> the 21 base models. Llama-3.3-70B is left out because it is too large to load on the test machine.</li>
+  <li><b>Questions:</b> the same three as the main benchmark: evaluate the position, choose a move, explain who stands better.</li>
+  <li><b>Scoring:</b> moves are scored by the Lc0 engine at 800 nodes. Results are paired by model and position, with 95% confidence intervals from bootstrapping over positions (1,000 resamples, seed 42).</li>
+  <li><b>Control:</b> the FEN prompt runs again in the same run, so any difference comes from the prompt alone, not from a change of software or settings.</li>
+</ul>
+<h3>Three ways of showing the same position</h3>
+<div class="prompts">
+  <div class="prompt"><h4><code>fen_only</code> · control</h4>
+<pre>Current position (FEN):
+r3rk1N/1ppbq1pB/4p2p/3pn3/
+p4P1P/2P1P3/PPQ3P1/R3K2R
+b KQ - 0 19</pre>
+    <p>The original prompt.</p></div>
+  <div class="prompt"><h4><code>board_text</code></h4>
+<pre>8 | r . . . r k . N
+7 | . p p b q . p B
+6 | . . . . p . . p
+…
+1 | R . . . K . . R
+    a b c d e f g h
+White pieces: King e1, Queen c2, …
+Side to move: Black</pre>
+    <p>A diagram and piece lists. No FEN anywhere, even when re-asked.</p></div>
+  <div class="prompt"><h4><code>board_text+legal</code></h4>
+<pre>(the same board, then)
+Legal moves: Bb5, Bc6, Bc8,
+Nc4, Nc6, Nd3+, Nf3+, …</pre>
+    <p>Also lists every legal move.</p></div>
+</div>
+
+<h2><span class="step">03</span>Results so far</h2>
+<p>Pooled over the 13 finished models (all the 2B–32B models), paired by position:</p>
+<div class="tablebox"><table>
+  <thead><tr><th>Measure</th><th>FEN</th><th>Plain board</th><th>Plain + legal list</th><th>Threshold</th><th>H₀ holds?</th></tr></thead>
+  <tbody>
+    <tr><td>N4 · first answer legal</td><td class="n">16.9%</td><td class="n">24.6% <span class="wait">(23.3–25.9)</span></td><td class="n">88.4%</td><td class="n">&lt; 25%</td><td class="edge">On the edge</td></tr>
+    <tr><td>N2 · evaluation ρ</td><td class="n">0.10</td><td class="n">0.14 <span class="wait">(0.11–0.17)</span></td><td class="n">0.15</td><td class="n">&lt; 0.20</td><td class="ok">Yes</td></tr>
+    <tr><td>N3 · better side κ</td><td class="n">0.08</td><td class="n">0.09 <span class="wait">(0.06–0.11)</span></td><td class="n">0.08</td><td class="n">&lt; 0.20</td><td class="ok">Yes</td></tr>
+    <tr><td>N1 · blunder rate</td><td class="n wait">pending</td><td class="n wait">pending</td><td class="n wait">pending</td><td class="n">drop &lt; 5 pts</td><td class="wait">After the run</td></tr>
+  </tbody>
+</table></div>
+
+<figure>
+  <figcaption>
+    <div class="title">First answer legal, FEN vs plain board</div>
+    <div class="sub">Share of combined-prompt answers whose first move was legal, before any re-asking. 500 positions per model.</div>
+  </figcaption>
+  <div class="legend" aria-hidden="true">
+    <span><i style="background:var(--series-fen)"></i>FEN</span>
+    <span><i style="background:var(--series-plain)"></i>Plain board</span>
+  </div>
+  <div class="chartbox" id="chart"></div>
+  <details>
+    <summary>Show as a table</summary>
+    <div class="tablebox"><table id="datatable">
+      <thead><tr><th>Model</th><th>FEN</th><th>Plain board</th><th>Plain + legal list</th></tr></thead>
+      <tbody></tbody>
+    </table></div>
+  </details>
+</figure>
+
+<h3>What stands out</h3>
+<ul>
+  <li><b>Plain text helps models form legal moves.</b> Every finished model improved except gemma3:4b (13% → 7%). The larger models gained most: qwen2.5:32b 23% → 40%, gemma4:e2b 28% → 44%, qwen2.5:14b 16% → 35%.</li>
+  <li><b>Fewer wrong-colour moves.</b> Moves made for the wrong side fell from 14% to 8% of illegal first answers. Saying "Side to move: Black" in words helps.</li>
+  <li><b>Judging the position barely changes.</b> Naming the better side stays near chance (κ 0.08 → 0.09), even when every legal move is listed.</li>
+  <li><b>One model improves sharply on evaluation.</b> qwen2.5:32b's ρ rises from 0.08 to 0.33, above any model's FEN score in the main benchmark (best 0.25).</li>
+  <li><b>One model gets worse.</b> gemma3:12b's ρ falls from 0.35 to 0.08 without FEN. Its skill may be tied to seeing FEN strings in training.</li>
+</ul>
+
+<h2><span class="step">04</span>Conclusion <span class="pill" style="font-size:11px">Provisional</span></h2>
+<div class="box key">
+  <p><b>Chess notation is part of the problem, but not the main one.</b></p>
+  <p>A plain-English board helped the models produce legal moves, raising first-answer legality by about 8 points, and halved the moves made for the wrong colour. So notation does get in the way of <i>forming</i> a valid answer.</p>
+  <p>It did not help them <i>understand</i> the position. Their evaluations and their judgement of who stands better stayed close to chance, both on the plain board and when every legal move was handed to them. That is what a model which can read the board but not reason about it would do.</p>
+</div>
+<p>Under the pre-registered rule the verdict is likely to be <b>mixed</b>: first-answer legality (N4) is on its 25% threshold, and the models still to run are the larger ones that gain most. That doesn't weaken the main conclusion; it sharpens it. Notation affects whether a model gives a <i>legal</i> answer, not whether it gives a <i>good</i> one. The blunder rate (N1) will show whether move quality changed.</p>
+
+<h3>Limitations</h3>
+<ul>
+  <li>One plain-text format was tested. Others, such as an image of the board, might do better.</li>
+  <li>Models ran at their default temperature, so single answers vary. The same-run control limits the effect on the comparison.</li>
+  <li>500 positions rather than 4,000, to keep the run to about a day.</li>
+</ul>
+
+<div class="box check"><b>To update when the run finishes:</b> the "Interim" label, all four rows of the results table, the chart (21 models), and the verdict in the conclusion.</div>
+
+<footer>Source: <code>results/plain_board/evaluations.jsonl</code>, analysed with the measures in <code>scripts/plain_board_compare.py</code>. Spec: <code>specs/plain-board-prompts.md</code>. Repository: github.com/rabrew/chess-llm-bench</footer>
+</div>
+
+<script>
+const DATA = [
+  ["gemma3:12b", .178, .270, .978], ["gemma3:4b", .128, .066, .962], ["gemma4:e2b", .280, .442, .992],
+  ["gemma4:e4b", .382, .406, .778], ["llama3.1:8b", .114, .162, .986], ["llama3.2:3b", .062, .068, .856],
+  ["mistral:7b", .144, .164, .698], ["phi4:14b", .196, .324, .816], ["qwen2.5:14b", .156, .350, .984],
+  ["qwen2.5:32b", .226, .396, .978], ["qwen2.5:7b", .128, .302, .966], ["solar:10.7b", .124, .156, .800],
+  ["wizardlm2:7b", .072, .085, .692],
+].sort((a, b) => b[2] - a[2]);
+const pct = v => (v * 100).toFixed(1) + "%";
+
+const tbody = document.querySelector("#datatable tbody");
+for (const [m, f, p, l] of DATA) {
+  const tr = document.createElement("tr");
+  tr.innerHTML = `<td>${m}</td><td class="n">${pct(f)}</td><td class="n">${pct(p)}</td><td class="n">${pct(l)}</td>`;
+  tbody.appendChild(tr);
+}
+
+const box = document.getElementById("chart");
+const NS = "http://www.w3.org/2000/svg";
+const ROW = 30, TOP = 8, BOTTOM = 28, LABEL = 108, RIGHT = 16, MAX = 0.5, THRESHOLD = 0.25;
+const tip = document.createElement("div"); tip.className = "tip"; tip.hidden = true; box.appendChild(tip);
+
+function el(name, attrs, parent) {
+  const node = document.createElementNS(NS, name);
+  for (const k in attrs) node.setAttribute(k, attrs[k]);
+  parent.appendChild(node); return node;
+}
+
+function draw() {
+  for (const old of box.querySelectorAll("svg")) old.remove();
+  const width = Math.max(320, box.clientWidth);
+  const height = TOP + DATA.length * ROW + BOTTOM;
+  const plot = width - LABEL - RIGHT;
+  const x = v => LABEL + (v / MAX) * plot;
+  const svg = el("svg", { width, height, viewBox: `0 0 ${width} ${height}`, role: "img",
+    "aria-label": "Dumbbell chart of first-answer legality per model, FEN versus plain board" }, box);
+
+  for (let t = 0; t <= MAX + 1e-9; t += 0.1) {
+    el("line", { x1: x(t), x2: x(t), y1: TOP, y2: height - BOTTOM, stroke: "var(--grid)", "stroke-width": 1 }, svg);
+    const label = el("text", { x: x(t), y: height - 8, "text-anchor": "middle", "font-size": 11.5, fill: "var(--muted)" }, svg);
+    label.textContent = Math.round(t * 100) + "%";
+  }
+  el("line", { x1: x(THRESHOLD), x2: x(THRESHOLD), y1: TOP, y2: height - BOTTOM, stroke: "var(--warn)",
+    "stroke-width": 1.5, "stroke-dasharray": "4 4" }, svg);
+  const thr = el("text", { x: x(THRESHOLD) + 5, y: TOP + 10, "font-size": 11, fill: "var(--warn)" }, svg);
+  thr.textContent = "N4 threshold 25%";
+
+  DATA.forEach(([model, fen, plain], i) => {
+    const y = TOP + i * ROW + ROW / 2;
+    const name = el("text", { x: LABEL - 10, y: y + 4, "text-anchor": "end", "font-size": 12.5, fill: "var(--fg)" }, svg);
+    name.textContent = model;
+    el("line", { x1: x(fen), x2: x(plain), y1: y, y2: y, stroke: "var(--muted)", "stroke-width": 2, "stroke-linecap": "round", opacity: .55 }, svg);
+    for (const [v, color, what] of [[fen, "var(--series-fen)", "FEN"], [plain, "var(--series-plain)", "Plain board"]]) {
+      el("circle", { cx: x(v), cy: y, r: 5.5, fill: color, stroke: "var(--surface)", "stroke-width": 2 }, svg);
+      const hit = el("circle", { cx: x(v), cy: y, r: 13, fill: "transparent", tabindex: 0,
+        "aria-label": `${model}, ${what}: ${pct(v)}` }, svg);
+      const show = () => {
+        tip.textContent = `${model} · ${what}: ${pct(v)}`;
+        tip.style.left = x(v) + "px"; tip.style.top = y + "px"; tip.hidden = false;
+      };
+      hit.addEventListener("pointerenter", show); hit.addEventListener("focus", show);
+      hit.addEventListener("pointerleave", () => { tip.hidden = true; });
+      hit.addEventListener("blur", () => { tip.hidden = true; });
+    }
+  });
+}
+draw();
+let resizeTimer;
+window.addEventListener("resize", () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(draw, 120); });
+</script>

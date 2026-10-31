@@ -1,0 +1,274 @@
+<title>Benchmark Conclusions</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Literata:opsz,wght@7..72,400;7..72,600;7..72,700&family=Public+Sans:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Same visual family as the write-up notes: board-green accent, serif reading column, numbers in mono. */
+:root {
+  --bg: #f6f7f4; --surface: #ffffff; --fg: #1d2420; --muted: #5d6a62; --line: #d9ded8;
+  --accent: #4a7a3a; --accent-soft: #e6eedf; --warn: #9a5b12; --warn-soft: #f6ead8;
+  --mid: #3d6a8a; --mid-soft: #e1ebf2;
+  --serif: "Literata", Georgia, "Times New Roman", serif;
+  --sans: "Public Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #141815; --surface: #1c211d; --fg: #e4e9e4; --muted: #9aa69e; --line: #2f3731;
+  --accent: #8cc070; --accent-soft: #24301f; --warn: #e3a95c; --warn-soft: #33281a;
+  --mid: #8ab8d8; --mid-soft: #1c2a34; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #141815; --surface: #1c211d; --fg: #e4e9e4; --muted: #9aa69e; --line: #2f3731;
+  --accent: #8cc070; --accent-soft: #24301f; --warn: #e3a95c; --warn-soft: #33281a;
+  --mid: #8ab8d8; --mid-soft: #1c2a34; color-scheme: dark }
+
+body { background: var(--bg); color: var(--fg); font-family: var(--serif); font-size: 17px; line-height: 1.6; }
+.wrap { max-width: 1120px; margin: 0 auto; padding-block: 40px 80px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 48px; }
+@media (max-width: 860px) { .wrap { grid-template-columns: minmax(0, 1fr); gap: 24px; } nav.toc { position: static !important; } }
+nav.toc { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 24px); align-self: start; font-family: var(--sans); font-size: 14px; }
+nav.toc p { text-transform: uppercase; letter-spacing: .08em; font-size: 12px; color: var(--muted); margin: 0 0 8px; font-weight: 600; }
+nav.toc ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+nav.toc a { color: var(--fg); text-decoration: none; display: block; padding: 3px 0 3px 10px; border-left: 2px solid var(--line); }
+nav.toc a:hover, nav.toc a:focus-visible { border-left-color: var(--accent); color: var(--accent); outline: none; }
+main { min-width: 0; max-width: 74ch; }
+header.top { border-bottom: 1px solid var(--line); padding-bottom: 20px; margin-bottom: 8px; }
+.eyebrow { font-family: var(--sans); text-transform: uppercase; letter-spacing: .1em; font-size: 12px; color: var(--accent); font-weight: 700; margin: 0; }
+h1 { font-size: 2.2rem; line-height: 1.15; margin: 6px 0 10px; text-wrap: balance; }
+h2 { font-size: 1.5rem; margin: 48px 0 12px; text-wrap: balance; scroll-margin-top: 16px; }
+h3 { font-family: var(--sans); font-size: 1.02rem; margin: 24px 0 6px; }
+.lede { color: var(--muted); margin: 0; }
+p, ul, ol { margin: 0 0 12px; }
+ul, ol { padding-left: 1.3em; }
+li { margin-bottom: 4px; }
+code, .num { font-family: var(--mono); font-size: .86em; }
+.box { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 16px 18px; margin: 16px 0; }
+.box > :last-child { margin-bottom: 0; }
+.box.key { border-left: 4px solid var(--accent); }
+.box.check { background: var(--warn-soft); border-color: transparent; font-family: var(--sans); font-size: 15px; }
+.box.check b { color: var(--warn); }
+.claim { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 18px 20px; margin: 18px 0; }
+.claim > :last-child { margin-bottom: 0; }
+.claim h3 { margin: 0 0 8px; font-size: 1.08rem; display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+.claim h3 .no { font-family: var(--mono); color: var(--accent); }
+.claim .label { font-family: var(--sans); font-size: 12.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 600; margin: 12px 0 4px; }
+.tag { font-family: var(--sans); font-size: 11.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; padding: 2px 7px; border-radius: 4px; white-space: nowrap; }
+.tag.strong { background: var(--accent-soft); color: var(--accent); }
+.tag.moderate { background: var(--mid-soft); color: var(--mid); }
+.tag.tentative { background: var(--warn-soft); color: var(--warn); }
+.tablebox { overflow-x: auto; margin: 12px 0 16px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-family: var(--sans); font-size: 14.5px; }
+th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-weight: 600; color: var(--muted); font-size: 12.5px; text-transform: uppercase; letter-spacing: .05em; }
+tr:last-child td { border-bottom: 0; }
+td.n { font-family: var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+td.hi { font-weight: 700; color: var(--accent); }
+blockquote { margin: 16px 0; padding: 14px 18px; border-left: 4px solid var(--accent); background: var(--surface); border-radius: 0 8px 8px 0; }
+blockquote p:last-child { margin-bottom: 0; }
+a { color: var(--accent); }
+</style>
+
+<div class="wrap">
+<nav class="toc" aria-label="Contents">
+  <p>Contents</p>
+  <ol>
+    <li><a href="#answer">The answer</a></li>
+    <li><a href="#c1">1 · Moves</a></li>
+    <li><a href="#c2">2 · Legality</a></li>
+    <li><a href="#c3">3 · Evaluation</a></li>
+    <li><a href="#c4">4 · Explanation</a></li>
+    <li><a href="#c5">5 · One skill, not three</a></li>
+    <li><a href="#c6">6 · Size</a></li>
+    <li><a href="#c7">7 · Prompting</a></li>
+    <li><a href="#c8">8 · Fine-tuning</a></li>
+    <li><a href="#c9">9 · Notation</a></li>
+    <li><a href="#c10">10 · Measurement</a></li>
+    <li><a href="#hyp">Hypotheses scorecard</a></li>
+    <li><a href="#cannot">What can't be claimed</a></li>
+    <li><a href="#text">Draft conclusion text</a></li>
+  </ol>
+</nav>
+
+<main>
+<header class="top">
+  <p class="eyebrow">PR09426 · Do LLMs Reason? Benchmarking Logical Performance via Chess</p>
+  <h1>Conclusions from all the data</h1>
+  <p class="lede">Drawn from the base benchmark (526,662 evaluations, 22 models, 4,000 positions), the base re-run, both fine-tunes, the engine-strength check and the plain-board run so far. Numbers are from <code>docs/FINDINGS.md</code> and <code>results/metrics/</code> at the current commit, except where marked. 31 Oct 2026.</p>
+</header>
+
+<div class="box">
+  <p style="font-family:var(--sans);font-size:15px;margin:0">Each conclusion has a strength tag:
+  <span class="tag strong">Strong</span> several independent measures agree, with tight intervals.
+  <span class="tag moderate">Moderate</span> clear, but from one measure or a subset of models.
+  <span class="tag tentative">Tentative</span> interim data or an exploratory analysis that wasn't planned in advance.</p>
+</div>
+
+<h2 id="answer">The answer to the research question</h2>
+<div class="box key">
+  <p><b>The open-source LLMs tested (2B–70B) do not reason about chess positions in any way this benchmark can detect.</b> Their behaviour fits pattern matching on familiar chess text. They produce answers shaped like chess (a move in the right format, a number, a sentence about "the bishop"), but those answers barely depend on the actual position.</p>
+  <p>This holds across all three tasks, all 22 models, every prompt style tried, and both fine-tunes. One family, Google's Gemma, shows a real but small rise in skill with size. Results so far suggest the notation isn't the main cause: on a plain-English board, legality rises a little and understanding barely moves.</p>
+</div>
+<p>"Do not reason" is a claim about <i>this</i> test. The careful version: <b>every result here is more consistent with pattern matching than with reasoning, and no result points the other way.</b> Nothing here proves that LLMs <i>can't</i> reason. See <a href="#cannot">What can't be claimed</a>.</p>
+
+<!-- ============ 1 ============ -->
+<h2 id="c1">Conclusions by topic</h2>
+
+<div class="claim">
+  <h3><span class="no">1</span> Move choice is barely better than picking a random legal move <span class="tag strong">Strong</span></h3>
+  <p>Models play the engine's best move 10.2% of the time. A random legal move does it 8.8% of the time on the same positions, so they're 1.16× chance. Twenty of the 22 models sit between 0.94× and 1.23×. Only Gemma 4 31B and 26B clearly beat chance, at about 1.5–1.6×.</p>
+  <p>Move quality is <b>"perfect or disaster"</b>: 18.7% of legal moves are essentially perfect (CPL &lt; 25), and 41.9% are blunders (CPL ≥ 1,000, which means giving away a won position or worse). Only 4.9% fall in the "strong" band in between. A player who understood the position would produce mostly middling-to-good moves; this shape looks more like "sometimes the familiar move happens to be right".</p>
+  <p class="label">Supporting evidence</p>
+  <ul>
+    <li>Models play the <i>human</i> move from the position (usually the mistake that set up the puzzle) 11.5% of the time, more often than the engine's best move. Repeating a common human move rather than calculating is what pattern matching predicts.</li>
+    <li>The blunder ranking survives a 10× stronger engine (T2-5): ρ = 0.97 against the original ranking, and no model moved more than 4 places. The finding isn't an artefact of the engine settings.</li>
+  </ul>
+  <p class="label">Limits</p>
+  <p>Ranks among the middle 20 models are statistically tied (overlapping 95% CIs). Only "Gemma 4 31B/26B vs the rest" is a real gap.</p>
+</div>
+
+<div class="claim" id="c2">
+  <h3><span class="no">2</span> Without help, models rarely even produce a legal move <span class="tag strong">Strong</span></h3>
+  <p>When the model's own first answer is scored, before any rescue, it's legal <b>9.3%</b> of the time (five re-run models, combined prompts). The headline 97% only appears after the system re-asks with the full legal-move list. That figure measures copying from a list, not chess.</p>
+  <p class="label">Supporting evidence</p>
+  <ul>
+    <li>The illegal answers are mostly stock opening moves that ignore the board: llama3.2:3b answers "e4" 45% of the time, qwen2.5:7b "Nf6" 24%, gemma3:4b "d5" 20%. Often they're for the wrong side or onto occupied squares.</li>
+    <li>The plain-board run gives first-answer figures for more models. So far (8 models) it's 13.8% on FEN prompts, which agrees.</li>
+  </ul>
+  <p class="label">Limits</p>
+  <p>Base first-answer figures exist for only 5 models, because raw replies weren't saved before the re-run. The plain-board run will extend this to 21.</p>
+</div>
+
+<div class="claim" id="c3">
+  <h3><span class="no">3</span> Evaluations don't track the position <span class="tag strong">Strong</span></h3>
+  <ul>
+    <li><b>Rank correlation with the engine:</b> 0.11 pooled, at most 0.25 for any model. For comparison, 1.0 is perfect and 0 is no relationship.</li>
+    <li><b>Against a trivial guess:</b> no model's error beats answering "0" every time. The ratio runs from 1.31× to 7.03× worse.</li>
+    <li><b>"Who is winning":</b> chance-corrected agreement (Cohen's κ) is 0.02–0.07 at every threshold. The high raw accuracy at wide thresholds comes from most positions being near level, not from reading the board.</li>
+    <li><b>Not a perspective error:</b> ρ has the same sign with White and Black to move for every model, so the models aren't simply reporting from the wrong side.</li>
+  </ul>
+</div>
+
+<div class="claim" id="c4">
+  <h3><span class="no">4</span> Explanations name the better side less often than a fixed guess <span class="tag strong">Strong</span></h3>
+  <p>Models name the better side correctly 30.3% of the time. Always naming the usual answer would score 54.2% (κ = 0.07). They almost never say "Equal", even though most positions are level. The best are Gemma 4 31B (κ 0.15) and 26B (0.14). The worst score effectively zero (deepseek-r1:7b 0.00, llama3.1:8b 0.01).</p>
+  <p class="label">Limits</p>
+  <p>The theme mark (6.0%) and the T3 score are reported, but they <b>aren't evidence</b>: the position shown is the one <i>before</i> the puzzle starts (Issue 21), so the theme usually isn't on the board yet. T3 is also marked by rules, so it checks for the right words, not sound reasoning.</p>
+</div>
+
+<div class="claim" id="c5">
+  <h3><span class="no">5</span> "Knowing who's better" is one skill across tasks, and it's separate from choosing moves <span class="tag tentative">Tentative · new analysis</span></h3>
+  <p>Comparing the 22 models with each other, I checked whether a model that's good at one task is good at the others (Spearman rank correlation across models, n = 22. For n = 22, |ρ| above about 0.43 is unlikely by chance).</p>
+  <div class="tablebox"><table>
+    <thead><tr><th>Pair of measures (across models)</th><th>ρ</th><th>Reading</th></tr></thead>
+    <tbody>
+      <tr><td>T1 eval ρ ↔ T3 side κ</td><td class="n hi">0.92</td><td>Models that judge the score better also name the better side better. One underlying "who's winning" signal shows up in two different tasks.</td></tr>
+      <tr><td>Best-move rate ↔ human setup-move rate</td><td class="n hi">0.83</td><td>Models that find the engine's move more often also copy the human's (usually bad) move more often. Better models look more <i>human-like</i>, not more <i>engine-like</i>, which fits learning from human game records.</td></tr>
+      <tr><td>T1 eval ρ ↔ best-move rate</td><td class="n">0.51</td><td>Some link between judging and choosing.</td></tr>
+      <tr><td>T1 eval ρ ↔ T3 score</td><td class="n">0.57</td><td>The same pattern for explanations.</td></tr>
+      <tr><td>Blunder rate ↔ anything</td><td class="n">−0.32 to 0.21</td><td>No clear link. Apart from Gemma 4, blunder rates sit within noise of each other (40–45%), so there's little to correlate.</td></tr>
+      <tr><td>Size ↔ T1 eval ρ</td><td class="n">0.38</td><td>Weak, not significant at n = 22.</td></tr>
+      <tr><td>Size ↔ blunder rate</td><td class="n">−0.10</td><td>No relationship.</td></tr>
+    </tbody>
+  </table></div>
+  <p><b>What this suggests:</b> the small differences between models are about how much chess "knowledge" they picked up in training. A model with more of it is better at saying who's winning <i>and</i> at producing human-looking moves. It doesn't buy fewer blunders, which is what calculating would give.</p>
+  <p class="label">Limits</p>
+  <p>This analysis was <b>not pre-registered</b>, and it uses 22 data points and several comparisons. Report it as exploratory. Part of the T1–T3 link may come from both answers being in the same reply, since a model that says "+300" will tend to then say "White".</p>
+</div>
+
+<div class="claim" id="c6">
+  <h3><span class="no">6</span> Size doesn't predict skill, except within Gemma <span class="tag strong">Strong</span></h3>
+  <ul>
+    <li><b>Llama 3, 3B → 8B → 70B:</b> blunder rate 41.1% → 44.4% → 43.2%. That's 23× the parameters for no gain.</li>
+    <li><b>Qwen 2.5, 7B → 14B → 32B:</b> 42.1% → 42.3% → 44.2%, slightly worse.</li>
+    <li><b>DeepSeek-R1, 7B → 14B:</b> no gain, even though it's a "reasoning" model.</li>
+    <li><b>Gemma 4, 2B → 31B:</b> blunder rate 44.5% → 35.8%, ρ 0.11 → 0.24. <b>Gemma 3</b> also improves, 4B → 12B.</li>
+    <li>Across all 22 models, size against blunder rate gives ρ = −0.10, so no overall link.</li>
+  </ul>
+  <p><b>Reading:</b> when one developer's models scale and the others' don't, the likely cause is training data or method, not parameter count. That fits skill coming from what was <i>seen</i> rather than from general reasoning capacity growing with size.</p>
+</div>
+
+<div class="claim" id="c7">
+  <h3><span class="no">7</span> Asking for step-by-step reasoning doesn't help <span class="tag moderate">Moderate</span></h3>
+  <p>The chain-of-thought prompt gives the same blunder rate as the plain prompt (41.5% vs 41.5%) and almost the same legality (97.2% vs 97.1%). Its ρ is 0.13 vs 0.12. If the models had a reasoning process that prompting could unlock, this is where it would show.</p>
+  <p>The models also <b>aren't consistent</b>: given the identical prompt twice, they gave the same move 68.7% of the time and the identical eval 34.2% of the time. Someone calculating would answer the same way twice; someone sampling from "plausible-looking" answers would not.</p>
+  <p class="label">Limits</p>
+  <p>The models ran at default temperature, so some of the inconsistency is sampling by design. The move-history question is untested, because the PGN prompt had no history in it (Issue 23).</p>
+</div>
+
+<div class="claim" id="c8">
+  <h3><span class="no">8</span> Teaching the board didn't teach the game <span class="tag moderate">Moderate</span></h3>
+  <p><b>Pieces-only fine-tune (5 models, 3–7B):</b> reading the board went from 1–19% piece recall to 89–99%. Nothing else improved: T1 ρ stayed near 0, blunder rate rose slightly for all five, and final legality <i>fell</i> for all five, by up to 41 points.</p>
+  <p><b>Pieces + legal moves fine-tune:</b> it failed its own pre-registered check (criterion 0). The models listed only 65–81% of the legal moves, and only 52–60% of what they listed was legal. So by the rule fixed in advance, <b>no conclusion about transfer can be drawn</b>. What it does show: approximate knowledge of the rules made final answers <i>less</i> legal for every model, not more.</p>
+  <p><b>Reading:</b> knowing where the pieces are is necessary for reasoning but not enough. A model that reasoned from the board would have improved once it could read the board. These didn't.</p>
+  <p class="label">Limits</p>
+  <p>Only five small models. The pieces-only criteria were written after its results (F-6), and the legal-moves version didn't learn its target. A larger or longer fine-tune is the obvious next experiment.</p>
+</div>
+
+<div class="claim" id="c9">
+  <h3><span class="no">9</span> Notation looks like a small barrier, not the main one <span class="tag tentative">Tentative · interim, 8 of 21 models</span></h3>
+  <p>The same positions given as a plain board diagram and an English piece list, with no FEN anywhere, compared position by position against FEN in the same run:</p>
+  <div class="tablebox"><table>
+    <thead><tr><th>Measure</th><th>FEN</th><th>Plain board</th><th>Plain + legal-move list</th><th>Pre-registered "not the barrier" if plain board…</th></tr></thead>
+    <tbody>
+      <tr><td>First answer legal (N4)</td><td class="n">13.8%</td><td class="n">21.3%</td><td class="n">90.6%</td><td>&lt; 25%: holding</td></tr>
+      <tr><td>T1 eval ρ (N2)</td><td class="n">0.10</td><td class="n">0.12</td><td class="n">0.14</td><td>&lt; 0.20: holding</td></tr>
+      <tr><td>T3 side κ (N3)</td><td class="n">0.07</td><td class="n">0.09</td><td class="n">0.09</td><td>&lt; 0.20: holding</td></tr>
+      <tr><td>Blunder rate (N1)</td><td colspan="3">scored after the run ends</td><td>drop &lt; 5 points</td></tr>
+    </tbody>
+  </table></div>
+  <ul>
+    <li><b>A plain board helps the models form legal moves</b>: +7.5 points, with non-overlapping CIs. Wrong-colour moves fall from 13% to 8% of illegal answers. Notation <i>is</i> part of the legality problem.</li>
+    <li><b>It doesn't help them understand the position.</b> Eval and side judgement stay near chance, even when the legal moves are listed for them. Knowing exactly what's possible didn't help them tell who's winning.</li>
+    <li>gemma3:12b's eval ρ <i>drops</i> from 0.35 (FEN) to 0.08 (plain). Its FEN skill may be tied to seeing FEN strings in training, which again fits pattern matching.</li>
+  </ul>
+  <div class="box check"><b>Not final.</b> The pre-registered verdict needs all 21 models and the blunder rate. The bigger models are still to run, and N4's upper limit (22.6%) is close to its 25% bar, so a "mixed" verdict is possible. Update this section when the run finishes.</div>
+</div>
+
+<div class="claim" id="c10">
+  <h3><span class="no">10</span> Naive metrics overstate LLM ability, at every step <span class="tag strong">Strong</span></h3>
+  <p>This is a result in its own right. Each corrected measure made the models look worse:</p>
+  <div class="tablebox"><table>
+    <thead><tr><th>Claim</th><th>Naive</th><th>Corrected</th></tr></thead>
+    <tbody>
+      <tr><td>Legal moves</td><td class="n">64.6%</td><td class="n">97.0% final, 9.3% first answer</td></tr>
+      <tr><td>Best move vs chance</td><td class="n">"3–4× random"</td><td class="n">1.16×</td></tr>
+      <tr><td>T1 skill</td><td>"low error"</td><td>worse than always answering 0</td></tr>
+      <tr><td>Who's winning</td><td class="n">46% at ±50</td><td class="n">κ 0.02–0.07</td></tr>
+      <tr><td>Mean CPL</td><td class="n">4,735</td><td class="n">788 clamped; blunder rate 41.9%</td></tr>
+      <tr><td>Fine-tuned T3 "improved"</td><td class="n">4 of 5</td><td class="n">1 of 5</td></tr>
+    </tbody>
+  </table></div>
+  <p><b>The general lesson:</b> LLM benchmarks need chance baselines, trivial-answer baselines, chance-corrected agreement and first-attempt scoring. Without them, fluent-looking output passes for skill. This is likely the most useful contribution to anyone else building benchmarks.</p>
+</div>
+
+<h2 id="hyp">Hypotheses scorecard</h2>
+<div class="tablebox"><table>
+  <thead><tr><th>Hypothesis</th><th>Result</th><th>Used as evidence?</th></tr></thead>
+  <tbody>
+    <tr><td>H1: eval error rises with difficulty</td><td>Not supported (1.36 → 1.42, flat)</td><td>No. The tiers rate the next position, not the one shown (Issue 21)</td></tr>
+    <tr><td>H2: move quality falls with difficulty</td><td>Not supported (CPL 744 → 792, flat)</td><td>No, same reason</td></tr>
+    <tr><td>H3: explanation quality falls with difficulty</td><td>Not supported</td><td>No, same reason</td></tr>
+    <tr><td>H4: larger is better within a family</td><td>Holds for Gemma 3 and Gemma 4; fails for Llama 3, Qwen 2.5, DeepSeek-R1</td><td>Yes: <b>not supported as a general rule</b></td></tr>
+    <tr><td>Fine-tune criteria 0–4 (legal moves)</td><td>0 failed for all five, so by the fixed rule no transfer conclusion</td><td>Yes, as a negative result</td></tr>
+    <tr><td>Plain-board N1–N4</td><td>N2–N4 holding so far, N1 pending</td><td>When final</td></tr>
+  </tbody>
+</table></div>
+
+<h2 id="cannot">What these results can't support</h2>
+<ul>
+  <li><b>Claims about all LLMs.</b> Only open-source models from 2B to 70B were tested. No GPT-4-class or commercial model was included, and no reasoning-trained model above 14B.</li>
+  <li><b>"LLMs can't reason."</b> Only that these models don't show reasoning on this task. Ruoss et al. (2024) show that a transformer trained on chess plays at grandmaster level, so the architecture isn't the limit; the training is.</li>
+  <li><b>Anything about difficulty.</b> The tiers describe the wrong position (Issue 21).</li>
+  <li><b>Contamination as an excuse.</b> The puzzles are public and may be in training data. That makes the failures <i>more</i> striking, but it means success on any single position wouldn't prove reasoning either.</li>
+  <li><b>Exact reproduction of model outputs.</b> Default temperature; 68.7% same-move agreement on repeats. The dataset, engine truth and scoring are reproducible.</li>
+  <li><b>Whether knowing the rules would help.</b> The legal-moves fine-tune didn't learn the rules (criterion 0), so this is still open.</li>
+</ul>
+
+<h2 id="text">Draft conclusion text</h2>
+<p>A starting point to rewrite in your own words:</p>
+<blockquote>
+  <p>Across 526,662 evaluations of 22 open-source language models on 4,000 chess positions, I found no evidence that the models reason about the position in front of them. Their own first moves are legal about one time in ten. Their move choices are only slightly better than picking a legal move at random, and they play the human move that led into the puzzle more often than the engine's best move. Their evaluations do worse than always answering "equal", and their explanations name the better side less often than a fixed guess would. Neither more parameters nor step-by-step prompting changed this, except within Google's Gemma models, where skill grew modestly with size. Fine-tuning small models to read the board succeeded at reading the board but did not improve their play. Giving the position in plain English instead of chess notation helped the models form legal moves, but did not help them judge the position.</p>
+  <p>These results are more consistent with pattern matching on familiar chess text than with reasoning. The models produce answers shaped like chess without tracking the position those answers are about. The study also shows how easily naive metrics overstate such systems: every correction for chance, trivial baselines and re-asking lowered the models' apparent skill.</p>
+</blockquote>
+<div class="box check"><b>Update when the plain-board run finishes:</b> conclusion 9, the scorecard row, and the last sentence of the first paragraph above.</div>
+</main>
+</div>

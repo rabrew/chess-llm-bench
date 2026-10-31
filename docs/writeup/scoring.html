@@ -1,0 +1,575 @@
+<title>Chess LLM Bench Scoring</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,500;8..60,650&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one reading column; each task is a "scoresheet" section with a live calculator beside its explanation on wide screens. */
+:root {
+  --bg: #f3f5f3;
+  --surface: #ffffff;
+  --sunk: #e8ede9;
+  --fg: #17201b;
+  --muted: #56645c;
+  --line: #d3dbd5;
+  --accent: #2c6a4d;
+  --accent-soft: #dcebe2;
+  --good: #2c6a4d;
+  --warn: #9a620f;
+  --warn-soft: #f6ead4;
+  --bad: #ad3528;
+  --display: "Source Serif 4", Georgia, "Times New Roman", serif;
+  --body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #101512; --surface: #171e1a; --sunk: #1f2823; --fg: #e3eae5; --muted: #9aa9a0;
+    --line: #2d3832; --accent: #74c19b; --accent-soft: #1f3a2d; --good: #74c19b;
+    --warn: #e2a64c; --warn-soft: #3a2d17; --bad: #ec7a6c; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #101512; --surface: #171e1a; --sunk: #1f2823; --fg: #e3eae5; --muted: #9aa9a0;
+  --line: #2d3832; --accent: #74c19b; --accent-soft: #1f3a2d; --good: #74c19b;
+  --warn: #e2a64c; --warn-soft: #3a2d17; --bad: #ec7a6c; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--fg); font: 400 15.5px/1.6 var(--body); }
+.wrap { max-width: 1080px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 40px 72px; }
+h1, h2, h3 { font-family: var(--display); font-weight: 650; text-wrap: balance; margin: 0; letter-spacing: -0.01em; }
+h1 { font-size: clamp(2rem, 5vw, 2.9rem); line-height: 1.08; }
+h2 { font-size: 1.85rem; line-height: 1.15; }
+h3 { font-size: 1.12rem; font-weight: 500; }
+p { margin: 0; max-width: 66ch; }
+code, .mono { font-family: var(--mono); font-size: 0.9em; }
+.eyebrow { font: 500 0.74rem/1 var(--mono); letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
+.lede { font-size: 1.06rem; color: var(--muted); margin-top: 14px; }
+.stack { display: flex; flex-direction: column; gap: 14px; }
+header.top { display: flex; flex-direction: column; gap: 10px; padding-bottom: 28px; border-bottom: 1px solid var(--line); }
+
+.overview { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; margin-top: 28px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); overflow: hidden; }
+.overview a { color: inherit; text-decoration: none; padding: 18px 18px 20px; display: flex; flex-direction: column; gap: 8px; border-left: 1px solid var(--line); }
+.overview a:first-child { border-left: 0; }
+.overview a:hover, .overview a:focus-visible { background: var(--sunk); outline: none; }
+.overview .tag { font: 500 1.6rem/1 var(--display); color: var(--accent); }
+.overview .q { font-weight: 500; }
+.overview dl { margin: 4px 0 0; display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; font-size: 0.86rem; }
+.overview dt { color: var(--muted); }
+.overview dd { margin: 0; font-variant-numeric: tabular-nums; }
+
+section.task { padding-top: 56px; display: flex; flex-direction: column; gap: 22px; }
+.task-head { display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap; }
+.task-head .badge { font: 650 0.95rem/1 var(--mono); color: var(--bg); background: var(--accent); padding: 6px 9px; border-radius: 3px; }
+.cols { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr); gap: 28px; align-items: start; }
+.facts { display: grid; grid-template-columns: max-content 1fr; gap: 8px 18px; margin: 0; padding: 14px 0; border-block: 1px solid var(--line); }
+.facts dt { font: 500 0.74rem/1.9 var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.facts dd { margin: 0; min-width: 0; }
+.formula { font-family: var(--mono); font-size: 0.86rem; background: var(--sunk); padding: 12px 14px; border-radius: 4px; overflow-x: auto; white-space: pre; line-height: 1.55; }
+.metric { display: flex; flex-direction: column; gap: 6px; padding-top: 4px; }
+.metric h3 { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+.metric h3 code { font-size: 0.78rem; color: var(--muted); font-weight: 400; }
+
+.calc { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 18px; display: flex; flex-direction: column; gap: 14px; position: sticky; top: calc(env(safe-area-inset-top, 0px) + 16px); }
+.calc .eyebrow { color: var(--accent); }
+.fields { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 12px; }
+.fields .full { grid-column: 1 / -1; }
+label { display: flex; flex-direction: column; gap: 4px; font-size: 0.8rem; color: var(--muted); }
+input, select, textarea { font: 400 0.95rem/1.4 var(--mono); color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 4px; padding: 7px 9px; width: 100%; min-width: 0; }
+textarea { font-family: var(--body); resize: vertical; min-height: 84px; }
+input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.out { display: grid; grid-template-columns: 1fr auto; gap: 6px 12px; font-size: 0.88rem; border-top: 1px dashed var(--line); padding-top: 12px; }
+.out span:nth-child(even) { font-family: var(--mono); text-align: right; font-variant-numeric: tabular-nums; }
+.out .total { font-weight: 600; font-size: 1rem; }
+.pill { display: inline-block; font: 500 0.75rem/1 var(--mono); padding: 4px 7px; border-radius: 99px; }
+.pill.ok { background: var(--accent-soft); color: var(--good); }
+.pill.no { background: var(--warn-soft); color: var(--bad); }
+.note { font-size: 0.8rem; color: var(--muted); }
+mark { background: var(--accent-soft); color: var(--fg); padding: 0 2px; border-radius: 2px; }
+.echo { font-size: 0.86rem; background: var(--sunk); padding: 8px 10px; border-radius: 4px; overflow-wrap: anywhere; }
+
+.numbers { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); overflow: hidden; }
+.numbers div { padding: 12px 14px; display: flex; flex-direction: column; gap: 2px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); margin: 0 -1px -1px 0; }
+.numbers b { font: 500 1.45rem/1.2 var(--display); font-variant-numeric: tabular-nums; }
+.numbers span { font-size: 0.78rem; color: var(--muted); }
+
+.bars { display: flex; flex-direction: column; gap: 7px; }
+.bar { display: grid; grid-template-columns: 7.5rem minmax(0, 1fr) 3.4rem; gap: 10px; align-items: center; font-size: 0.84rem; }
+.bar .track { height: 12px; background: var(--sunk); border-radius: 2px; overflow: hidden; }
+.bar .fill { height: 100%; background: var(--accent); }
+.bar .fill.warn { background: var(--warn); }
+.bar .v { font-family: var(--mono); text-align: right; font-variant-numeric: tabular-nums; }
+
+.caveats { border-left: 3px solid var(--warn); background: var(--warn-soft); padding: 14px 16px; border-radius: 0 6px 6px 0; display: flex; flex-direction: column; gap: 8px; }
+.caveats h3 { font-size: 1rem; font-family: var(--body); font-weight: 600; }
+.caveats ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; }
+.caveats li { max-width: 72ch; }
+
+.table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: 0.86rem; font-variant-numeric: tabular-nums; }
+th, td { padding: 7px 12px; text-align: right; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th:first-child, td:first-child { text-align: left; font-family: var(--mono); }
+thead th { background: var(--sunk); position: sticky; top: 0; }
+th button { all: unset; cursor: pointer; font: 600 0.78rem/1.3 var(--body); color: var(--fg); display: inline-flex; flex-direction: column; align-items: flex-end; gap: 1px; }
+th:first-child button { align-items: flex-start; }
+th button small { font-weight: 400; color: var(--muted); }
+th button[aria-sort] { color: var(--accent); }
+tbody tr:hover { background: var(--sunk); }
+td.best { color: var(--good); font-weight: 600; }
+td.worst { color: var(--bad); }
+.legend { font-size: 0.8rem; color: var(--muted); }
+footer { margin-top: 56px; padding-top: 18px; border-top: 1px solid var(--line); font-size: 0.82rem; color: var(--muted); display: flex; flex-direction: column; gap: 6px; }
+footer p { max-width: none; }
+
+@media (max-width: 820px) {
+  .cols { grid-template-columns: minmax(0, 1fr); }
+  .calc { position: static; }
+  .overview { grid-template-columns: minmax(0, 1fr); }
+  .overview a { border-left: 0; border-top: 1px solid var(--line); }
+  .overview a:first-child { border-top: 0; }
+}
+@media (max-width: 440px) {
+  .fields { grid-template-columns: 1fr; }
+  .facts { grid-template-columns: 1fr; gap: 2px; }
+  .facts dd { margin-bottom: 8px; }
+  .bar { grid-template-columns: 5.6rem minmax(0, 1fr) 3rem; }
+}
+@media (prefers-reduced-motion: no-preference) { .bar .fill { transition: width .25s ease; } }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <span class="eyebrow">chess-llm-bench · 22 models · 4,000 positions · 526,662 evaluations · updated 29 Oct 2026</span>
+    <h1>How T1, T2 and T3 are scored</h1>
+    <p class="lede">The benchmark asks each model three things about every chess position, and each gets its own score. This page gives the exact scoring rules from <code>src/evaluator.py</code> and <code>src/metrics.py</code>, the corrected numbers after the October 2026 audit (Issues 14–25), and what is still uncertain. Each section has a calculator so you can try the rules yourself.</p>
+    <nav class="overview" aria-label="Tasks">
+      <a href="#t1">
+        <span class="tag">T1</span>
+        <span class="q">"What's the evaluation, in centipawns?"</span>
+        <dl><dt>Truth</dt><dd>Lc0, one network pass (no search)</dd><dt>Headline</dt><dd>Spearman ρ 0.11 pooled</dd></dl>
+      </a>
+      <a href="#t2">
+        <span class="tag">T2</span>
+        <span class="q">"What's the best move?"</span>
+        <dl><dt>Truth</dt><dd>Lc0 at 800 nodes</dd><dt>Headline</dt><dd>Blunder rate 41.9%</dd></dl>
+      </a>
+      <a href="#t3">
+        <span class="tag">T3</span>
+        <span class="q">"Who stands better, and why?"</span>
+        <dl><dt>Truth</dt><dd>Engine side + Lichess theme</dd><dt>Headline</dt><dd>Side 30.3% vs 54.2% baseline</dd></dl>
+      </a>
+    </nav>
+  </header>
+
+  <!-- ============================ T1 ============================ -->
+  <section class="task" id="t1">
+    <div class="task-head"><span class="badge">T1</span><h2>Evaluation</h2></div>
+    <div class="cols">
+      <div class="stack">
+        <p>The model gives a number in centipawns (cp), always from White's point of view. 100 cp is roughly one pawn; positive means White is better.</p>
+        <dl class="facts">
+          <dt>Prompts</dt><dd><code>cot</code>, <code>fen_only</code>, <code>pgn+fen</code> and the isolated <code>eval_only</code></dd>
+          <dt>Truth</dt><dd>One forward pass of the Lc0 network (no search), converted to centipawns and capped at ±10,000. The field is still called <code>t1_stockfish_eval</code> for history; no Stockfish was used (P-1).</dd>
+          <dt>Pre-step</dt><dd>The model's number is clamped to ±2000 cp. The truth is not.</dd>
+        </dl>
+
+        <div class="metric">
+          <h3>Headline: rank correlation <code>t1_spearman_rho</code></h3>
+          <p>Spearman ρ between the model's numbers and the engine's, per model. It needs no threshold and ignores scale, so it asks only: does the model put positions in the right order? Computed as the Pearson correlation of average ranks (tie-aware).</p>
+          <div class="formula">ρ = corr( rank(model evals), rank(engine evals) )
+1 = same order · 0 = no link · −1 = reversed</div>
+        </div>
+
+        <div class="metric">
+          <h3>Error against always answering 0 <code>t1_mae_ratio</code></h3>
+          <p>Most positions are near level, so a model that always answers 0 gets a small error without reading the board. Each model's mean absolute error (mate positions excluded) is divided by the error of always answering 0. Below 1 beats the lazy answer.</p>
+          <div class="formula">ratio = mean|clamp(model, ±2000) − truth| / mean|0 − truth|</div>
+        </div>
+
+        <div class="metric">
+          <h3>Robustness only: direction and Cohen's κ <code>t1_kappa_t{0,50,100,200}</code></h3>
+          <p>Both numbers are labelled White, Black or Equal at threshold T. Raw agreement rises with T because more of both land on "Equal", so it is reported with κ, which subtracts the agreement expected by chance.</p>
+          <div class="formula">label(x) = "White" if x &gt; T, "Black" if x &lt; −T, else "Equal"
+κ = (agreement − chance agreement) / (1 − chance agreement)</div>
+        </div>
+      </div>
+
+      <aside class="calc" aria-labelledby="t1-calc-h">
+        <span class="eyebrow" id="t1-calc-h">Try it · T1, one position</span>
+        <div class="fields">
+          <label for="t1-model">Model says (cp)<input id="t1-model" type="number" value="250" step="10"></label>
+          <label for="t1-truth">Engine truth (cp)<input id="t1-truth" type="number" value="80" step="10"></label>
+          <label class="full" for="t1-thr">Direction threshold T
+            <select id="t1-thr"><option value="0">±0 (sign only)</option><option value="50">±50</option><option value="100" selected>±100 (one pawn)</option><option value="200">±200 (two pawns)</option></select>
+          </label>
+        </div>
+        <div class="out" id="t1-out" aria-live="polite"></div>
+        <p class="note">ρ needs many positions, so it can't be shown for one. Try a model value of 250 with a truth of 80: the model picks the right side, yet answering 0 would have been closer.</p>
+      </aside>
+    </div>
+
+    <div class="numbers" aria-label="T1 results">
+      <div><b>0.11</b><span>Spearman ρ, pooled</span></div>
+      <div><b>0.25</b><span>best model (llama3.3:70b)</span></div>
+      <div><b>3.04×</b><span>error vs always 0, pooled (1.31–7.03 per model)</span></div>
+      <div><b>0.02–0.07</b><span>direction κ at every threshold</span></div>
+    </div>
+
+    <div class="stack">
+      <h3>Raw direction agreement rises with the threshold; κ doesn't</h3>
+      <div class="bars" id="t1-bars"></div>
+      <p class="note">Always giving the most common answer would score 48%, 54%, 79% and 93% at these thresholds, so the models are below that lazy answer at every one. The earlier write-up compared them with "33% for random guessing", which ignores class balance (Issue 14). κ shows they barely beat chance.</p>
+    </div>
+
+    <div class="caveats">
+      <h3>Still worth knowing</h3>
+      <ul>
+        <li><b>No perspective bug.</b> ρ has the same sign with White and Black to move for every model, so no model reports from the side-to-move's view (T1-3). Llama 3.3 70B's poor direction score is noise.</li>
+        <li><b>The truth is a no-search evaluation.</b> It is a strong network's judgement, not a deep search, which is fine for ranking positions but not exact.</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ============================ T2 ============================ -->
+  <section class="task" id="t2">
+    <div class="task-head"><span class="badge">T2</span><h2>Move selection</h2></div>
+    <div class="cols">
+      <div class="stack">
+        <p>The model gives a move in SAN, such as <code>Nf6</code>. python-chess checks it is legal. Legal moves are scored by how much worse they are than Lc0's best move.</p>
+        <dl class="facts">
+          <dt>Prompts</dt><dd><code>cot</code>, <code>fen_only</code>, <code>pgn+fen</code> and <code>move_only</code>. <code>move_only</code> lists every legal move.</dd>
+          <dt>Truth</dt><dd>Lc0 at 800 nodes, by <code>scripts/enrich_cpl.py</code>. Both the "before" and "after" evals come from the same 800-node search (T2-6, Issue 22).</dd>
+          <dt>Rescue</dt><dd>An illegal answer is replaced by a legal move found elsewhere in the reply, or by re-asking with the legal-move list. Every move is labelled with where it came from (<code>t2_move_source</code>).</dd>
+        </dl>
+
+        <div class="metric">
+          <h3>Legality, first answer and final <code>t2_first_attempt_legal</code>, <code>t2_legal_attempted</code></h3>
+          <p>Final legality counts the move after any rescue. First-answer legality counts only the model's own <code>Move:</code> answer, and needs the raw replies, which only the five re-run models saved.</p>
+        </div>
+
+        <div class="metric">
+          <h3>Clamped centipawn loss <code>t2_cpl_clamped</code></h3>
+          <p>How much the evaluation dropped for the side to move. 0 if the move is the engine's best move. Both ends are clamped to ±1000 (Lichess convention), so a blunder can cost at most about 2000.</p>
+          <div class="formula">before = clamp(eval_before, ±1000)
+after  = clamp(eval_after_model_move, ±1000)
+CPL    = max(0, before − after)   if White to move
+       = max(0, after − before)   if Black to move</div>
+        </div>
+
+        <div class="metric">
+          <h3>Headline: blunder rate <code>blunder_rates.csv</code></h3>
+          <p>The share of legal moves with clamped CPL ≥ 1000, per model, with a seeded 95% bootstrap confidence interval. Clamped CPL piles up at its cap, so its mean is roughly "1000 × blunder rate" and hides the shape; the rate and the five buckets show it directly.</p>
+        </div>
+
+        <div class="metric">
+          <h3>Best move against chance</h3>
+          <p>How often the model plays Lc0's top move, compared with a random legal move on the same positions. Chance is the mean of 1 ÷ (number of legal moves) over the real positions (T2-3), not 1 ÷ the average number of moves.</p>
+        </div>
+      </div>
+
+      <aside class="calc" aria-labelledby="t2-calc-h">
+        <span class="eyebrow" id="t2-calc-h">Try it · T2</span>
+        <div class="fields">
+          <label class="full" for="t2-side">Side to move
+            <select id="t2-side"><option value="w">White</option><option value="b">Black</option></select>
+          </label>
+          <label for="t2-before">Eval before (cp, White's view)<input id="t2-before" type="number" value="150" step="10"></label>
+          <label for="t2-after">Eval after model's move<input id="t2-after" type="number" value="-200" step="10"></label>
+        </div>
+        <div class="out" id="t2-out" aria-live="polite"></div>
+        <p class="note">Try an eval after of −9990 (getting mated). Unclamped, the CPL would be about 10,000; clamped, it is 1150, which counts as one blunder.</p>
+      </aside>
+    </div>
+
+    <div class="numbers" aria-label="T2 results">
+      <div><b>41.9%</b><span>blunder rate (41.7–42.0%)</span></div>
+      <div><b>9.3%</b><span>first answer legal (5 re-run models)</span></div>
+      <div><b>97.0%</b><span>legal after rescue</span></div>
+      <div><b>10.2% vs 8.8%</b><span>best move vs random (1.16×)</span></div>
+      <div><b>11.5%</b><span>plays the human setup move</span></div>
+    </div>
+
+    <div class="stack">
+      <h3>Where legal moves land (all models)</h3>
+      <div class="bars" id="t2-bars"></div>
+      <p class="note">Two peaks: about 19% essentially perfect and 42% blunders, with little in between.</p>
+    </div>
+
+    <div class="caveats">
+      <h3>Still worth knowing</h3>
+      <ul>
+        <li><b>Model ranks are mostly ties.</b> Each model's interval overlaps its neighbours'. Only large gaps are real, such as Gemma 4 31B/26B (36–37%) against the rest (40–45%).</li>
+        <li><b>Legality mostly measures copying from the list.</b> The illegal first answers are usually stock opening moves ("e4", "Nf6", "d5") that ignore the position, often for the wrong side (Issue 20).</li>
+        <li id="engine-strength"><b>Engine strength (T2-5).</b> CPL is measured against Lc0 at 800 nodes. Re-scoring 1,000 positions (85,102 moves) at 8,000 nodes kept the ranking: Spearman ρ = 0.97 against a pre-set bar of 0.9 (a fresh 800-node re-run gives 0.99). No model moved more than 4 places, and the blunder rate went from 42.0% to 42.1%.</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ============================ T3 ============================ -->
+  <section class="task" id="t3">
+    <div class="task-head"><span class="badge">T3</span><h2>Explanation</h2></div>
+    <div class="cols">
+      <div class="stack">
+        <p>The model says which side is better and explains why. Scoring is rule-based, with no judge model: two points, each 0 or 1, for a total of 0–2.</p>
+        <dl class="facts">
+          <dt>Prompts</dt><dd><code>cot</code>, <code>fen_only</code>, <code>pgn+fen</code> and the isolated <code>explanation_only</code></dd>
+          <dt>Truth</dt><dd>The engine eval (P1) and the puzzle's Lichess theme (P2)</dd>
+          <dt>Version</dt><dd><code>t3_score_v2</code>: whole-word theme matching (T3-1)</dd>
+        </dl>
+
+        <div class="metric">
+          <h3>P1 · Side correct <code>t3_p1_side_correct</code></h3>
+          <p>The side the model names must match the engine's at a fixed ±50 cp threshold. Reported against the majority baseline (always naming the usually-better side) and with Cohen's κ (T3-5).</p>
+          <div class="formula">P1 = 1  if side_claimed == label(truth, T=50)  else 0</div>
+        </div>
+
+        <div class="metric">
+          <h3>P2 · Theme named <code>t3_p2_theme_correct_v2</code></h3>
+          <p>The theme or a synonym must appear as a <b>whole word or phrase</b>, allowing plural and verb endings. "estimate" no longer counts as "mate", nor "opinion" as "pin".</p>
+          <div class="formula">P2 = 1  if any  \b phrase (s|es|d|ed|ing)? \b  in explanation
+score = P1 + P2</div>
+        </div>
+      </div>
+
+      <aside class="calc" aria-labelledby="t3-calc-h">
+        <span class="eyebrow" id="t3-calc-h">Try it · T3</span>
+        <div class="fields">
+          <label for="t3-theme">Lichess theme
+            <select id="t3-theme"></select>
+          </label>
+          <label for="t3-truth">Engine truth (cp)<input id="t3-truth" type="number" value="320" step="10"></label>
+          <label class="full" for="t3-side">Side the model claims
+            <select id="t3-side"><option>White</option><option>Black</option><option>Equal</option></select>
+          </label>
+          <label class="full" for="t3-text">Model's explanation
+            <textarea id="t3-text">White is better. I estimate roughly +3 because Black's king is stuck on the back rank.</textarea>
+          </label>
+        </div>
+        <div class="echo" id="t3-echo"></div>
+        <div class="out" id="t3-out" aria-live="polite"></div>
+        <p class="note">With the theme set to <code>mate</code>, "estimate" no longer scores. Switch the theme to <code>backRankMate</code> and "back rank" does.</p>
+      </aside>
+    </div>
+
+    <div class="numbers" aria-label="T3 results">
+      <div><b>30.3%</b><span>side correct</span></div>
+      <div><b>54.2%</b><span>always naming the usual side</span></div>
+      <div><b>κ 0.07</b><span>side agreement beyond chance</span></div>
+      <div><b>6.0%</b><span>names a tactical theme</span></div>
+      <div><b>0.31–0.76</b><span>T3 score range (codellama:34b – gemma4:26b)</span></div>
+    </div>
+
+    <div class="caveats">
+      <h3>Still worth knowing</h3>
+      <ul>
+        <li><b>The theme mark is not used as evidence (Issue 21).</b> The benchmark showed each puzzle's position one move before the puzzle starts, so the tactic usually isn't on the board yet. The theme mark and the difficulty tiers are reported but no conclusion rests on them. The correct positions are saved in <code>data/puzzle_meta.json</code> for a re-run.</li>
+        <li><b>Models rarely say "Equal".</b> They lose P1 on level positions almost automatically, which is part of why they trail the fixed guess.</li>
+        <li><b>Words, not reasoning.</b> The marks check that the right words appear, not that the explanation is sound.</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ============================ Fine-tuning ============================ -->
+  <section class="task" id="ft">
+    <div class="task-head"><h2>Fine-tuning: does teaching the board change the scores?</h2></div>
+    <p>Five models (llama3.2:3b, gemma3:4b, qwen2.5:7b, mistral:7b, deepseek-r1:7b) were trained with LoRA on 20,000 positions not in the benchmark, then compared with a re-run of the base models on the same code, positions and settings, pair by pair.</p>
+    <div class="numbers">
+      <div><b>89–99%</b><span>pieces found after the pieces-only fine-tune (from 1–19%)</span></div>
+      <div><b>−3 to −41 pts</b><span>change in final legality, pieces-only</span></div>
+      <div><b>65–81%</b><span>legal moves found after the legal-moves fine-tune (bar was 90%)</span></div>
+    </div>
+    <ul class="stack" style="padding-left:18px">
+      <li><b>Pieces only:</b> board reading improved enormously; ρ, blunder rate and T3 did not, and final legality fell for all five.</li>
+      <li><b>Pieces + legal moves:</b> success criteria were committed before training. Criterion 0 (legal-move recall and precision ≥ 0.9) failed for every model, so by the rule set in advance it says nothing about whether rule knowledge transfers. First-answer legality rose by at most 9.3 points (bar: 10), final legality fell for all five, and only llama3.2:3b's blunder rate fell with non-overlapping intervals.</li>
+    </ul>
+  </section>
+
+  <!-- ============================ Table ============================ -->
+  <section class="task" id="models">
+    <div class="task-head"><h2>All 22 models</h2></div>
+    <p>Click a column to sort it. Green marks the best value in each column and red the worst.</p>
+    <div class="table-wrap">
+      <table id="tbl">
+        <thead><tr id="tbl-head"></tr></thead>
+        <tbody id="tbl-body"></tbody>
+      </table>
+    </div>
+    <p class="legend">Source: <code>results/metrics/by_model.csv</code> and <code>blunder_rates.csv</code>, regenerated 29 October 2026 (commit <code>bca4875</code>). Legality is after rescue. Adjacent blunder-rate ranks are statistically tied.</p>
+  </section>
+
+  <footer>
+    <p>Built from <code>rabrew/chess-llm-bench</code>, branch <code>ft-fixes</code>. Scoring rules: <code>src/evaluator.py</code> (score_t1, score_t2, score_t3, theme_mentioned) and <code>src/metrics.py</code> (clamped CPL, blunder rate, ρ, κ, baselines). Every correction is logged in <code>docs/issues-log.md</code> and summarised in docs/FINDINGS.md, "How the audit changed the numbers".</p>
+  </footer>
+</div>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const clamp = (x, lim) => Math.max(-lim, Math.min(lim, x));
+  const num = (el) => { const v = parseFloat(el.value); return Number.isFinite(v) ? v : 0; };
+  const fmt = (x, d = 0) => x.toLocaleString("en-GB", { minimumFractionDigits: d, maximumFractionDigits: d });
+  const pill = (ok, yes = "correct", no = "wrong") => `<span class="pill ${ok ? "ok" : "no"}">${ok ? yes : no}</span>`;
+  const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+  const MODEL_EVAL_CLAMP = 2000, CPL_CLAMP = 1000, BLUNDER_CPL = 1000, T3_SIDE_THRESHOLD = 50;
+  const label = (x, t) => (x > t ? "White" : x < -t ? "Black" : "Equal");
+
+  function bars(el, rows, max) {
+    el.innerHTML = rows.map(([name, v, cls, shown]) =>
+      `<div class="bar"><span>${name}</span><div class="track"><div class="fill ${cls || ""}" style="width:${(v / max) * 100}%"></div></div><span class="v">${shown}</span></div>`
+    ).join("");
+  }
+
+  /* ---------- T1 ---------- */
+  function renderT1() {
+    const model = clamp(num($("t1-model")), MODEL_EVAL_CLAMP), truth = num($("t1-truth")), t = +$("t1-thr").value;
+    const abs = Math.abs(model - truth), zero = Math.abs(truth);
+    const lm = label(model, t), lt = label(truth, t);
+    $("t1-out").innerHTML = `
+      <span>Model after ±2000 clamp</span><span>${fmt(model)} cp</span>
+      <span>Model's error</span><span>${fmt(abs)} cp</span>
+      <span>Error of answering 0</span><span>${fmt(zero)} cp</span>
+      <span class="total">Beat the lazy answer?</span><span>${pill(abs < zero, "yes", "no")}</span>
+      <span>Labels at ±${t}</span><span>${lm} vs ${lt}</span>
+      <span class="total">Direction</span><span>${pill(lm === lt)}</span>`;
+  }
+  ["t1-model", "t1-truth", "t1-thr"].forEach((id) => $(id).addEventListener("input", renderT1));
+  renderT1();
+  bars($("t1-bars"), [["±0 (sign)", 44.5, "", "44.5%"], ["±50", 46.1, "", "46.1%"], ["±100", 61.6, "", "61.6%"], ["±200", 78.9, "warn", "78.9%"]], 100);
+
+  /* ---------- T2 ---------- */
+  function bucket(cpl) {
+    if (cpl < 25) return "essentially perfect";
+    if (cpl < 100) return "strong";
+    if (cpl < 500) return "decent";
+    if (cpl < 1000) return "very weak";
+    return "blunder";
+  }
+  function renderT2() {
+    const white = $("t2-side").value === "w";
+    const rawB = num($("t2-before")), rawA = num($("t2-after"));
+    const b = clamp(rawB, CPL_CLAMP), a = clamp(rawA, CPL_CLAMP);
+    const cpl = Math.max(0, white ? b - a : a - b);
+    const rawCpl = Math.max(0, white ? rawB - rawA : rawA - rawB);
+    $("t2-out").innerHTML = `
+      <span>Clamped before / after</span><span>${fmt(b)} / ${fmt(a)}</span>
+      <span>Unclamped CPL</span><span>${fmt(rawCpl)}</span>
+      <span class="total">Clamped CPL</span><span class="total">${fmt(cpl)}</span>
+      <span>Bucket</span><span>${bucket(cpl)}</span>
+      <span class="total">Counts as a blunder?</span><span>${pill(cpl < BLUNDER_CPL, "no", "yes")}</span>`;
+  }
+  ["t2-side", "t2-before", "t2-after"].forEach((id) => $(id).addEventListener("input", renderT2));
+  renderT2();
+  bars($("t2-bars"), [
+    ["&lt; 25", 18.7, "", "18.7%"], ["25–100", 4.9, "", "4.9%"], ["100–500", 12.7, "", "12.7%"],
+    ["500–1000", 21.9, "warn", "21.9%"], ["≥ 1000", 41.9, "warn", "41.9%"],
+  ], 45);
+
+  /* ---------- T3 ---------- */
+  // Subset of THEME_SYNONYMS from src/evaluator.py.
+  const THEMES = {
+    mate: ["mate", "checkmate", "mating"],
+    backRankMate: ["back rank", "back-rank mate", "back rank mate", "weak back rank"],
+    pin: ["pin", "pinned", "pinning", "absolute pin", "relative pin"],
+    fork: ["fork", "double attack", "knight fork", "family fork"],
+    equality: ["equal", "equality", "balanced", "level", "even"],
+    hangingPiece: ["hanging", "undefended", "loose piece", "hanging piece"],
+    discoveredAttack: ["discovered attack", "discovery", "discovered check", "discovered"],
+    deflection: ["deflection", "deflect", "decoy"],
+    sacrifice: ["sacrifice", "sac", "sacrificing"],
+  };
+  const WORD_ENDINGS = "(?:s|es|d|ed|ing)?";
+  const reEscape = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const camelToWords = (s) => s.replace(/([A-Z])/g, " $1").toLowerCase().trim();
+  $("t3-theme").innerHTML = Object.keys(THEMES).map((k) => `<option${k === "mate" ? " selected" : ""}>${k}</option>`).join("");
+
+  function findPhrase(text, phrases) {
+    for (const phrase of phrases) {
+      const m = new RegExp(`\\b${reEscape(phrase)}${WORD_ENDINGS}\\b`, "i").exec(text);
+      if (m) return { phrase, index: m.index, length: m[0].length };
+    }
+    return null;
+  }
+
+  function renderT3() {
+    const theme = $("t3-theme").value, truth = num($("t3-truth")), side = $("t3-side").value, text = $("t3-text").value;
+    const truthSide = label(truth, T3_SIDE_THRESHOLD);
+    const p1 = side === truthSide ? 1 : 0;
+    const phrases = [...new Set([theme.toLowerCase(), camelToWords(theme), ...THEMES[theme]])];
+    const hit = findPhrase(text, phrases);
+    const p2 = hit ? 1 : 0;
+    const echo = hit
+      ? esc(text.slice(0, hit.index)) + `<mark>${esc(text.slice(hit.index, hit.index + hit.length))}</mark>` + esc(text.slice(hit.index + hit.length))
+      : esc(text);
+    $("t3-echo").innerHTML = echo || "<span class='note'>Type an explanation above.</span>";
+    $("t3-out").innerHTML = `
+      <span>Engine side at ±50</span><span>${truthSide}</span>
+      <span>P1 side correct</span><span>${pill(p1, "1", "0")}</span>
+      <span>P2 matched phrase</span><span>${hit ? `"${esc(hit.phrase)}"` : "none (whole words only)"}</span>
+      <span>P2 theme named</span><span>${pill(p2, "1", "0")}</span>
+      <span class="total">T3 score</span><span class="total">${p1 + p2} / 2</span>`;
+  }
+  ["t3-theme", "t3-truth", "t3-side", "t3-text"].forEach((id) => $(id).addEventListener("input", renderT3));
+  renderT3();
+
+  /* ---------- Table ---------- */
+  // model, T1 ρ, error ÷ zero, legal (final), blunder rate, best move ×random, setup move, side κ, T3
+  const MODELS = [
+    ["gemma4:31b",0.24,4.20,0.994,0.358,1.60,0.211,0.15,0.66],["gemma4:26b",0.21,4.46,0.993,0.373,1.52,0.198,0.14,0.76],
+    ["mistral:7b",0.09,1.55,0.935,0.397,1.00,0.072,0.07,0.57],["solar:10.7b",0.10,5.65,0.959,0.404,1.08,0.104,0.02,0.61],
+    ["gemma3:12b",0.20,1.65,0.995,0.410,1.19,0.104,0.13,0.51],["llama3.2:3b",0.01,7.03,0.985,0.411,1.04,0.097,0.01,0.41],
+    ["mixtral:8x7b",0.16,1.66,0.903,0.415,1.09,0.095,0.10,0.55],["deepseek-r1:7b",-0.02,1.65,0.907,0.416,1.11,0.091,0.00,0.48],
+    ["codellama:34b",0.02,1.62,0.990,0.420,1.10,0.094,0.01,0.31],["qwen2.5:7b",0.14,1.79,0.983,0.421,1.10,0.120,0.07,0.35],
+    ["qwen2.5:14b",0.21,2.45,0.998,0.423,1.17,0.113,0.12,0.51],["command-r:35b",0.07,2.52,0.992,0.425,0.94,0.085,0.03,0.43],
+    ["yi:34b",0.17,2.44,0.966,0.426,1.19,0.119,0.08,0.46],["gemma4:e4b",0.14,1.50,0.997,0.426,1.21,0.153,0.10,0.58],
+    ["deepseek-r1:14b",0.06,1.45,0.900,0.426,1.11,0.092,0.04,0.55],["phi4:14b",0.08,3.99,0.952,0.430,1.23,0.118,0.05,0.58],
+    ["gemma3:4b",0.03,1.31,0.988,0.430,1.11,0.097,0.06,0.40],["llama3.3:70b",0.25,4.98,0.997,0.432,1.14,0.111,0.13,0.59],
+    ["wizardlm2:7b",0.04,5.26,0.905,0.435,1.06,0.069,0.07,0.56],["qwen2.5:32b",0.03,2.79,0.999,0.442,1.21,0.140,0.03,0.49],
+    ["llama3.1:8b",0.02,4.29,0.997,0.444,1.04,0.088,0.01,0.36],["gemma4:e2b",0.11,2.36,0.993,0.445,1.16,0.139,0.07,0.47],
+  ];
+  // [header, sub, higherIsBetter (null = no colour), formatter]
+  const pct = (v) => fmt(v * 100, 1) + "%";
+  const COLS = [
+    ["Model", "", null, (v) => v],
+    ["T1 ρ", "higher better", true, (v) => fmt(v, 2)],
+    ["T1 error ÷ zero", "lower better", false, (v) => fmt(v, 2)],
+    ["Legal", "final, after rescue", true, pct],
+    ["Blunder rate", "lower better", false, pct],
+    ["Best move", "× random", true, (v) => fmt(v, 2) + "×"],
+    ["Setup move", "human move", null, pct],
+    ["Side κ", "T3 P1", true, (v) => fmt(v, 2)],
+    ["T3", "v2, of 2", true, (v) => fmt(v, 2)],
+  ];
+  let sortCol = 4, sortDesc = false;
+  const extremes = COLS.map((c, i) => {
+    if (c[2] === null) return null;
+    const vals = MODELS.map((m) => m[i]);
+    const hi = Math.max(...vals), lo = Math.min(...vals);
+    return c[2] ? { best: hi, worst: lo } : { best: lo, worst: hi };
+  });
+  function renderTable() {
+    $("tbl-head").innerHTML = COLS.map((c, i) =>
+      `<th scope="col"><button type="button" data-col="${i}"${i === sortCol ? ` aria-sort="${sortDesc ? "descending" : "ascending"}"` : ""}>${c[0]}${i === sortCol ? (sortDesc ? " ↓" : " ↑") : ""}${c[1] ? `<small>${c[1]}</small>` : ""}</button></th>`
+    ).join("");
+    const rows = [...MODELS].sort((a, b) => {
+      const x = a[sortCol], y = b[sortCol];
+      const cmp = typeof x === "string" ? x.localeCompare(y) : x - y;
+      return sortDesc ? -cmp : cmp;
+    });
+    $("tbl-body").innerHTML = rows.map((m) => `<tr>${m.map((v, i) => {
+      const e = extremes[i];
+      const cls = e ? (v === e.best ? "best" : v === e.worst ? "worst" : "") : "";
+      return `<td class="${cls}">${COLS[i][3](v)}</td>`;
+    }).join("")}</tr>`).join("");
+  }
+  $("tbl-head").addEventListener("click", (ev) => {
+    const btn = ev.target.closest("button[data-col]");
+    if (!btn) return;
+    const col = +btn.dataset.col;
+    if (col === sortCol) sortDesc = !sortDesc;
+    else { sortCol = col; sortDesc = COLS[col][2] === true; }
+    renderTable();
+  });
+  renderTable();
+})();
+</script>

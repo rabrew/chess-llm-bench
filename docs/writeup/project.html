@@ -1,0 +1,310 @@
+<title>Do LLMs Reason?</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Literata:opsz,wght@7..72,400;7..72,600;7..72,700&family=Public+Sans:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Same family as the notation-experiment page: board-green accent, serif reading column, numbers in mono. */
+:root {
+  --bg: #f6f7f4; --surface: #ffffff; --fg: #1d2420; --muted: #5d6a62; --line: #d9ded8; --grid: #e8ebe6;
+  --accent: #4a7a3a; --accent-soft: #e6eedf; --warn: #9a5b12; --warn-soft: #f6ead8; --no: #a3412f; --no-soft: #f6e3de;
+  --series-1: #2a78d6;
+  --serif: "Literata", Georgia, "Times New Roman", serif;
+  --sans: "Public Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #141815; --surface: #1c211d; --fg: #e4e9e4; --muted: #9aa69e; --line: #2f3731; --grid: #262c27;
+  --accent: #8cc070; --accent-soft: #24301f; --warn: #e3a95c; --warn-soft: #33281a; --no: #e88a76; --no-soft: #36211c;
+  --series-1: #3987e5; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #141815; --surface: #1c211d; --fg: #e4e9e4; --muted: #9aa69e; --line: #2f3731; --grid: #262c27;
+  --accent: #8cc070; --accent-soft: #24301f; --warn: #e3a95c; --warn-soft: #33281a; --no: #e88a76; --no-soft: #36211c;
+  --series-1: #3987e5; color-scheme: dark }
+
+body { background: var(--bg); color: var(--fg); font-family: var(--serif); font-size: 17px; line-height: 1.6; }
+.wrap { max-width: 900px; margin: 0 auto; padding-block: 40px 80px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+header.top { border-bottom: 1px solid var(--line); padding-bottom: 22px; }
+.eyebrow { font-family: var(--sans); text-transform: uppercase; letter-spacing: .1em; font-size: 12px; color: var(--accent); font-weight: 700; margin: 0; }
+h1 { font-size: 2.5rem; line-height: 1.1; margin: 6px 0 10px; text-wrap: balance; }
+h2 { font-size: 1.6rem; margin: 56px 0 12px; text-wrap: balance; display: flex; gap: 12px; align-items: baseline; flex-wrap: wrap; }
+h2 .step { font-family: var(--mono); font-size: .9rem; color: var(--accent); font-weight: 600; }
+h3 { font-family: var(--sans); font-size: 1.05rem; margin: 28px 0 8px; }
+.lede { color: var(--muted); margin: 0; max-width: 64ch; }
+p, ul, ol { margin: 0 0 12px; max-width: 68ch; }
+ul, ol { padding-left: 1.3em; }
+li { margin-bottom: 5px; }
+code { font-family: var(--mono); font-size: .86em; }
+nav.jump { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; font-family: var(--sans); font-size: 14px; }
+nav.jump a { color: var(--fg); text-decoration: none; border: 1px solid var(--line); border-radius: 999px; padding: 4px 12px; background: var(--surface); }
+nav.jump a:hover, nav.jump a:focus-visible { border-color: var(--accent); color: var(--accent); outline: none; }
+.box { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 16px 18px; margin: 16px 0; }
+.box > :last-child { margin-bottom: 0; }
+.box.key { border-left: 4px solid var(--accent); }
+.box.check { background: var(--warn-soft); border-color: transparent; font-family: var(--sans); font-size: 15px; }
+.box.check b { color: var(--warn); }
+.tablebox { overflow-x: auto; margin: 12px 0 16px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-family: var(--sans); font-size: 14.5px; }
+th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-weight: 600; color: var(--muted); font-size: 12.5px; text-transform: uppercase; letter-spacing: .05em; }
+tr:last-child td { border-bottom: 0; }
+td.n { font-family: var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.verdict { font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; padding: 2px 7px; border-radius: 4px; white-space: nowrap; }
+.v-no { background: var(--no-soft); color: var(--no); }
+.v-part { background: var(--warn-soft); color: var(--warn); }
+.v-yes { background: var(--accent-soft); color: var(--accent); }
+.tasks { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin: 14px 0; }
+.task { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; }
+.task b { font-family: var(--mono); color: var(--accent); }
+.task p { margin: 6px 0 0; font-size: 15.5px; }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; margin: 18px 0; }
+.stat { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; }
+.stat .big { font-family: var(--mono); font-size: 1.9rem; font-weight: 600; line-height: 1.1; }
+.stat .what { font-family: var(--sans); font-size: 13.5px; color: var(--muted); margin-top: 6px; }
+.finding { border-left: 3px solid var(--line); padding: 2px 0 2px 16px; margin: 18px 0; }
+.finding h3 { margin: 0 0 4px; }
+.finding p:last-child, .finding ul:last-child { margin-bottom: 0; }
+figure { margin: 18px 0; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 16px 16px 10px; }
+figcaption .title { font-family: var(--sans); font-weight: 700; font-size: 15px; }
+figcaption .sub { font-family: var(--sans); color: var(--muted); font-size: 13.5px; margin-top: 2px; }
+.chartbox { position: relative; overflow-x: auto; margin-top: 10px; }
+svg text { font-family: var(--sans); }
+.tip { position: absolute; pointer-events: none; background: var(--fg); color: var(--bg); font-family: var(--sans); font-size: 12.5px; padding: 6px 9px; border-radius: 6px; white-space: nowrap; transform: translate(-50%, calc(-100% - 10px)); }
+details { font-family: var(--sans); font-size: 14px; margin-top: 8px; }
+summary { cursor: pointer; color: var(--accent); }
+blockquote { margin: 16px 0; padding: 14px 18px; border-left: 4px solid var(--accent); background: var(--surface); border-radius: 0 8px 8px 0; max-width: 70ch; }
+blockquote p:last-child { margin-bottom: 0; }
+.pill { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; padding: 3px 8px; border-radius: 4px; background: var(--warn-soft); color: var(--warn); }
+footer { margin-top: 56px; padding-top: 16px; border-top: 1px solid var(--line); font-family: var(--sans); font-size: 13.5px; color: var(--muted); }
+</style>
+
+<div class="wrap">
+<header class="top">
+  <p class="eyebrow">Ryan Brew · Project PR09426 · Mock write-up</p>
+  <h1>Do LLMs reason? Benchmarking logical performance via chess</h1>
+  <p class="lede">Language models write about chess fluently. This project tests whether they can actually work out a position, or whether they produce answers that only look like chess. 22 open-source models, 4,000 positions, 526,662 answers, all checked against a chess engine.</p>
+  <nav class="jump" aria-label="Sections">
+    <a href="#hypothesis">01 Hypothesis</a><a href="#experiment">02 Experiment</a><a href="#results">03 Results</a><a href="#conclusion">04 Conclusion</a><a href="#limits">Limitations</a>
+  </nav>
+</header>
+
+<h2 id="hypothesis"><span class="step">01</span>Question and hypotheses</h2>
+<p><b>Research question:</b> do open-source language models reason about a chess position, or do they pattern-match on familiar chess text?</p>
+<p>Chess is a good test of reasoning. The rules are fixed, every answer can be checked exactly, and an engine stronger than any human gives the right answer. A model that reasons should find legal, sensible moves and judge who is winning. A model that pattern-matches should produce answers that look right but don't depend on the actual position.</p>
+<div class="box key">
+  <p><b>Main hypothesis.</b> If the models reason, their answers will track the position: legal moves, accuracy well above chance, and evaluations that agree with the engine. If they pattern-match, their answers will look like chess but sit close to chance and trivial baselines.</p>
+</div>
+<h3>Hypotheses stated before data collection</h3>
+<div class="tablebox"><table>
+  <thead><tr><th>ID</th><th>Hypothesis</th></tr></thead>
+  <tbody>
+    <tr><td class="n">H1</td><td>Evaluation error increases with the difficulty of the position</td></tr>
+    <tr><td class="n">H2</td><td>Move quality falls (centipawn loss rises) with difficulty</td></tr>
+    <tr><td class="n">H3</td><td>Explanation quality falls with difficulty</td></tr>
+    <tr><td class="n">H4</td><td>Within a model family, larger models do better on all three tasks</td></tr>
+    <tr><td class="n">H5</td><td>Models do relatively better at explaining than at moving in openings, and worse in endgames</td></tr>
+  </tbody>
+</table></div>
+
+<h2 id="experiment"><span class="step">02</span>Experiment</h2>
+<h3>Three tasks for every position</h3>
+<div class="tasks">
+  <div class="task"><b>T1 · Evaluate</b><p>Give the position's score in centipawns. Compared with the engine by rank correlation (ρ), and with always answering 0.</p></div>
+  <div class="task"><b>T2 · Move</b><p>Choose the best move. Scored as legal or not, then by how much it loses compared with the engine's move (blunder = 1,000+ centipawns).</p></div>
+  <div class="task"><b>T3 · Explain</b><p>Say who stands better and why. Marked for naming the right side, against always naming the most common answer.</p></div>
+</div>
+<h3>Materials</h3>
+<ul>
+  <li><b>Positions:</b> 4,000 Lichess puzzle positions, 1,000 in each of four rating tiers, drawn with a fixed seed (42).</li>
+  <li><b>Models:</b> 22 open-source models from 2B to 70B parameters, in 12 families (Llama, Gemma, Qwen, DeepSeek-R1, Mistral and others), run locally through Ollama on one PC (RTX 5080).</li>
+  <li><b>Prompts:</b> six formats: three ask all three questions together (plain, with move history, and step-by-step "chain of thought"), three ask one question each.</li>
+  <li><b>Ground truth:</b> the Lc0 chess engine. One network pass for T1, an 800-node search for T2.</li>
+  <li><b>Fairness checks:</b> every measure has a chance or trivial baseline, chance-corrected agreement (Cohen's κ), and bootstrap 95% confidence intervals.</li>
+</ul>
+<h3>Six experiments</h3>
+<div class="tablebox"><table>
+  <thead><tr><th>#</th><th>Experiment</th><th>Question it answers</th></tr></thead>
+  <tbody>
+    <tr><td class="n">1</td><td>Base benchmark</td><td>How do 22 models do on all three tasks? (526,662 answers)</td></tr>
+    <tr><td class="n">2</td><td>Base re-run, saving replies</td><td>How often is the model's <i>own first</i> move legal?</td></tr>
+    <tr><td class="n">3</td><td>Fine-tune: reading the board</td><td>If a model learns where the pieces are, does it play better?</td></tr>
+    <tr><td class="n">4</td><td>Fine-tune: board + legal moves</td><td>If it also learns the legal moves, does it play better?</td></tr>
+    <tr><td class="n">5</td><td>Engine-strength check</td><td>Would a 10× stronger engine change the results?</td></tr>
+    <tr><td class="n">6</td><td>Notation check</td><td>Do models fail only because chess notation (FEN) is hard to read?</td></tr>
+  </tbody>
+</table></div>
+<p>Experiments 4 and 6 had success criteria committed to the repository <b>before</b> they ran, so the results couldn't change how they were judged.</p>
+
+<h2 id="results"><span class="step">03</span>Results</h2>
+<div class="stats">
+  <div class="stat"><div class="big">9.3%</div><div class="what">of the models' own first moves were legal (97% only after re-asking with a list of legal moves)</div></div>
+  <div class="stat"><div class="big">1.16×</div><div class="what">as likely as a random legal move to pick the engine's best move</div></div>
+  <div class="stat"><div class="big">41.9%</div><div class="what">of legal moves were blunders, throwing away a won position or worse</div></div>
+  <div class="stat"><div class="big">0.11</div><div class="what">rank correlation between models' evaluations and the engine's (1 = perfect, 0 = none)</div></div>
+</div>
+
+<div class="finding">
+  <h3>1 · Move choice is barely better than chance</h3>
+  <p>Models played the engine's best move 10.2% of the time; a random legal move would manage 8.8%. They played the <i>human</i> move from the position, usually the mistake that set up the puzzle, more often (11.5%). Moves were "perfect or disaster": 18.7% essentially perfect, 41.9% blunders, few in between.</p>
+</div>
+
+<figure>
+  <figcaption>
+    <div class="title">Blunder rate by model, with 95% confidence intervals</div>
+    <div class="sub">Share of legal moves losing 1,000+ centipawns. Lower is better. Dashed line: all models pooled (41.9%).</div>
+  </figcaption>
+  <div class="chartbox" id="chart"></div>
+  <details>
+    <summary>Show as a table</summary>
+    <div class="tablebox"><table id="datatable">
+      <thead><tr><th>Model</th><th>Size</th><th>Blunder rate</th><th>95% CI</th></tr></thead>
+      <tbody></tbody>
+    </table></div>
+  </details>
+</figure>
+<p>Only the two largest Gemma 4 models stand clearly apart. Every other model's interval overlaps its neighbours', so their order is a statistical tie.</p>
+
+<div class="finding">
+  <h3>2 · Without help, models rarely produce a legal move</h3>
+  <p>Only 9.3% of first answers were legal. The illegal ones were mostly stock opening moves that ignore the board: llama3.2:3b answered "e4" 45% of the time.</p>
+</div>
+<div class="finding">
+  <h3>3 · Evaluations don't follow the position</h3>
+  <p>No model's evaluation error beat answering "0" every time (1.3× to 7× worse). The best rank correlation with the engine was 0.25. "Who is winning" agreement, corrected for chance, was κ 0.02–0.07.</p>
+</div>
+<div class="finding">
+  <h3>4 · Explanations name the better side less often than a fixed guess</h3>
+  <p>Models named the better side 30.3% of the time; always giving the most common answer scores 54.2% (κ = 0.07).</p>
+</div>
+<div class="finding">
+  <h3>5 · Size doesn't help, except for Google's Gemma</h3>
+  <p>Llama 3 from 3B to 70B: blunder rate 41.1% → 43.2%, no gain from 23× the parameters. Qwen 2.5 from 7B to 32B: slightly worse. Gemma 4 from 2B to 31B: 44.5% → 35.8%. When one developer's models scale and others' don't, the difference is more likely training data than size.</p>
+</div>
+<div class="finding">
+  <h3>6 · Step-by-step prompting doesn't help</h3>
+  <p>Chain-of-thought prompts gave the same blunder rate as the plain prompt (41.5% vs 41.5%). Asked the identical question twice, a model gave the same move only 68.7% of the time.</p>
+</div>
+<div class="finding">
+  <h3>7 · Teaching the board didn't teach the game</h3>
+  <p>Fine-tuning five small models (3–7B) to list the pieces raised board reading from 1–19% to 89–99%. But evaluations stayed near chance, blunder rates rose slightly, and legality <i>fell</i> for all five. The legal-moves version didn't learn the rules well enough to pass its own pre-set check (65–81% of legal moves listed), so it can't answer whether knowing the rules would help.</p>
+</div>
+<div class="finding">
+  <h3>8 · The engine isn't the reason</h3>
+  <p>Re-scoring 85,102 moves with a 10× stronger engine kept the model ranking (ρ = 0.97), and the overall blunder rate barely moved (42.0% → 42.1%).</p>
+</div>
+<div class="finding">
+  <h3>9 · Notation is a small barrier, not the main one <span class="pill">Interim</span></h3>
+  <p>Given the board in plain English with no FEN, first-answer legality rose from 16.9% to 24.6%, but evaluation (ρ 0.10 → 0.14) and naming the better side (κ 0.08 → 0.09) stayed near chance. Results so far are from 13 of 21 models; the blunder rate is still to be scored.</p>
+</div>
+<div class="finding">
+  <h3>10 · Simple metrics overstate the models</h3>
+  <p>Every correction made the models look worse: legality 64.6% (miscounted) → 9.3% first answer; best move "3–4× chance" → 1.16×; evaluation "low error" → worse than answering 0. Fair baselines matter.</p>
+</div>
+
+<h3>Hypotheses scorecard</h3>
+<div class="tablebox"><table>
+  <thead><tr><th>ID</th><th>Result</th><th>Verdict</th></tr></thead>
+  <tbody>
+    <tr><td class="n">H1</td><td>Error flat across tiers (1.36 → 1.42 relative error)</td><td><span class="verdict v-no">Not supported</span></td></tr>
+    <tr><td class="n">H2</td><td>Centipawn loss flat across tiers (744 → 792)</td><td><span class="verdict v-no">Not supported</span></td></tr>
+    <tr><td class="n">H3</td><td>Explanation score flat across tiers</td><td><span class="verdict v-no">Not supported</span></td></tr>
+    <tr><td class="n">H4</td><td>Holds for Gemma 3 and Gemma 4; fails for Llama 3, Qwen 2.5 and DeepSeek-R1</td><td><span class="verdict v-part">Not as a general rule</span></td></tr>
+    <tr><td class="n">H5</td><td>The explain-vs-move gap is smallest in openings and largest in endgames, as predicted, but it compares against legality after re-asking, and "phase" was labelled by piece count alone</td><td><span class="verdict v-part">Supported, weak evidence</span></td></tr>
+  </tbody>
+</table></div>
+<p><b>A caution on H1–H3:</b> the difficulty tiers are Lichess ratings of the puzzle that <i>follows</i> the position the models saw, not of that position itself. A flat result therefore says little about difficulty, and no conclusion rests on it.</p>
+
+<h2 id="conclusion"><span class="step">04</span>Conclusion</h2>
+<div class="box key">
+  <p><b>The models tested don't show reasoning about chess positions. Every result fits pattern matching on familiar chess text better than reasoning, and none points the other way.</b></p>
+  <p>They produce answers shaped like chess (a move in the right format, a number, a sentence about a bishop), but those answers barely depend on the actual position. Their own moves are rarely legal, their choices are near chance, their evaluations lose to always saying "equal", and their explanations lose to a fixed guess.</p>
+</div>
+<p>Neither more parameters, step-by-step prompting, teaching them to read the board, nor removing the chess notation changed this. The one exception, Google's Gemma models improving with size, points to what the models were trained on rather than to reasoning emerging with scale.</p>
+<p>This doesn't show that language models <i>can't</i> learn chess. A transformer trained on chess data has reached grandmaster level (Ruoss et al., 2024). It shows that general-purpose open-source models, despite seeing plenty of chess text, haven't learned to work out a position from it.</p>
+<p>The project also shows how easily simple metrics flatter these systems: at every step, adding a fair baseline made the models look weaker.</p>
+<blockquote>
+  <p><b>In one sentence:</b> the models talk about chess like players, but choose and judge like guessers.</p>
+</blockquote>
+
+<h2 id="limits">Limitations</h2>
+<ul>
+  <li><b>Open-source models only,</b> 2B–70B, run locally. No commercial models (GPT, Claude, Gemini) yet, and no reasoning-trained model above 14B.</li>
+  <li><b>Difficulty tiers</b> describe the next position, not the one shown, so H1–H3 can't be tested properly.</li>
+  <li><b>Explanations are marked by rules,</b> checking for the right words, not judging the reasoning.</li>
+  <li><b>Model outputs aren't exactly repeatable</b> (default temperature). The positions, engine values and scoring are.</li>
+  <li><b>Fine-tuning</b> covered five small models only, and the legal-moves version didn't learn its target.</li>
+  <li><b>Contamination:</b> the puzzles are public and may be in the models' training data, which makes their failure more striking, not less.</li>
+  <li><b>The notation experiment is still running</b> (13 of 21 models).</li>
+</ul>
+<div class="box check"><b>Mock write-up.</b> Numbers are from <code>docs/FINDINGS.md</code> as of 31 Oct 2026. Finding 9 updates when the notation run finishes. Rewrite in your own words before submitting.</div>
+
+<footer>Code, specs, metrics and raw data: github.com/rabrew/chess-llm-bench</footer>
+</div>
+
+<script>
+const DATA = [
+  ["gemma4:31b", "31B", 35.8, 35.1, 36.6], ["gemma4:26b", "26B", 37.3, 36.5, 38.0], ["mistral:7b", "7B", 39.7, 39.0, 40.5],
+  ["solar:10.7b", "10.7B", 40.4, 39.7, 41.2], ["gemma3:12b", "12B", 41.0, 40.3, 41.8], ["llama3.2:3b", "3B", 41.1, 40.3, 41.9],
+  ["mixtral:8x7b", "46.7B", 41.5, 40.7, 42.3], ["deepseek-r1:7b", "7B", 41.6, 40.8, 42.4], ["codellama:34b", "34B", 42.0, 41.3, 42.8],
+  ["qwen2.5:7b", "7B", 42.1, 41.3, 42.9], ["qwen2.5:14b", "14B", 42.3, 41.5, 43.0], ["command-r:35b", "35B", 42.5, 41.8, 43.3],
+  ["yi:34b", "34B", 42.6, 41.8, 43.3], ["gemma4:e4b", "4B", 42.6, 41.8, 43.4], ["deepseek-r1:14b", "14B", 42.6, 41.8, 43.5],
+  ["phi4:14b", "14B", 43.0, 42.2, 43.8], ["gemma3:4b", "4B", 43.0, 42.2, 43.7], ["llama3.3:70b", "70B", 43.2, 42.4, 44.0],
+  ["wizardlm2:7b", "7B", 43.5, 42.7, 44.3], ["qwen2.5:32b", "32B", 44.2, 43.5, 45.0], ["llama3.1:8b", "8B", 44.4, 43.6, 45.2],
+  ["gemma4:e2b", "2B", 44.5, 43.8, 45.3],
+];
+const POOLED = 41.9, AXIS_MIN = 34, AXIS_MAX = 46;
+
+const tbody = document.querySelector("#datatable tbody");
+for (const [m, size, v, lo, hi] of DATA) {
+  const tr = document.createElement("tr");
+  tr.innerHTML = `<td>${m}</td><td class="n">${size}</td><td class="n">${v.toFixed(1)}%</td><td class="n">${lo.toFixed(1)}–${hi.toFixed(1)}%</td>`;
+  tbody.appendChild(tr);
+}
+
+const box = document.getElementById("chart");
+const NS = "http://www.w3.org/2000/svg";
+const ROW = 24, TOP = 8, BOTTOM = 28, LABEL = 122, RIGHT = 16;
+const tip = document.createElement("div"); tip.className = "tip"; tip.hidden = true; box.appendChild(tip);
+
+function el(name, attrs, parent) {
+  const node = document.createElementNS(NS, name);
+  for (const k in attrs) node.setAttribute(k, attrs[k]);
+  parent.appendChild(node); return node;
+}
+
+function draw() {
+  for (const old of box.querySelectorAll("svg")) old.remove();
+  const width = Math.max(340, box.clientWidth);
+  const height = TOP + DATA.length * ROW + BOTTOM;
+  const plot = width - LABEL - RIGHT;
+  const x = v => LABEL + ((v - AXIS_MIN) / (AXIS_MAX - AXIS_MIN)) * plot;
+  const svg = el("svg", { width, height, viewBox: `0 0 ${width} ${height}`, role: "img",
+    "aria-label": "Blunder rate per model with 95% confidence intervals" }, box);
+  for (let t = AXIS_MIN; t <= AXIS_MAX; t += 2) {
+    el("line", { x1: x(t), x2: x(t), y1: TOP, y2: height - BOTTOM, stroke: "var(--grid)", "stroke-width": 1 }, svg);
+    const label = el("text", { x: x(t), y: height - 8, "text-anchor": "middle", "font-size": 11.5, fill: "var(--muted)" }, svg);
+    label.textContent = t + "%";
+  }
+  el("line", { x1: x(POOLED), x2: x(POOLED), y1: TOP, y2: height - BOTTOM, stroke: "var(--muted)",
+    "stroke-width": 1.5, "stroke-dasharray": "4 4" }, svg);
+
+  DATA.forEach(([model, size, v, lo, hi], i) => {
+    const y = TOP + i * ROW + ROW / 2;
+    const name = el("text", { x: LABEL - 10, y: y + 4, "text-anchor": "end", "font-size": 12.5, fill: "var(--fg)" }, svg);
+    name.textContent = model;
+    el("line", { x1: x(lo), x2: x(hi), y1: y, y2: y, stroke: "var(--series-1)", "stroke-width": 2, "stroke-linecap": "round", opacity: .45 }, svg);
+    el("circle", { cx: x(v), cy: y, r: 5, fill: "var(--series-1)", stroke: "var(--surface)", "stroke-width": 2 }, svg);
+    const hit = el("rect", { x: LABEL, y: y - ROW / 2, width: plot, height: ROW, fill: "transparent", tabindex: 0,
+      "aria-label": `${model}, ${size}: ${v}% (95% CI ${lo}–${hi}%)` }, svg);
+    const show = () => {
+      tip.textContent = `${model} (${size}) · ${v.toFixed(1)}%  [${lo.toFixed(1)}–${hi.toFixed(1)}]`;
+      tip.style.left = x(v) + "px"; tip.style.top = y + "px"; tip.hidden = false;
+    };
+    hit.addEventListener("pointerenter", show); hit.addEventListener("focus", show);
+    hit.addEventListener("pointerleave", () => { tip.hidden = true; });
+    hit.addEventListener("blur", () => { tip.hidden = true; });
+  });
+}
+draw();
+let resizeTimer;
+window.addEventListener("resize", () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(draw, 120); });
+</script>

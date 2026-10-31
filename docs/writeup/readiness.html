@@ -1,0 +1,311 @@
+<title>Write-up Readiness</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,500;8..60,650&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style id="page-style">
+/* Layout: one column; a sticky progress bar, then five ordered phases of tickable items. */
+:root {
+  --bg: #f3f5f3;
+  --surface: #ffffff;
+  --sunk: #e8ede9;
+  --fg: #17201b;
+  --muted: #56645c;
+  --line: #d3dbd5;
+  --accent: #2c6a4d;
+  --accent-soft: #dcebe2;
+  --warn: #9a620f;
+  --warn-soft: #f6ead4;
+  --display: "Source Serif 4", Georgia, "Times New Roman", serif;
+  --body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #101512; --surface: #171e1a; --sunk: #1f2823; --fg: #e3eae5; --muted: #9aa9a0;
+    --line: #2d3832; --accent: #74c19b; --accent-soft: #1f3a2d; --warn: #e2a64c; --warn-soft: #3a2d17;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #101512; --surface: #171e1a; --sunk: #1f2823; --fg: #e3eae5; --muted: #9aa9a0;
+  --line: #2d3832; --accent: #74c19b; --accent-soft: #1f3a2d; --warn: #e2a64c; --warn-soft: #3a2d17;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--fg); font: 400 16px/1.55 var(--body); }
+.wrap { max-width: 760px; margin: 0 auto; padding-inline: 18px; padding-block: 36px 80px; display: flex; flex-direction: column; gap: 30px; }
+h1, h2 { font-family: var(--display); font-weight: 650; margin: 0; text-wrap: balance; letter-spacing: -0.01em; }
+h1 { font-size: clamp(1.9rem, 6vw, 2.5rem); line-height: 1.1; }
+h2 { font-size: 1.35rem; line-height: 1.25; }
+p { margin: 0; }
+header { display: flex; flex-direction: column; gap: 10px; }
+.lede { color: var(--muted); max-width: 62ch; }
+.bar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 2; background: var(--bg); padding-block: 10px; border-bottom: 1px solid var(--line); display: flex; flex-direction: column; gap: 8px; }
+.bar-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; font-size: 0.9rem; }
+.bar-row b { font-variant-numeric: tabular-nums; }
+.track { height: 8px; background: var(--sunk); border-radius: 99px; overflow: hidden; }
+.fill { height: 100%; background: var(--accent); border-radius: 99px; }
+.controls { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+.controls label { display: inline-flex; gap: 6px; align-items: center; font-size: 0.85rem; color: var(--muted); cursor: pointer; }
+.save { font: 500 0.75rem/1 var(--mono); padding: 5px 8px; border-radius: 99px; background: var(--sunk); color: var(--muted); }
+.save.busy { background: var(--warn-soft); color: var(--warn); }
+.save.ok { background: var(--accent-soft); color: var(--accent); }
+.phase { display: flex; flex-direction: column; gap: 10px; }
+.phase-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.phase-head .count { font: 500 0.82rem/1 var(--mono); color: var(--muted); font-variant-numeric: tabular-nums; }
+.phase-head .count.done { color: var(--accent); }
+.phase-note { color: var(--muted); font-size: 0.92rem; max-width: 64ch; }
+ul.items { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); overflow: hidden; }
+li.item { border-top: 1px solid var(--line); }
+li.item:first-child { border-top: 0; }
+li.item label { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 12px; padding: 12px 14px; cursor: pointer; }
+li.item label:hover { background: var(--sunk); }
+input[type="checkbox"] { width: 18px; height: 18px; margin: 3px 0 0; accent-color: var(--accent); cursor: pointer; }
+input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.text { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.title { font-weight: 500; }
+.why { font-size: 0.9rem; color: var(--muted); }
+.meta { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 2px; }
+.tag { font: 500 0.7rem/1 var(--mono); padding: 4px 6px; border-radius: 3px; background: var(--sunk); color: var(--muted); }
+.tag.must { background: var(--warn-soft); color: var(--warn); }
+.tag.opt { background: transparent; border: 1px solid var(--line); }
+.tag.you { background: var(--accent-soft); color: var(--accent); }
+li.item.is-done .title { text-decoration: line-through; text-decoration-color: var(--muted); color: var(--muted); }
+li.item.is-done .why { opacity: 0.7; }
+.empty { padding: 14px; color: var(--muted); font-size: 0.9rem; }
+.ready { border: 1px solid var(--accent); background: var(--accent-soft); border-radius: 6px; padding: 16px 18px; display: flex; flex-direction: column; gap: 6px; }
+.notice { font-size: 0.85rem; color: var(--warn); }
+footer { font-size: 0.82rem; color: var(--muted); border-top: 1px solid var(--line); padding-top: 14px; }
+@media (prefers-reduced-motion: no-preference) { .fill { transition: width .3s ease; } }
+</style>
+
+<main id="app" class="wrap"></main>
+
+<script type="application/json" id="state">{"done":["A-1","A-2","D-21","F-1","F-2","F-3","F-4","F-5","F-6","F-7","F-8","F-9","F-run","F-run2","M-1","M-2","M-3","M-4","P-1","P-2","P-3","R-1","R-2","R-4","T1-1","T1-2","T1-3","T1-4","T1-5","T2-1","T2-2","T2-3","T2-4","T2-5","T2-6","T3-1","T3-2","T3-3","T3-4","T3-5","T3-6"],"updated":"2026-10-31T14:50:00.000Z"}</script>
+
+<script id="page-script">
+(() => {
+  const PHASES = [
+    { id: "setup", title: "1. Get set up", note: "Nothing else can happen until the PC is reachable and the raw results are backed up." },
+    { id: "checks", title: "2. Quick checks that could change your findings", note: "Do these early. Each one could decide whether a finding survives, so you want to know before fixing anything else." },
+    { id: "fixes", title: "3. Fix the scoring and re-run the analysis", note: "No new model runs, only re-marking the saved answers, except where noted." },
+    { id: "ft", title: "4. Fine-tuning experiment", note: "Fix the data overlap first, then train, then score with the corrected metrics so base and fine-tuned models are compared fairly." },
+    { id: "ready", title: "5. Ready to write", note: "Final checks so the write-up starts from one trusted set of numbers. Items marked 'yours' need you; the rest are done for you." },
+  ];
+
+  const ITEMS = [
+    { id: "A-1", phase: "setup", must: true, title: "Get the Linux PC back online", why: "Reachable over Tailscale since 22 Oct. Still to do: turn off key expiry for the PC in the Tailscale admin console." },
+    { id: "A-2", phase: "setup", must: true, title: "Back up evaluations.jsonl and the data folder", why: "All 526,662 answers exist only on that one PC. Copy them to an external drive or cloud storage (not git). The .bak copy made on 24 Oct sits next to the original on the PC, so it is not a real backup." },
+
+    { id: "P-1", phase: "checks", must: true, title: "Confirm which chess engine made the 'correct answers'", why: "Done: it is Lc0 (no search for T1, 800 nodes for moves). The docs are fixed, and a test stops the Stockfish claim coming back." },
+    { id: "T1-1", phase: "checks", must: true, title: "Write the code for the 'always say even' baseline", why: "Done. Commit eef16c3 adds the baseline, Cohen's κ and Spearman ρ." },
+    { id: "T1-2", phase: "checks", must: true, title: "Run the T1 baseline check on the real data", why: "Done: no model's evaluation error beats always answering 0 (1.31 to 7.03 times worse)." },
+    { id: "T1-3", phase: "checks", must: true, title: "Check for the 'wrong point of view' bug", why: "Done: no model flips sign when Black is to move. Llama-70B's poor score is noise, not inversion." },
+    { id: "M-1", phase: "checks", must: true, title: "Check whether Llama-70B's prompts were cut short", why: "Done from exact token counts: 8.7% of move-only prompts didn't fit its 512-token window, so those answers are flagged. The live re-ask was dropped because the 70B model doesn't fit in the PC's memory; that's left for the cloud GPU." },
+    { id: "M-2", phase: "checks", must: true, title: "Check when DeepSeek-R1's 'thinking' was switched off", why: "Done: thinking was probably on in April and off in the October re-run, with the same results either way. The claim that thinking explained its T1 results is withdrawn." },
+
+    { id: "T2-2", phase: "fixes", must: true, title: "Split legal-move results into 'before help' and 'after help'", why: "Done, differently: every run had the rescue, so there was no 'before' group. Each move is now labelled by where it came from. The model's own first answer is legal only 9.3% of the time, against 97% after re-asking with the legal-move list." },
+    { id: "T3-1", phase: "fixes", must: true, title: "Fix the T3 word search to match whole words only", why: "Done: 'material' no longer counts as 'mate', and 'opinion' no longer counts as 'pin'." },
+    { id: "M-4", phase: "fixes", must: true, title: "Fix how model families and sizes are read", why: "Done: an explicit model list that refuses unknown models. The plots now use it too." },
+    { id: "T3-2", phase: "fixes", title: "Gather real examples of how models describe tactics", why: "Done: 504,546 explanations scanned. Report in results/t3_examples.md." },
+    { id: "T3-3", phase: "fixes", title: "Add those plain-English phrases to the T3 marking", why: "Done with no additions: six phrases passed the numbers, but reading the examples showed they describe rooks and files, not the tactics. Models rarely describe tactics in plain English at all." },
+    { id: "T3-4", phase: "fixes", title: "Deal with the 'crushing / advantage' labels", why: "Done: the full Lichess theme list is joined back and tactical themes are scored separately. This is how Issue 21 was found (see section 5)." },
+    { id: "T3-5", phase: "fixes", title: "Apply the baseline check to the T3 'right side' mark", why: "Done: models name the better side 30% of the time, while always naming the usual side scores 54% (κ 0.07)." },
+    { id: "T3-6", phase: "fixes", title: "Use the corrected T3 scores in every table", why: "Done: the hypothesis tests and family table use the corrected scores and metrics." },
+    { id: "T1-4", phase: "fixes", title: "Make Spearman ρ the main T1 measure", why: "Done: in the tables, summary and every plot." },
+    { id: "T1-5", phase: "fixes", title: "Correct the '±16,000' figure", why: "Done: the true cap is ±10,000." },
+    { id: "T2-1", phase: "fixes", title: "Report the 'disaster rate' as the main T2 number", why: "Done: 41.9% of legal moves lose 1000+ (CI 41.7–42.0%), with confidence ranges per model and the five buckets." },
+    { id: "T2-3", phase: "fixes", title: "Recalculate the random-guess baseline for best move", why: "Done: chance is 8.8%, not 3.6%. Models' 10.2% is only 1.16× chance." },
+    { id: "T2-4", phase: "fixes", title: "Find where the 96.5% move-only figure came from", why: "Done: it is legal answers ÷ all move-only answers, which is correct. It means 'picked a legal move from the list it was given'." },
+    { id: "M-3", phase: "fixes", title: "Deal with randomness in the model answers", why: "Done: the claim is reworded. Measured too: asked the identical question twice, a model gives the same move only 68.7% of the time." },
+    { id: "P-2", phase: "fixes", title: "Stamp every results file with when and how it was made", why: "Done: summary.json records the code version, the data and engine hashes and the settings." },
+    { id: "P-3", phase: "fixes", title: "Delete the leftover learning_deltas.csv", why: "Done, and the code now removes it automatically." },
+    { id: "T2-6", phase: "fixes", must: true, title: "Fix the move-quality numbers mixing two engine readings", why: "Done: the 800-node start evaluations are stored and backfilled. Moves were worse than reported: mean 700 → 784, and the disaster rate went up." },
+    { id: "T2-5", phase: "fixes", opt: true, title: "Re-check moves with a stronger engine setting", why: "Done 31 Oct (f72a525). With 10× more engine search, the model order held (ρ 0.97, bar 0.9) and the blunder rate barely moved (42.0% → 42.1%)." },
+
+    { id: "F-1", phase: "ft", must: true, title: "Stop the fine-tuning data using the test positions", why: "Checked 2026-10-21: none of the 20,000 training positions are among the 4,000 benchmark positions. A test now checks this on the real data." },
+    { id: "F-6", phase: "ft", must: true, title: "Write down what result would mean what, before training", why: "Done for the legal-moves fine-tune: the criteria were committed before training (1cf6cd5). For pieces-only they came afterwards, and the write-up says so." },
+    { id: "F-4", phase: "ft", must: true, title: "Use the same settings for base and fine-tuned models", why: "Done: the base models were re-run on the same code. Tests check that every config differs only in models and paths." },
+    { id: "F-5", phase: "ft", title: "Choose which models to fine-tune and write down why", why: "Done: they can run on the PC, are open and trainable, and cover different families." },
+    { id: "F-2", phase: "ft", title: "Check the held-out training positions stay separate", why: "Done: tested on the real data, and the split now refuses duplicate positions." },
+    { id: "F-run", phase: "ft", must: true, title: "Run the fine-tuning and benchmark the fine-tuned models", why: "Done for pieces-only: board reading went up to 89–99%, nothing else improved, and legality fell by up to 41 points." },
+    { id: "F-run2", phase: "ft", must: true, title: "Run the pieces + legal moves fine-tune", why: "Done 29 Oct: all five trained and benchmarked. They learned the pieces but listed only 65–81% of the legal moves, short of the 0.9 bar set in advance, so whether knowing the rules helps stays open. Legality fell again for all five. Written up in FINDINGS section F (7c066b0)." },
+    { id: "F-8", phase: "ft", must: true, title: "Make the board-reading score count made-up pieces", why: "Done: invented pieces are counted and the share of perfect boards is reported." },
+    { id: "F-9", phase: "ft", must: true, title: "Run a before-and-after board-reading test", why: "Done 2026-10-21: 5 models, 200 held-out positions each, every answer saved in results/finetuning_experiment/board_t0.jsonl. Perfect boards went from 0% to 3-37%, and pieces found from 1-19% to 89-99%." },
+    { id: "F-7", phase: "ft", title: "Log each training run", why: "Done: one record per run in runs/; batch 1 is backfilled." },
+    { id: "F-3", phase: "ft", must: true, title: "Score the fine-tuned models with the corrected metrics", why: "Done: the comparison covers ρ, legality, first-answer legality, disaster rate and whole-word T3." },
+
+    { id: "R-1", phase: "ready", must: true, title: "Regenerate all results from the final data", why: "Done 29 Oct: every metric, plot, comparison and write-up table regenerated from the final data. Every number reproduced exactly; only the provenance stamp changed (bca4875)." },
+    { id: "R-2", phase: "ready", must: true, title: "List which findings survived and which changed", why: "Done: the 'How the audit changed the numbers' table in docs/FINDINGS.md." },
+    { id: "D-21", phase: "ready", must: true, you: true, title: "Decide what to do about the setup-position problem", why: "Decided 24 Oct: keep the results. The 'name the tactic' mark and the difficulty tiers are reported but not used as evidence, and a re-run on the right positions is future work. Easy to reverse: the correct positions are saved." },
+    { id: "R-5", phase: "ready", must: true, you: true, title: "Read and approve the drafts", why: "docs/FINDINGS.md and docs/SIMPLE_SUMMARY.md are now complete drafts, including both fine-tuning experiments and the main conclusion. The final framing is yours." },
+    { id: "R-3", phase: "ready", you: true, title: "Go through the corrected results with Dr Brew", why: "Your proposal names him as consultant. The issues log (Issues 14–25) is a ready-made summary to send ahead." },
+    { id: "R-4", phase: "ready", must: true, title: "Make sure every open item is fixed or listed as a limitation", why: "Re-checked 29 Oct: every open item (engine-strength check, commercial models, rule-based T3 marking, batch 2, move history, the legal-moves training falling short) is in FINDINGS Limitations or section F." },
+  ];
+
+  const STORAGE_KEY = "writeup-checklist-local";
+  const SAVE_DELAY_MS = 2500;
+  const HIDE_KEY = "writeup-checklist-hide-done";
+  const SKELETON_RESET = ":root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.5 system-ui,-apple-system,sans-serif;background:#fafafa}img{max-width:100%}[hidden]{display:none!important}";
+
+  const app = document.getElementById("app");
+  const initial = JSON.parse(document.getElementById("state").textContent);
+  let state = { done: new Set(initial.done), updated: initial.updated };
+  let hideDone = readLocal(HIDE_KEY) === "1";
+  let artifactApi = null;
+  let canSave = false;
+  let saveTimer = null;
+  let saveStatus = "idle";
+
+  function readLocal(key) { try { return localStorage.getItem(key); } catch { return null; } }
+  function writeLocal(key, value) { try { localStorage.setItem(key, value); } catch { /* storage blocked: ticks stay on screen only */ } }
+
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+  function counts(items) {
+    const done = items.filter((it) => state.done.has(it.id)).length;
+    return { done, total: items.length };
+  }
+
+  function saveLabel() {
+    if (saveStatus === "busy") return '<span class="save busy">Saving…</span>';
+    if (saveStatus === "readonly") return '<span class="save">Ticks kept in this browser only</span>';
+    if (saveStatus === "error") return '<span class="save busy">Not saved, tick again to retry</span>';
+    if (state.updated) return `<span class="save ok">Saved ${esc(new Date(state.updated).toLocaleDateString("en-IE", { day: "numeric", month: "short" }))}</span>`;
+    return '<span class="save">Ticks save to this page</span>';
+  }
+
+  function renderItem(it) {
+    const done = state.done.has(it.id);
+    const tags = [
+      it.must ? '<span class="tag must">must do</span>' : "",
+      it.opt ? '<span class="tag opt">optional</span>' : "",
+      it.you ? '<span class="tag you">yours</span>' : "",
+      `<span class="tag">${esc(it.id)}</span>`,
+    ].join("");
+    return `<li class="item${done ? " is-done" : ""}"><label for="cb-${esc(it.id)}">
+      <input type="checkbox" id="cb-${esc(it.id)}" data-id="${esc(it.id)}"${done ? " checked" : ""}>
+      <span class="text"><span class="title">${esc(it.title)}</span><span class="why">${esc(it.why)}</span><span class="meta">${tags}</span></span>
+    </label></li>`;
+  }
+
+  function renderPhase(ph) {
+    const items = ITEMS.filter((it) => it.phase === ph.id);
+    const c = counts(items);
+    const shown = hideDone ? items.filter((it) => !state.done.has(it.id)) : items;
+    const list = shown.length ? shown.map(renderItem).join("") : '<li class="empty">All done in this phase.</li>';
+    return `<section class="phase" aria-labelledby="h-${ph.id}">
+      <div class="phase-head"><h2 id="h-${ph.id}">${esc(ph.title)}</h2><span class="count${c.done === c.total ? " done" : ""}">${c.done} / ${c.total}</span></div>
+      <p class="phase-note">${esc(ph.note)}</p>
+      <ul class="items">${list}</ul>
+    </section>`;
+  }
+
+  function render() {
+    const required = ITEMS.filter((it) => !it.opt);
+    const all = counts(required);
+    const mustLeft = ITEMS.filter((it) => it.must && !state.done.has(it.id)).length;
+    const pct = Math.round((all.done / all.total) * 100);
+    const ready = mustLeft === 0
+      ? `<div class="ready"><h2>Ready to start the write-up</h2><p>Every must-do item is ticked. Anything still open goes in the Limitations section.</p></div>`
+      : "";
+    app.innerHTML = `
+      <header>
+        <h1>Before the write-up</h1>
+        <p class="lede">Everything that needs to be done before you start writing up <i>Do LLMs Reason?</i> for the Young Scientist exhibition, in the order to do it. Each item matches an ID in <span class="tag">specs/exhibition-readiness.md</span>, where the full detail is.</p>
+      </header>
+      <div class="bar">
+        <div class="bar-row"><span><b>${all.done} of ${all.total}</b> done · <b>${mustLeft}</b> must-do left</span>${saveLabel()}</div>
+        <div class="track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}" aria-label="Overall progress"><div class="fill" style="width:${pct}%"></div></div>
+        <div class="controls"><label for="hide-done"><input type="checkbox" id="hide-done"${hideDone ? " checked" : ""}> Hide finished items</label></div>
+      </div>
+      ${ready}
+      ${PHASES.map(renderPhase).join("")}
+      <footer>Optional items don't count towards progress. Updated 29 Oct 2026 from the chess-llm-bench ft-fixes branch; the full record is in specs/exhibition-readiness.md and docs/issues-log.md.</footer>`;
+  }
+
+  function buildDocument() {
+    const styleSrc = document.getElementById("page-style").textContent;
+    const scriptSrc = document.getElementById("page-script").textContent;
+    const json = JSON.stringify({ done: [...state.done].sort(), updated: state.updated }).replace(/</g, "\\u003c");
+    const fonts = '<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,500;8..60,650&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">';
+    const content = `<title>Write-up Readiness</title>\n${fonts}\n<style id="page-style">${styleSrc}</style>\n\n<main id="app" class="wrap"></main>\n\n<script type="application/json" id="state">${json}<\/script>\n\n<script id="page-script">${scriptSrc}<\/script>\n`;
+    return `<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>${SKELETON_RESET}</style></head><body>${content}</body></html>`;
+  }
+
+  async function publishNow() {
+    saveTimer = null;
+    state.updated = new Date().toISOString();
+    saveStatus = "busy";
+    render();
+    try {
+      await artifactApi.publish(buildDocument());
+    } catch (err) {
+      const code = err && err.code;
+      if (code === "conflict") return;
+      if (["not_writer", "not_granted", "not_declared", "consent_required", "capability_disabled", "capability_removed"].includes(code)) {
+        canSave = false;
+        saveStatus = "readonly";
+        writeLocal(STORAGE_KEY, JSON.stringify([...state.done]));
+      } else {
+        saveStatus = "error";
+      }
+      render();
+    }
+  }
+
+  function scheduleSave() {
+    if (!canSave) {
+      writeLocal(STORAGE_KEY, JSON.stringify([...state.done]));
+      return;
+    }
+    clearTimeout(saveTimer);
+    saveStatus = "busy";
+    saveTimer = setTimeout(publishNow, SAVE_DELAY_MS);
+  }
+
+  app.addEventListener("change", (ev) => {
+    const target = ev.target;
+    if (target.id === "hide-done") {
+      hideDone = target.checked;
+      writeLocal(HIDE_KEY, hideDone ? "1" : "0");
+      render();
+      return;
+    }
+    const id = target.dataset && target.dataset.id;
+    if (!id) return;
+    if (target.checked) state.done.add(id); else state.done.delete(id);
+    scheduleSave();
+    render();
+    const again = document.getElementById(`cb-${id}`);
+    if (again) again.focus();
+  });
+
+  function applyLocalFallback() {
+    const saved = readLocal(STORAGE_KEY);
+    if (!saved) return;
+    try { state.done = new Set(JSON.parse(saved)); } catch { /* ignore a corrupt local copy */ }
+  }
+
+  render();
+
+  const use = window.claude && window.claude.use;
+  if (!use) {
+    saveStatus = "readonly";
+    applyLocalFallback();
+    render();
+    return;
+  }
+  window.claude.use("artifact").then((api) => {
+    if (!api) {
+      saveStatus = "readonly";
+      applyLocalFallback();
+      render();
+      return;
+    }
+    artifactApi = api;
+    canSave = true;
+    render();
+  });
+})();
+</script>

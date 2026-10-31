@@ -1,0 +1,239 @@
+<title>Chess LLM Bench Plain Guide</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,500;8..60,650&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: a single narrow reading column, one section per score, plain cards for key numbers. */
+:root {
+  --bg: #f3f5f3;
+  --surface: #ffffff;
+  --sunk: #e8ede9;
+  --fg: #17201b;
+  --muted: #56645c;
+  --line: #d3dbd5;
+  --accent: #2c6a4d;
+  --accent-soft: #dcebe2;
+  --warn: #9a620f;
+  --warn-soft: #f6ead4;
+  --display: "Source Serif 4", Georgia, "Times New Roman", serif;
+  --body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #101512; --surface: #171e1a; --sunk: #1f2823; --fg: #e3eae5; --muted: #9aa9a0;
+    --line: #2d3832; --accent: #74c19b; --accent-soft: #1f3a2d; --warn: #e2a64c; --warn-soft: #3a2d17;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #101512; --surface: #171e1a; --sunk: #1f2823; --fg: #e3eae5; --muted: #9aa9a0;
+  --line: #2d3832; --accent: #74c19b; --accent-soft: #1f3a2d; --warn: #e2a64c; --warn-soft: #3a2d17;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--fg); font: 400 17px/1.65 var(--body); }
+.wrap { max-width: 720px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 44px 80px; display: flex; flex-direction: column; gap: 52px; }
+h1, h2 { font-family: var(--display); font-weight: 650; text-wrap: balance; margin: 0; letter-spacing: -0.01em; }
+h1 { font-size: clamp(2rem, 6vw, 2.7rem); line-height: 1.1; }
+h2 { font-size: 1.7rem; line-height: 1.2; display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+h3 { font-size: 1.05rem; margin: 0; font-weight: 600; }
+p, ul { margin: 0; }
+ul { padding-left: 22px; display: flex; flex-direction: column; gap: 6px; }
+section, header { display: flex; flex-direction: column; gap: 16px; }
+.lede { font-size: 1.1rem; color: var(--muted); }
+.stamp { font-size: 0.85rem; color: var(--muted); }
+.badge { font: 600 0.9rem/1 var(--body); color: var(--bg); background: var(--accent); padding: 6px 9px; border-radius: 3px; }
+.words { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 18px 20px; display: flex; flex-direction: column; gap: 10px; }
+.words dl { margin: 0; display: grid; grid-template-columns: max-content 1fr; gap: 10px 18px; }
+.words dt { font-weight: 600; }
+.words dd { margin: 0; min-width: 0; }
+.ask { font-family: var(--display); font-size: 1.25rem; font-style: italic; color: var(--accent); }
+.example { background: var(--sunk); border-radius: 6px; padding: 14px 16px; display: flex; flex-direction: column; gap: 6px; }
+.example .label { font-size: 0.78rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.numbers { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); border: 1px solid var(--line); border-radius: 6px; background: var(--surface); overflow: hidden; }
+.numbers div { padding: 14px 16px; display: flex; flex-direction: column; gap: 4px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); margin: 0 -1px -1px 0; }
+.numbers b { font: 500 1.6rem/1.2 var(--display); font-variant-numeric: tabular-nums; }
+.numbers span { font-size: 0.88rem; color: var(--muted); }
+.catch { border-left: 3px solid var(--warn); background: var(--warn-soft); padding: 14px 18px; border-radius: 0 6px 6px 0; display: flex; flex-direction: column; gap: 8px; }
+.found { border-left: 3px solid var(--accent); background: var(--accent-soft); padding: 14px 18px; border-radius: 0 6px 6px 0; display: flex; flex-direction: column; gap: 8px; }
+.split { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; align-items: end; height: 150px; padding-top: 8px; }
+.split div { display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 4px; height: 100%; }
+.split i { display: block; width: 100%; background: var(--accent); border-radius: 2px 2px 0 0; }
+.split i.bad { background: var(--warn); }
+.split b { font-size: 0.85rem; font-variant-numeric: tabular-nums; }
+.split-labels { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; font-size: 0.78rem; color: var(--muted); text-align: center; line-height: 1.3; }
+.summary { width: 100%; border-collapse: collapse; font-size: 0.95rem; }
+.summary th, .summary td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.summary th { background: var(--sunk); font-weight: 600; }
+.table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); }
+footer { font-size: 0.85rem; color: var(--muted); border-top: 1px solid var(--line); padding-top: 16px; }
+@media (max-width: 480px) {
+  .words dl { grid-template-columns: 1fr; gap: 2px; }
+  .words dd { margin-bottom: 10px; }
+  .split-labels { font-size: 0.7rem; }
+}
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>What the T1, T2 and T3 scores mean</h1>
+    <p class="lede">This project tests whether AI chatbots actually understand chess, or just repeat patterns they have seen. Each chatbot was shown 4,000 chess positions and asked three questions about each one. Every question gets its own score. This page explains each score in plain English, and what the results showed.</p>
+    <p class="stamp">Updated 29 October 2026, after the audit that corrected several earlier numbers.</p>
+    <div class="words">
+      <h3>A few words used on this page</h3>
+      <dl>
+        <dt>Model</dt><dd>One of the 22 AI chatbots being tested. They are free ones that run on a home computer, from small (2 billion parameters) to very large (70 billion).</dd>
+        <dt>Engine</dt><dd>A chess program that plays far better than any human. This project uses one called Lc0. Its answers are treated as the correct answers.</dd>
+        <dt>Position</dt><dd>A snapshot of a chess board partway through a game. All 4,000 come from chess puzzles on the website Lichess.</dd>
+        <dt>Centipawn</dt><dd>The unit chess programs use to say who is ahead. 100 centipawns means one side is ahead by about one pawn. A plus number means White is ahead, a minus number means Black is ahead, and 0 means it's even.</dd>
+      </dl>
+    </div>
+  </header>
+
+  <!-- T1 -->
+  <section>
+    <h2><span class="badge">T1</span> Who is winning, and by how much?</h2>
+    <p class="ask">"Give me a number for this position."</p>
+    <p>The model gives a single number saying who is ahead and by how much. Its number is compared with the engine's.</p>
+
+    <h3>How it's scored</h3>
+    <ul>
+      <li><b>Do its numbers move with the engine's?</b> Across all positions, when the engine says one position is better for White than another, does the model agree? This is measured with a <b>rank correlation</b>: 1 means the model always gets the order right, 0 means there is no link at all.</li>
+      <li><b>Does it beat a lazy answer?</b> Most positions are close to even, so answering "0" every time gets a fairly small error without looking at the board. A model's error is compared with the error of always saying 0.</li>
+    </ul>
+
+    <div class="example">
+      <span class="label">Example</span>
+      <p>Over three positions the engine says <b>+50, +300, −400</b>. A model that says <b>+20, +150, −100</b> is off by quite a lot, but it has the order right: it knows which position is best for White and which is worst. Rank correlation rewards that.</p>
+    </div>
+
+    <div class="numbers">
+      <div><b>0.11</b><span>rank correlation, all models together (0 = no link, 1 = perfect)</span></div>
+      <div><b>0.25</b><span>the best any single model managed (Llama 3.3 70B)</span></div>
+      <div><b>3× worse</b><span>than always answering 0, on average. No model beat it.</span></div>
+    </div>
+
+    <div class="catch">
+      <h3>The catch that changed the story: "picked the right side" was mostly luck</h3>
+      <p>An earlier version counted how often the model picked the right side (White, Black or even). That looked good, up to 79%. But because most positions are close to even, a model answering "even" every time would score about as well. After correcting for that, the models agree with the engine barely more than chance.</p>
+    </div>
+  </section>
+
+  <!-- T2 -->
+  <section>
+    <h2><span class="badge">T2</span> What is the best move?</h2>
+    <p class="ask">"What move would you play here?"</p>
+    <p>The model names one move. That move is checked in two steps.</p>
+
+    <h3>How it's scored</h3>
+    <ul>
+      <li><b>Is the move allowed?</b> The computer checks it follows the rules of chess. For example, a bishop can't move in a straight line.</li>
+      <li><b>How much worse is it than the best move?</b> The engine works out how good the position is after the model's move and compares it with the engine's own best move. The difference is the <b>centipawn loss</b>. 0 means just as good as the engine's move. 1000 or more is a <b>blunder</b>: giving away the queen, or walking into checkmate.</li>
+    </ul>
+
+    <div class="example">
+      <span class="label">Example</span>
+      <p>Before the move, White is ahead by 150. After the model's move, Black is ahead by 200.</p>
+      <p>The move threw away 350 centipawns, so its centipawn loss is 350. Not a blunder, but a bad move.</p>
+    </div>
+
+    <div class="numbers">
+      <div><b>9%</b><span>of the models' own first answers were legal moves</span></div>
+      <div><b>97%</b><span>were legal in the end, after the program showed them the list of allowed moves</span></div>
+      <div><b>42%</b><span>of legal moves were blunders (losing 1000+)</span></div>
+    </div>
+
+    <h3>Moves are either excellent or a disaster</h3>
+    <p>Very few moves are in between. The models either find a good move or throw the position away.</p>
+    <div>
+      <div class="split" role="img" aria-label="Share of legal moves by centipawn loss: 18.7% near perfect, 4.9% strong, 12.7% decent, 21.9% very weak, 41.9% blunder">
+        <div><b>18.7%</b><i style="height:45%"></i></div>
+        <div><b>4.9%</b><i style="height:12%"></i></div>
+        <div><b>12.7%</b><i style="height:30%"></i></div>
+        <div><b>21.9%</b><i class="bad" style="height:52%"></i></div>
+        <div><b>41.9%</b><i class="bad" style="height:100%"></i></div>
+      </div>
+      <div class="split-labels"><span>Near perfect<br>(under 25)</span><span>Strong<br>(25–100)</span><span>Decent<br>(100–500)</span><span>Very weak<br>(500–1000)</span><span>Blunder<br>(1000+)</span></div>
+    </div>
+
+    <div class="found">
+      <h3>Barely better than guessing</h3>
+      <ul>
+        <li>The models play the engine's best move <b>10.2%</b> of the time. Picking a random legal move would get it <b>8.8%</b> of the time.</li>
+        <li>They play the move a <i>human</i> actually played from that position, usually the mistake that set up the puzzle, <b>11.5%</b> of the time. That's more often than they find the best move. Copying a familiar human move is what a pattern-matcher would do.</li>
+      </ul>
+    </div>
+
+    <div class="catch">
+      <h3>The catches</h3>
+      <ul>
+        <li><b>The 97% had help.</b> When a model gave an illegal move, the program asked again and showed it every allowed move to pick from. Only about 1 first answer in 10 was legal on its own.</li>
+        <li id="engine-note"><b>The engine search is fairly light, but that doesn't change the answer.</b> Lc0 looked 800 positions ahead for each move. Re-checking 1,000 positions with 10× more search kept the models in nearly the same order, and the blunder rate barely moved (42.0% to 42.1%).</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- T3 -->
+  <section>
+    <h2><span class="badge">T3</span> Who is better, and why?</h2>
+    <p class="ask">"Which side is better? Explain why in your own words."</p>
+    <p>The model names a side and writes a short explanation. The answer is marked out of 2.</p>
+
+    <h3>How it's scored</h3>
+    <ul>
+      <li><b>1 mark for the right side.</b> The model has to name the same side as the engine: White, Black or even ("even" means within half a pawn either way).</li>
+      <li><b>1 mark for the right idea.</b> Each puzzle on Lichess is labelled with its tactic, such as "fork", "pin" or "checkmate". The computer looks for that word, or one meaning the same, as a <b>whole word</b> in the explanation.</li>
+    </ul>
+
+    <div class="example">
+      <span class="label">Example</span>
+      <p>The puzzle's label is "fork", and the engine says White is ahead.</p>
+      <p>The model writes: <i>"White is better because the knight attacks the king and rook at once, a fork."</i> That gets both marks: 2 out of 2.</p>
+      <p>An earlier version found words <i>inside</i> other words, so "estimate" counted as "mate" and "opinion" as "pin". That has been fixed.</p>
+    </div>
+
+    <div class="numbers">
+      <div><b>30%</b><span>named the better side correctly</span></div>
+      <div><b>54%</b><span>what you'd get by always naming the side that is usually better</span></div>
+      <div><b>0.76 / 2</b><span>best model (Gemma 4 26B). Worst: CodeLlama 34B, 0.31</span></div>
+    </div>
+
+    <div class="catch">
+      <h3>The catches</h3>
+      <ul>
+        <li><b>Worse than a fixed guess.</b> The models name the better side less often than someone who always gave the same answer.</li>
+        <li><b>The puzzle hadn't started yet.</b> The benchmark showed each puzzle's position one move <i>before</i> the tactic appears. So the "right idea" mark is unfair, and it isn't used as evidence. The move and evaluation scores aren't affected.</li>
+        <li><b>Only checks for words.</b> The computer can't tell whether an explanation makes sense, only whether the right words are there.</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- Fine-tuning -->
+  <section>
+    <h2>Can teaching them help?</h2>
+    <p>If the models fail because they can't "see" the board, teaching them the board should help. Five small models were given extra training, then tested again on exactly the same questions.</p>
+    <ul>
+      <li><b>Experiment 1: where the pieces are.</b> It worked: they went from finding 1–19% of the pieces to 89–99%. But nothing else improved. Their moves became <i>less</i> legal, and their blunders and evaluations didn't get better.</li>
+      <li><b>Experiment 2: the pieces and every legal move.</b> Before training, I wrote down what would count as success. The first test was whether they actually learned the legal moves, at least 90% right. They didn't: they found only 65–81% of them, and a lot of the moves they listed weren't legal. So this experiment can't say whether knowing the rules would help. Their moves still became less legal, not more.</li>
+    </ul>
+  </section>
+
+  <!-- Summary -->
+  <section>
+    <h2>All three, side by side</h2>
+    <div class="table-wrap">
+      <table class="summary">
+        <thead><tr><th>Score</th><th>What it tests</th><th>Result in one line</th></tr></thead>
+        <tbody>
+          <tr><td><b>T1</b></td><td>Can it tell who is winning?</td><td>Barely. Its numbers hardly follow the engine's, and always saying "0" does better.</td></tr>
+          <tr><td><b>T2</b></td><td>Can it find a good move?</td><td>Only 1 in 10 first answers is legal, 4 in 10 legal moves are blunders, and it finds the best move about as often as a random guess.</td></tr>
+          <tr><td><b>T3</b></td><td>Can it explain the position?</td><td>It names the better side less often than a fixed guess.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p><b>The conclusion:</b> these models have learned what chess <i>looks like</i> (the notation, the vocabulary, the usual moves), not how it <i>works</i>. Bigger models mostly aren't better: only Google's Gemma models improve with size. Every result is more consistent with pattern matching than with reasoning, though none of it proves that on its own.</p>
+  </section>
+
+  <footer>Numbers come from the project's corrected results (22 models, 4,000 positions, 526,662 answers) and match docs/FINDINGS.md on the ft-fixes branch, 29 October 2026. A technical version of this page, with the formulas and calculators, is available separately.</footer>
+</div>
