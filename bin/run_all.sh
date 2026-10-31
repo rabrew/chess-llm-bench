@@ -267,6 +267,7 @@ echo ""
 print_header "STEP 8/9: ENRICHING CPL (Lc0 GPU)"
 print_info "Computing centipawn loss for all legal moves..."
 echo ""
+python scripts/wait_for_ollama_idle.py --config "$BENCH_CONFIG"
 python scripts/enrich_cpl.py --results "$RESULTS_FILE" --config "$BENCH_CONFIG"
 echo ""
 

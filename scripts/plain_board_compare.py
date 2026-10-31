@@ -10,6 +10,7 @@ import argparse
 import json
 import logging
 import math
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -29,7 +30,7 @@ from src.metrics import (  # noqa: E402
     _spearman,
     load_results_df,
 )
-from src.provenance import build_provenance  # noqa: E402
+from src.provenance import build_provenance, file_sha256  # noqa: E402
 from src.utils import load_config, setup_logging  # noqa: E402
 
 logger = logging.getLogger("chess_llm_bench")
@@ -329,8 +330,40 @@ def expected_sample_size(config: dict[str, Any]) -> int | None:
     return min(positive) * len(TIERS) if positive else None
 
 
+def completion_evidence(path: Path) -> dict[str, Any]:
+    """Require a final EXIT marker; an older success cannot finish a new run."""
+    last_exit = None
+    final_line = ""
+    with path.open() as source:
+        for line in source:
+            if line.strip():
+                final_line = line.strip()
+            match = re.fullmatch(r"\s*EXIT\s+(-?\d+)\s*", line)
+            if match:
+                last_exit = int(match.group(1))
+    return {"path": str(path.resolve()), "sha256": file_sha256(path),
+            "last_exit": last_exit, "complete": last_exit == 0 and bool(re.fullmatch(r"EXIT\s+0", final_line))}
+
+
+def _finished_collection(df: pd.DataFrame, cohort: dict, completion: dict) -> bool:
+    expected = cohort["expected_positions_per_format"]
+    return bool(completion.get("complete") and cohort["expected_models"] and expected
+                and not cohort["missing_models"] and not cohort["unexpected_models"]
+                and _column(df, "position_id").nunique() == expected
+                and all(0 < count <= expected for counts in cohort["by_model"].values()
+                        for count in counts.values()))
+
+
+def _unscored_requested_moves(df: pd.DataFrame) -> int:
+    requested = _column(df, "prompt_format").isin(COMPARISON_FORMATS)
+    if "t2_legal" in df:
+        requested &= df["t2_legal"].eq(True)
+    return int((requested & ~_valid_measure(df, "t2_cpl_clamped")).sum())
+
+
 def build_summary(df: pd.DataFrame, expected_models: list[str] | None = None,
-                  expected_positions: int | None = None) -> dict[str, Any]:
+                  expected_positions: int | None = None,
+                  completion: dict[str, Any] | None = None) -> dict[str, Any]:
     primary = {name: compare_measure(df, name, CONTROL, BOARD_TEXT_FORMAT) for name in MEASURES}
     secondary = {name: compare_measure(df, name, BOARD_TEXT_FORMAT, BOARD_TEXT_LEGAL_FORMAT)
                  for name in ("first_answer_legal", "blunder_rate")}
@@ -339,12 +372,17 @@ def build_summary(df: pd.DataFrame, expected_models: list[str] | None = None,
     pending = [name for name, result in primary.items()
                if not all(_is_finite(result[key]) for key in ("left_value", "right_value"))]
     cohort = cohort_coverage(df, expected_models, expected_positions)
-    outcome = PENDING if cohort["complete"] is False else verdict(inputs)
+    finished = _finished_collection(df, cohort, completion or {})
+    unscored = _unscored_requested_moves(df)
+    incomplete = unscored or (cohort["complete"] is False and not finished)
+    outcome = PENDING if incomplete else verdict(inputs)
     return json_safe({
         "seed": SEED, "resamples": RESAMPLES,
         "positions": int(_column(df, "position_id").nunique()),
         "models": sorted(_column(df, "model").dropna().unique()),
         "primary": primary, "verdict_inputs": inputs, "verdict": outcome, "cohort": cohort,
+        "collection_finished": finished, "completion_evidence": completion,
+        "unscored_legal_moves": unscored,
         "pending_measures": pending, "interpretation_warnings": INTERPRETATION_WARNINGS,
         "per_model": per_model_table(df).to_dict(orient="records"),
         "secondary": secondary,
@@ -374,6 +412,8 @@ def json_safe(value: Any) -> Any:
 def main() -> None:
     parser = argparse.ArgumentParser(description="Plain-board notation check (specs/plain-board-prompts.md).")
     parser.add_argument("--config", default="config/config_plain_board.yaml")
+    parser.add_argument("--completion-log", type=Path,
+                        help="Pipeline log with a final EXIT 0; disclose missing pairs from finished collection")
     args = parser.parse_args()
     setup_logging()
     config = load_config(args.config)
@@ -382,7 +422,9 @@ def main() -> None:
     out_dir = Path(paths["metrics_dir"])
     out_dir.mkdir(parents=True, exist_ok=True)
     per_model_table(df).to_csv(out_dir / "plain_board_comparison.csv", index=False)
-    summary = build_summary(df, expected_models=config.get("models"), expected_positions=expected_sample_size(config))
+    evidence = completion_evidence(args.completion_log) if args.completion_log else None
+    summary = build_summary(df, expected_models=config.get("models"),
+                            expected_positions=expected_sample_size(config), completion=evidence)
     summary["provenance"] = {**build_provenance(args.config, paths["results_file"]),
                              "ollama_digests": ollama_digests()}
     (out_dir / "plain_board_summary.json").write_text(json.dumps(summary, indent=2, default=str, allow_nan=False) + "\n")

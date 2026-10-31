@@ -392,6 +392,32 @@ def test_expected_cohort_rejects_equal_counts_with_different_positions(monkeypat
     assert summary["cohort"]["positions_shared_across_models_and_formats"] == 0
 
 
+def test_finished_collection_can_disclose_failed_pairs_without_changing_rule(monkeypatch):
+    rows = _summary_rows(10)
+    _fast_summary(monkeypatch, rows)
+    rows = rows[~((rows.prompt_format == "board_text+legal") & (rows.position_id == 3))]
+    result = comparison.build_summary(rows, expected_models=["m"], expected_positions=4,
+                                      completion={"complete": True, "sha256": "test"})
+    assert result["cohort"]["complete"] is False
+    assert result["collection_finished"] is True
+    assert result["verdict"] == MAJOR_BARRIER
+    assert result["cohort"]["by_model"]["m"]["board_text+legal"] == 3
+
+
+@pytest.mark.parametrize("missing", ["model", "format", "scores"])
+def test_exit_zero_cannot_hide_missing_model_format_or_scores(monkeypatch, missing):
+    rows = _summary_rows(10)
+    _fast_summary(monkeypatch, rows)
+    models = ["m", "absent"] if missing == "model" else ["m"]
+    if missing == "format":
+        rows = rows[rows.prompt_format != "board_text+legal"]
+    if missing == "scores":
+        rows.loc[rows.index[0], "t2_cpl_clamped"] = np.nan
+    result = comparison.build_summary(rows, expected_models=models, expected_positions=4,
+                                      completion={"complete": True})
+    assert result["verdict"] == PENDING
+
+
 def test_expected_sample_comes_from_config_not_observed_data():
     assert comparison.expected_sample_size({"benchmark": {"sample_per_tier": 125}}) == 500
     assert comparison.expected_sample_size({"benchmark": {"sample_per_tier": 0, "max_positions_per_tier": 1000}}) == 4000
