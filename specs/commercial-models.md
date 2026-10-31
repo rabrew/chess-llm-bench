@@ -35,6 +35,23 @@ the gap meets the size stated **and** the two CIs don't overlap.
 Anything that doesn't meet its bar is reported as "no clear difference", with the numbers. Also
 reported, not judged: first-answer legality, best-move rate against random, side κ, cost per variant.
 
+## Pilot result and change of plan (2026-10-31, before the full run)
+
+The pilot (8 positions × 3 formats × 4 variants, 96 requests, $0.48) changed two things. Its
+records stay in the results; nothing about the criteria above was changed after seeing them.
+
+- **Cost.** Measured per request: Haiku $0.0006, Sonnet off $0.0051, Sonnet on $0.0076, Opus $0.0067.
+  All four variants on all formats would cost about $30, over the budget.
+- **"Thinking off" is not "no reasoning".** With thinking off, Sonnet writes its reasoning into the
+  visible reply instead. 11 of 24 replies hit the 1,024-token limit (most still had the eval and
+  move before the cut). So C2/C3 would compare hidden thinking with reasoning written in the reply.
+
+**Decision (Ryan):** the full run now covers **Haiku 5.5 and Opus 5.5 (low effort), all three
+formats** (about $11). Both Sonnet variants are deferred to a later run, so **C2 and C3 are not
+tested now**; C1 and C4 apply as written. For that later run, `claude-sonnet:5.5-nothink` gets
+`max_tokens: 3000` so replies aren't cut off, and its 24 pilot replies (1,024-token limit) are
+re-sent rather than reused.
+
 ## Inputs / Outputs
 
 **Inputs**
@@ -58,8 +75,8 @@ reported, not judged: first-answer legality, best-move rate against random, side
 | Tag (in records) | API model | Thinking | Effort | `max_tokens` | Why |
 |---|---|---|---|---|---|
 | `claude-haiku:5.5` | `claude-haiku-5-5` | default (adaptive) | default (medium) | 4,000 | Cheapest tier |
-| `claude-sonnet:5.5-nothink` | `claude-sonnet-5-5` | off (`between_tools`, no tools given) | high | 1,024 | Thinking off |
-| `claude-sonnet:5.5-think` | `claude-sonnet-5-5` | adaptive | high | 8,000 | Thinking on: the C2/C3 pair |
+| `claude-sonnet:5.5-nothink` | `claude-sonnet-5-5` | off (`between_tools`, no tools given) | high | 3,000 | Thinking off (deferred) |
+| `claude-sonnet:5.5-think` | `claude-sonnet-5-5` | adaptive | high | 8,000 | Thinking on: the C2/C3 pair (deferred) |
 | `claude-opus:5.5-low` | `claude-opus-5-5` | always on | low | 4,000 | Largest tier, shortest thinking |
 
 Thinking tokens are billed as output. `max_tokens` caps the cost of one request; a reply cut off by

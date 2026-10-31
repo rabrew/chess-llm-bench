@@ -165,7 +165,7 @@ def test_retry_request_uses_the_worker_reask():
 
 @pytest.mark.parametrize("tag, thinking, effort, max_tokens", [
     ("claude-haiku:5.5", None, None, 4000),
-    ("claude-sonnet:5.5-nothink", {"type": "between_tools"}, "high", 1024),
+    ("claude-sonnet:5.5-nothink", {"type": "between_tools"}, "high", 3000),
     ("claude-sonnet:5.5-think", {"type": "adaptive"}, "high", 8000),
     ("claude-opus:5.5-low", None, "low", 4000),
 ])

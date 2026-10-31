@@ -20,9 +20,9 @@ claude:
       max_tokens: 4000
     - tag: claude-sonnet:5.5-nothink
       model: claude-sonnet-5-5
-      thinking: between_tools  # thinking off (no tools are given)
+      thinking: between_tools  # thinking off (no tools are given); it still reasons in the reply
       effort: high
-      max_tokens: 1024
+      max_tokens: 3000           # 1,024 cut off 11 of 24 pilot replies (spec, "Pilot result")
     - tag: claude-sonnet:5.5-think
       model: claude-sonnet-5-5
       thinking: adaptive
