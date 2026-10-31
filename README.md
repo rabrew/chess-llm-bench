@@ -56,8 +56,8 @@ reasoning. Full detail: [docs/FINDINGS.md](docs/FINDINGS.md).
 | 3 | **Pieces-only fine-tune**: teach 5 models to read the board | Done | [fine-tuning/specs/chess-board-finetuning.md](fine-tuning/specs/chess-board-finetuning.md) | `config/config_finetuned.yaml` | `results/finetuning_experiment/` | FINDINGS F |
 | 4 | **Pieces + legal moves fine-tune**: also teach the legal moves | Done (criteria fixed in advance) | [fine-tuning/specs/legal-moves-finetuning.md](fine-tuning/specs/legal-moves-finetuning.md) | `config/config_legal_ft.yaml` | `results/finetuning_experiment/legal_ft/` | FINDINGS F |
 | 5 | **Engine-strength check**: does a 10× stronger engine change the ranking? | Done | [specs/engine-strength-check.md](specs/engine-strength-check.md) | — | `results/engine_strength/`, `results/metrics/engine_strength*` | FINDINGS, Limitations |
-| 6 | **Notation check**: same positions as a plain-English board, no FEN | **Running** | [specs/plain-board-prompts.md](specs/plain-board-prompts.md) | `config/config_plain_board.yaml` | `results/plain_board/` | To be added |
-| 7 | **Commercial models** (Claude and others via API) | Planned | [specs/commercial-models.md](specs/commercial-models.md) | — | — | — |
+| 6 | **Notation check**: same positions as a plain-English board, no FEN | **Paused: 14/21; scoring pending** | [specs/plain-board-prompts.md](specs/plain-board-prompts.md) | `config/config_plain_board.yaml` | `results/plain_board/` | To be added |
+| 7 | **Commercial models** (Claude and others via API) | Haiku/Opus scored; C1 pending; Sonnet not run | [registered spec](https://github.com/rabrew/chess-llm-bench/blob/claude-models/specs/commercial-models.md) | `config/config_claude.yaml` (claude-models) | [Claude summary](https://github.com/rabrew/chess-llm-bench/blob/1da3d14/results/claude/metrics/claude_summary.json) | [Conclusions §5](docs/CONCLUSIONS.md#5-claude-stronger-descriptive-competence-incomplete-move-quality-evidence) |
 
 ---
 

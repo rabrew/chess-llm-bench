@@ -163,3 +163,21 @@ Do the cheapest high-impact checks (M-1, M-2, T1-3) early, because their results
 - The Lichess puzzle CSV, for T3-4 (full themes) only
 - Fine-tuning: Unsloth, TRL, datasets and huggingface-hub (already in `requirements.txt`), plus the RTX 5080 on the PC
 - No new LLM runs are needed for the base benchmark except M-1 (small), the optional M-3 sample, and anything an edge case triggers. Section F needs its own runs by design.
+
+
+## Experiments 6 and 7 completion update (1 November 2026)
+
+- [ ] **E6 collection/scoring:** paused at 14/21 models. Resume only when Ryan
+  says; require terminal `EXIT 0`, coverage audit, CPL and saved metrics.
+- [ ] **E6 registered comparison:** final N1–N4 verdict awaits complete scores.
+- [x] **E7 existing-response scoring:** all 3,048 legal moves scored; original
+  response invariants verified. No new paid requests.
+- [x] **E7 comparison implementation/reports:** spec, tests, code and provenance
+  JSON/CSV committed and reviewed on `claude-models`.
+- [ ] **E7 C1:** matched Gemma4:31b reference is absent. C4 is complete for both
+  variants under the unchanged rule; disclose its absolute-correlation limitation.
+- [ ] **Final reporting/integration:** renderer support is ready; final experiment
+  6 tables, HTML, merge, master update and worktree removal await experiment 6.
+  Keep interim labels until results are complete.
+- **Not run:** C2/C3, deferred by Ryan. Pilots are not full experiments. New paid
+  work or further training requires permission.

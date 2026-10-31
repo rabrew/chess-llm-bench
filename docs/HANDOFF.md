@@ -150,3 +150,21 @@ companies for credits (Gary gave a free Codex subscription, not API credits).
   it does not stop or unload anything. Arrange the GPU handover explicitly.
 - Haiku has 41 token-capped initial replies among 1,500 saved records. "Zero
   failures" means no missing scored records, not an absence of truncated replies.
+
+
+## Completion progress (1 November 2026)
+
+- Plain-board remains paused at 14/21, awaiting Ryan's resume instruction.
+- Claude enrichment is complete: all 3,048 legal moves have 800-node Lc0 CPL;
+  original responses were preserved. No new API requests or charges.
+- `claude-models` contains tested `scripts/claude_compare.py` and committed
+  JSON/CSV in `results/claude/metrics/` (results commit `1da3d14`). C1 is pending
+  Gemma4:31b; C2/C3 are not run. Both C4 verdicts are “notation was a major
+  barrier” under the unchanged absolute-correlation rule, despite decreases in
+  paired T1 correlation. This supersedes earlier no-CPL/pending-C4 notes above.
+- Main includes optional experiment table rendering and a read-only Ollama idle
+  wait before automatic enrichment. Successful completion requires terminal
+  `EXIT 0` in the log. Do not merge branches until experiment 6 finishes.
+- Full CPU checks: main 1,164 passed; Claude 1,105 passed, one existing missing
+  fixture skip. Required Ruff and main renderer consistency checks passed.
+- Updated numerical results and limitations are in `docs/CONCLUSIONS.md`.

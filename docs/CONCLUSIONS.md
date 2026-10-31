@@ -2,9 +2,9 @@
 
 **Project:** Ryan Brew, PR09426 — *Do LLMs Reason? Benchmarking Logical Performance via Chess*
 
-**Snapshot:** 31 October 2026, after CPU reanalysis of existing responses
+**Snapshot:** 1 November 2026, including scoring of existing Claude responses
 
-**Status:** Base and fine-tuning results analysed; plain-board and Claude move-quality results incomplete.
+**Status:** Base and fine-tuning results analysed; plain-board incomplete; Claude scored, local-reference comparison pending.
 
 ## Main conclusion
 
@@ -12,8 +12,8 @@ The tested local language models possess some chess knowledge, but their
 evaluation and move selection are unreliable under this benchmark. Board-focused
 fine-tuning improved board-description behaviour without reliably improving
 overall chess performance, and often reduced it. The available Claude results
-show stronger competence on evaluation and first-answer legality, but their move
-quality has not yet been measured.
+show stronger competence on evaluation and first-answer legality, and measurable
+but limited move-selection competence. The matched local comparison is pending.
 
 These behavioural results are consistent with fragile pattern-based performance.
 They do not identify the models' internal reasoning mechanism, prove that LLMs
@@ -222,20 +222,40 @@ has 41 token-capped initial replies; Opus has none. Complete record coverage
 does not mean no responses were truncated.
 
 These results show stronger descriptive evaluation association and unaided
-legality than the current local-model results. Plain-board formatting does not
-descriptively improve either Claude variant here. This is not a completed
-move-quality superiority result or proof of an internal reasoning mechanism.
+legality than the current local-model results. The paired evaluation, side
+agreement and first-answer legality measures above do not improve with
+plain-board formatting. This is not a completed move-quality superiority
+result or proof of an internal reasoning mechanism.
 
-All Claude CPL values remain missing. **C1 is untested**, since it requires
-comparison with Gemma4:31b's unfinished plain-board run and its blunder rate.
-**C2/C3 are untested**, since the full Sonnet thinking-on/off runs are deferred.
-**C4 remains pending.**
+### Completed Claude scoring
 
-The registered C4 rule has an interpretation limitation: it uses an absolute
-plain-board correlation threshold of 0.30. Opus exceeds it even though its
-correlation decreases from FEN. Report the registered rule and its limitation
-separately from the descriptive format change; do not silently change the rule
-after inspecting results.
+All **3,048 legal moves**, including Sonnet pilots, now have finite nonnegative
+CPL from the configured 800-node Lc0 search. Record identities and original
+responses were preserved. No new API requests were made.
+
+Full-variant FEN blunder rates are **29.0% (Haiku)** and **19.2% (Opus-low)**;
+plain-board rates are **24.4%** and **21.2%**. FEN best-move rates are **17.8%**
+and **26.8%**, against an **8.04%** uniform random-legal baseline (2.21× and
+3.33×). These are assisted final-move measures; first-answer legality is
+reported separately above.
+
+**C1 remains pending:** the matched Gemma4:31b reference is unfinished.
+**C2/C3 are “not run”:** pilots do not replace the full Sonnet experiments.
+**C4 is complete for both variants: “notation was a major barrier”.** This
+is exactly the registered rule's result, triggered by its absolute plain-board
+correlation threshold of 0.30. It does **not** establish improvement over FEN:
+both paired correlations decrease, and neither variant satisfies the large
+blunder-improvement branch. Keep this limitation alongside the verdict.
+
+The existing ledger records **$12.2555896** spent, including pilots and retries:
+Haiku $0.8918706, Opus-low $11.058668, Sonnet pilots $0.305051 combined. Offline
+scoring added no API cost. Claude ran at API defaults; temperature could not be
+set. Parameter counts are unknown and public-puzzle contamination is possible.
+
+The committed [summary](https://github.com/rabrew/chess-llm-bench/blob/1da3d14/results/claude/metrics/claude_summary.json)
+and [CSV](https://github.com/rabrew/chess-llm-bench/blob/1da3d14/results/claude/metrics/claude_comparison.csv)
+include provenance. They remain on the separate branch until experiment 6
+finishes; a final matched local-versus-frontier conclusion awaits C1.
 
 ## 6. What can—and cannot—be claimed
 
@@ -255,7 +275,7 @@ Not established:
 
 - That LLMs cannot reason, or that a particular internal mechanism caused failure.
 - That fine-tuning generally cannot improve chess performance.
-- A final notation verdict, Claude move-quality advantage, or thinking benefit.
+- A final local notation verdict, matched Claude move-quality advantage, or thinking benefit.
 - Statistical equivalence between adjacent model ranks.
 - That public-puzzle contamination, harness assistance, output parsing, reference
   limitations, prompt dependence or selective missingness have been eliminated.
@@ -301,6 +321,7 @@ The underlying corrected implementation passed **1,132 tests**, Ruff and the
 findings-table consistency check. Those checks establish implementation coverage,
 not the scientific validity of every interpretation.
 
-Original datasets, responses and saved research reports were not modified. No
-inference, engine enrichment, paid calls or services were used. The plain-board
-run remains paused and may resume only when Ryan requests it.
+The initial CPU-only reanalysis did not modify research inputs. Subsequent
+authorized Claude enrichment added engine scores while preserving original
+responses, with a committed validation record on `claude-models`. No paid
+calls were made. Plain-board remains paused until Ryan requests resumption.
