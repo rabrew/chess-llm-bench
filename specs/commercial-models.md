@@ -1,233 +1,148 @@
-# Spec: Commercial Model Integration — Anthropic
+# Spec: Claude Models Through the Batch API
 
-**Created:** 2026-05-06
+**Created:** 2026-05-06 (first draft, never built). **Rewritten:** 2026-10-31, before any Claude results.
 **Author:** Ryan Brew
 
 ---
 
 ## Goal
 
-Extend the chess LLM benchmark to evaluate commercial API models alongside the existing 23 local Ollama models. The first provider is Anthropic (Claude). The benchmark infrastructure — job queue, scoring, result writer, prompt formats — is reused unchanged. Only the LLM client layer changes.
+Every model tested so far is open-source and run locally (2B–70B). The obvious question from a
+reader is whether frontier commercial models behave differently. This experiment runs four Claude
+configurations on the **same 500 positions and the same three prompt formats** as the plain-board
+run (`specs/plain-board-prompts.md`), so they pair position by position with the 21 local models.
 
-This lets us answer: **how do Claude models compare to local open-source models of similar parameter scale on chess spatial reasoning?**
+It also tests something the local models can't: the **same model with thinking off and on**
+(Claude Sonnet 5.5). If step-by-step reasoning before answering makes the moves better, that is
+direct evidence on the project's question.
 
----
+The budget is about €20 of API credit, so requests go through the **Message Batches API** (half
+price) and a budget guard refuses to submit anything that would exceed it.
+
+## Success criteria (fixed before running)
+
+All comparisons pair records on (model, position, prompt format) and use seeded bootstrap 95% CIs
+over positions (1,000 resamples, seed 42), as in `scripts/plain_board_compare.py`. "Clearly" means
+the gap meets the size stated **and** the two CIs don't overlap.
+
+| # | Question | Comparison (`fen_only` unless stated) | Finding if… |
+|---|---|---|---|
+| C1 | Do frontier models play better than the best local model? | Each Claude variant against gemma4:31b (best local blunder rate) on the same positions | Blunder rate clearly lower by ≥ 5 points → "frontier model plays clearly better" |
+| C2 | Does thinking improve move choice? | Sonnet 5.5 thinking on against off | Blunder rate clearly lower by ≥ 5 points → "thinking improves move choice" |
+| C3 | Does thinking improve judgement? | Same pair | T1 ρ higher by ≥ 0.10 with non-overlapping CIs → "thinking improves evaluation" |
+| C4 | Is notation a barrier for Claude? | `board_text` against `fen_only`, per variant | The plain-board rule (N1–N4) applied unchanged |
+
+Anything that doesn't meet its bar is reported as "no clear difference", with the numbers. Also
+reported, not judged: first-answer legality, best-move rate against random, side κ, cost per variant.
 
 ## Inputs / Outputs
 
-**Inputs:**
-- `data/{easy,medium,hard,extreme}.json` — same 4,000 positions used for all models
-- `config/config.yaml` — extended with `anthropic:` section and Claude model list
-- `ANTHROPIC_API_KEY` environment variable — never hardcoded, never committed
+**Inputs**
+- The plain-board sample: 500 positions (125 per tier), drawn exactly as `run_all.sh` draws them
+  (`populate_job_queue` per tier, `subsample_per_tier`, seed 42), so position IDs match the local runs.
+- `config/config_claude.yaml`: variants, prices, budget, paths.
+- The API key, from the environment variable `ANTHROPIC_API_KEY`, or from a key file **outside the
+  repository** (default `~/.config/chess-llm-bench/anthropic.env`, one line `ANTHROPIC_API_KEY=...`).
+  The key is never written to config, logs, records or git.
 
-**Outputs:**
-- `results/evaluations.jsonl` — same append-only format, same record schema
-- Claude model entries appear in all existing dashboard charts and metrics automatically
+**Outputs** (`results/claude/`)
+- `responses.jsonl`: every API result as returned (custom ID, round, variant, reply text, stop reason,
+  token usage, batch ID). This is the raw record and the resume cache.
+- `batches.json`: batches submitted but not yet collected, so a restart polls them instead of paying twice.
+- `evaluations.jsonl`: one scored record per job, in the usual schema, plus `api_model`, `effort`,
+  `thinking`, `input_tokens`, `output_tokens`, `cost_usd`, `stop_reason`.
+- `failures.jsonl`: jobs whose reply had no eval, move or explanation at all (as the worker drops them).
 
----
+## Variants
 
-## Models
+| Tag (in records) | API model | Thinking | Effort | `max_tokens` | Why |
+|---|---|---|---|---|---|
+| `claude-haiku:5.5` | `claude-haiku-5-5` | default (adaptive) | default (medium) | 4,000 | Cheapest tier |
+| `claude-sonnet:5.5-nothink` | `claude-sonnet-5-5` | off (`between_tools`, no tools given) | high | 1,024 | Thinking off |
+| `claude-sonnet:5.5-think` | `claude-sonnet-5-5` | adaptive | high | 8,000 | Thinking on: the C2/C3 pair |
+| `claude-opus:5.5-low` | `claude-opus-5-5` | always on | low | 4,000 | Largest tier, shortest thinking |
 
-| Model | Ollama-style tag | API model ID | Size tier |
-|---|---|---|---|
-| Claude Haiku 4.5 | `claude-haiku-4-5` | `claude-haiku-4-5-20251001` | Small (fastest, cheapest) |
-| Claude Sonnet 4.6 | `claude-sonnet-4-6` | `claude-sonnet-4-6` | Medium |
-| Claude Opus 4.6 | `claude-opus-4-6` | `claude-opus-4-6` | Large (most capable) |
-
-Start with Haiku only to validate the pipeline end-to-end before spending budget on Sonnet and Opus.
-
----
-
-## Cost Estimate
-
-**Per model: 4,000 positions × 6 prompt formats = 24,000 jobs**
-
-Approximate token counts per job:
-- Input: ~250 tokens (FEN + PGN history + 3-task question + format instruction)
-- Output: ~80 tokens (Eval: N, Move: X, Explanation: ...)
-
-| Model | Input $/1M | Output $/1M | Est. cost per model |
-|---|---|---|---|
-| Haiku 4.5 | $0.80 | $4.00 | ~$13 |
-| Sonnet 4.6 | $3.00 | $15.00 | ~$46 |
-| Opus 4.6 | $15.00 | $75.00 | ~$228 |
-
-Run Haiku first (~$13). Confirm results look sensible. Proceed to Sonnet. Hold off on Opus unless the research narrative specifically benefits from it.
-
----
+Thinking tokens are billed as output. `max_tokens` caps the cost of one request; a reply cut off by
+it has `stop_reason: "max_tokens"` and is scored on whatever text came back (usually none).
 
 ## Steps / Logic
 
-### 1. New client: `src/anthropic_client.py`
+### 1. Jobs
+For each position × variant × format, a job with the worker's fields (`job_id` from
+`generate_job_id`, the position's FEN, tier, theme and engine values).
 
-Add `AnthropicClient` class with the same interface as `OllamaClient`:
+### 2. Round 1: first answers
+- The prompt is exactly the worker's: `build_prompt(fen, prompt_format=...)`, no system prompt.
+- Each request's custom ID is the job ID with characters outside `[A-Za-z0-9_-]` replaced, plus `-r1`.
+- Only jobs with no round-1 result in `responses.jsonl` are sent.
 
-```python
-class AnthropicClient:
-    def __init__(self, api_key: str, timeout: int = 60, max_retries: int = 3): ...
-    def is_available(self) -> bool: ...          # validate API key with a cheap probe
-    def chat(self, model: str, prompt: str, system_prompt: str | None = None, temperature: float | None = None) -> dict: ...
-```
+### 3. Round 2: the move re-ask
+The worker's rescue, unchanged:
+1. Parse the reply (`parse_response`). If the move is legal, done.
+2. Otherwise look for a legal move anywhere in the reply (`extract_move_from_text`).
+3. Otherwise re-ask with `retry_move_prompt(fen, format)` (its system prompt included; plain formats
+   never see a FEN) as a round-2 request, and take the first legal move in that reply.
 
-`chat()` returns the same dict shape as `OllamaClient.chat()`:
-```python
-{"response": str, "inference_ms": int, "success": bool, "model": str}
-```
+**Difference from the local runs:** the local re-ask used temperature 0. Current Claude models
+reject sampling settings, so every Claude request runs at the API default. Reported as a limitation.
 
-Use the `anthropic` Python SDK (`pip install anthropic`). The SDK handles retries and rate-limit backoff internally — configure it with `max_retries=3`.
+### 4. Batches
+- Submit, save the batch ID to `batches.json`, poll every 60 s until it ends, store every result in
+  `responses.jsonl`, then remove the ID from `batches.json`.
+- On start, any batch still in `batches.json` is collected first; nothing is resubmitted while one is open.
+- Errored, expired or cancelled requests are logged and not stored, so the next run sends them again.
 
-Rate limiting: Anthropic returns HTTP 429 on quota exhaustion. The SDK raises `anthropic.RateLimitError`. Catch it, wait `retry_after` seconds (from response headers if present, else exponential backoff), and retry up to `max_retries` times.
+### 5. Budget guard
+- **Spent** = Σ over stored results of (input tokens × input price + output tokens × output price) × 0.5.
+- **Estimate** for a new batch = number of requests × mean tokens per request for that variant from
+  stored results (once at least 10 exist), else the config's conservative defaults.
+- If spent + estimate > `budget_usd`, nothing is submitted and the script exits with the numbers.
+- `--dry-run` prints the requests' count and estimate and makes no API call.
 
-### 2. Client routing in `src/worker.py`
+### 6. Pilot, then the run
+1. Pilot: `--positions-per-tier 2` (8 positions × 3 formats × 4 variants = 96 requests, cents).
+2. Read the per-variant token use it reports; check the full-run estimate fits the budget.
+3. Full run with the variants that fit, in this order: Haiku, Sonnet off, Sonnet on, Opus.
+4. Then `scripts/enrich_cpl.py` for CPL, and the comparison against the criteria above.
 
-Workers currently create one `OllamaClient` at init time. Extend `Worker.__init__` to detect the model name and instantiate the correct client:
+### 7. Scoring
+`score_all` and `build_result_record`, unchanged. Claude tags are listed in `API_MODEL_FAMILIES`
+in `src/utils.py`: Anthropic doesn't publish parameter counts, so their size is `None`, never a guess.
 
-```python
-if job["model"].startswith("claude-"):
-    self.llm_client = AnthropicClient(api_key=os.environ["ANTHROPIC_API_KEY"])
-else:
-    self.llm_client = OllamaClient(...)
-```
+## Edge cases
 
-No other changes to `worker.py` — prompt building, parsing, scoring, result writing are all unchanged.
-
-### 3. Config extension (`config/config.yaml`)
-
-Add an `anthropic:` section and Claude model entries in the `models:` list:
-
-```yaml
-anthropic:
-  timeout: 60
-  max_retries: 3
-
-models:
-  # ... existing Ollama models ...
-
-  # Commercial — Anthropic
-  - claude-haiku-4-5
-  - claude-sonnet-4-6
-  # - claude-opus-4-6  # expensive — enable explicitly
-```
-
-The `ollama:` section is unchanged. Workers detect the provider from the model name prefix.
-
-### 4. `parse_model_info()` in `src/utils.py`
-
-Extend the family/size map to recognise Claude models:
-
-```python
-family_map = {
-    ...existing entries...,
-    "claude": "claude",
-}
-
-# Size overrides for Claude (can't parse from tag alone)
-SIZE_OVERRIDES = {
-    "claude-haiku-4-5": 20,    # approximate
-    "claude-sonnet-4-6": 70,   # approximate
-    "claude-opus-4-6": 200,    # approximate
-}
-```
-
-Size values are approximate — used only for the parameter-scaling chart.
-
-### 5. `scripts/generate_jobs.py`
-
-No changes required. Jobs are generated from `config.yaml`'s `models` list. Claude model entries produce jobs just like any other model.
-
-### 6. `run_all.sh` — skip Ollama restart for Claude
-
-The `restart_ollama_for_model` function should be a no-op for `claude-*` models:
-
-```bash
-restart_ollama_for_model() {
-    local model="$1"
-    if [[ "$model" == claude-* ]]; then
-        echo "1" > /tmp/bench_workers   # single worker for API calls
-        return  # no Ollama restart needed
-    fi
-    # ... existing logic ...
-}
-```
-
-Use 1 worker for API models initially. Anthropic's default rate limit is 50 RPM — a single worker will stay well under that.
-
----
-
-## Edge Cases
-
-| Scenario | Behaviour |
+| Case | Behaviour |
 |---|---|
-| `ANTHROPIC_API_KEY` not set | `AnthropicClient.__init__` raises `ValueError` with clear message before any jobs run |
-| API key invalid / auth error | `is_available()` returns False; pipeline aborts at Ollama-availability check (reuse same check) |
-| HTTP 429 rate limit | Catch `anthropic.RateLimitError`, exponential backoff (2s, 4s, 8s), up to `max_retries` |
-| HTTP 529 overloaded | Treat same as 429 |
-| Response truncated (finish_reason=max_tokens) | Parse whatever was returned; missing fields recorded as None; job still completes |
-| Prompt format `move_only` with legal moves list | Prompt includes legal move list as usual — no change needed |
-| `is_available()` check | Make a minimal messages call with `max_tokens=1`; catches auth errors and network issues before jobs run |
-
----
+| No API key anywhere | Exits before any request, saying where to put it |
+| Key file readable by other users | Warning (it should be `chmod 600`) |
+| Custom ID over 64 characters | Replaced by a stable hash of the job ID (the API limit is 64) |
+| Request errored / expired | Not stored; resent on the next run |
+| Script stopped while a batch runs | Next run collects that batch first |
+| `stop_reason: "refusal"` or `"max_tokens"` | Stored and scored like any reply; counted in the summary |
+| All three fields missing | Written to `failures.jsonl`, not to `evaluations.jsonl` (as the worker) |
+| Budget would be exceeded | Nothing submitted; spent and estimate printed |
+| Record already in `evaluations.jsonl` | Not written twice |
 
 ## Dependencies
 
-| Package | Version | Purpose |
-|---|---|---|
-| `anthropic` | `>=0.50.0` | Official Anthropic Python SDK |
+- `anthropic` (official Python SDK, 2.x). Installing it adds packages and upgrades none of the
+  existing ones (checked with `pip install --dry-run`).
+- Internet access from the PC. No GPU needed.
 
-Add to `requirements.txt`. No other new dependencies.
+## Reproducibility
 
----
+- Seed 42 for the position sample and the bootstrap.
+- Every record stores the API model ID returned by the API, effort and thinking setting.
+- Outputs are not repeatable: hosted models change and sampling can't be fixed. `responses.jsonl`
+  keeps every raw reply so the scoring can be re-run without new API calls.
 
-## Security
+## Tests (`tests/test_claude_batch.py`, no network, fake client)
 
-- `ANTHROPIC_API_KEY` is **never** written to config files, logs, or result records
-- `.env` file (if used locally) must be in `.gitignore`
-- `AnthropicClient` reads the key from `os.environ` only — never accepts it as a positional argument to avoid accidental logging
-
----
-
-## Project Structure Changes
-
-```
-src/
-  anthropic_client.py   ← NEW
-  llm_client.py         ← unchanged
-  worker.py             ← route to correct client based on model prefix
-  utils.py              ← extend parse_model_info for claude family/size
-
-config/
-  config.yaml           ← add anthropic: section, add claude models to list
-
-requirements.txt        ← add anthropic>=0.50.0
-
-tests/
-  test_anthropic_client.py  ← NEW (mock SDK, no real API calls)
-```
-
----
-
-## Tests (`tests/test_anthropic_client.py`)
-
-All tests use `unittest.mock` to patch the `anthropic` SDK — no real API calls, no API key required in CI.
-
-| Test | What it checks |
-|---|---|
-| `test_chat_success` | Normal response → correct dict shape returned |
-| `test_chat_retries_on_rate_limit` | `RateLimitError` → retries up to max_retries, then returns success=False |
-| `test_chat_timeout` | `APITimeoutError` → returns `{"success": False}` |
-| `test_is_available_returns_true` | Valid key → True |
-| `test_is_available_returns_false_on_auth_error` | `AuthenticationError` → False |
-| `test_api_key_not_set_raises` | Missing env var → ValueError at init |
-| `test_response_shape_matches_ollama` | Return dict has same keys as OllamaClient.chat() |
-
----
-
-## Acceptance Criteria
-
-- [ ] `AnthropicClient` passes all unit tests with mocked SDK
-- [ ] `ANTHROPIC_API_KEY` not present → clear error before any jobs run
-- [ ] Dry run with `--dry-run --max-jobs 3 --model claude-haiku-4-5` completes without errors
-- [ ] 24,000 jobs for `claude-haiku-4-5` complete and appear in `evaluations.jsonl`
-- [ ] Dashboard shows Claude models alongside Ollama models
-- [ ] No API key appears in any log file or result record
-- [ ] All existing tests still pass
+- Sampling matches `populate_job_queue` run per tier.
+- Request parameters for each variant (thinking, effort, max_tokens, no temperature, prompt identical to the worker's).
+- Custom IDs: allowed characters only, ≤ 64, unique, round suffix.
+- Rescue: legal first move kept; illegal but rescued from text; re-ask needed; re-ask reply used.
+- Records: the usual schema plus the Claude fields; cost computed with the batch discount.
+- Budget guard: refuses over budget; uses stored token means once there are enough; defaults before.
+- Resume: open batch in `batches.json` is collected, not resubmitted; stored jobs aren't resent.
+- Errored results aren't stored. Key loading: env first, then key file, error when neither.
