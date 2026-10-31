@@ -1,0 +1,123 @@
+{
+  "timestamp": "2026-10-31T18:16:43.650923Z",
+  "run_id": "20261031_181643",
+  "models": [
+    "llama3.2:3b",
+    "gemma3:4b",
+    "qwen2.5:7b",
+    "mistral:7b",
+    "wizardlm2:7b",
+    "llama3.1:8b",
+    "gemma3:12b",
+    "qwen2.5:14b",
+    "phi4:14b",
+    "solar:10.7b",
+    "gemma4:e4b",
+    "gemma4:e2b",
+    "qwen2.5:32b",
+    "codellama:34b",
+    "yi:34b",
+    "command-r:35b",
+    "gemma4:26b",
+    "gemma4:31b",
+    "mixtral:8x7b",
+    "deepseek-r1:7b",
+    "deepseek-r1:14b"
+  ],
+  "prompt_formats": [
+    "fen_only",
+    "board_text",
+    "board_text+legal"
+  ],
+  "hypotheses": [
+    "H1",
+    "H2",
+    "H3",
+    "H4",
+    "H5"
+  ],
+  "scoring_method": "Option A",
+  "config_snapshot": {
+    "stockfish": {
+      "path": "/usr/games/stockfish",
+      "depth": 15,
+      "threads": 1,
+      "workers": 24
+    },
+    "lc0": {
+      "binary": "/home/rabrew/lc0-src/build/release/lc0",
+      "weights": "/home/rabrew/lc0-nets/network.pb",
+      "onnx_model": "/home/rabrew/lc0-nets/network.onnx",
+      "nodes": 800
+    },
+    "ollama": {
+      "base_url": "http://localhost:11434",
+      "timeout": 600,
+      "max_retries": 3
+    },
+    "models": [
+      "llama3.2:3b",
+      "gemma3:4b",
+      "qwen2.5:7b",
+      "mistral:7b",
+      "wizardlm2:7b",
+      "llama3.1:8b",
+      "gemma3:12b",
+      "qwen2.5:14b",
+      "phi4:14b",
+      "solar:10.7b",
+      "gemma4:e4b",
+      "gemma4:e2b",
+      "qwen2.5:32b",
+      "codellama:34b",
+      "yi:34b",
+      "command-r:35b",
+      "gemma4:26b",
+      "gemma4:31b",
+      "mixtral:8x7b",
+      "deepseek-r1:7b",
+      "deepseek-r1:14b"
+    ],
+    "dataset": {
+      "lichess_source": "local",
+      "lichess_csv_path": "data/lichess_puzzles.csv",
+      "pgn_path": "data/games.pgn"
+    },
+    "benchmark": {
+      "max_positions_per_tier": 1000,
+      "random_seed": 42,
+      "sample_per_tier": 125,
+      "prompt_formats": [
+        "fen_only",
+        "board_text",
+        "board_text+legal"
+      ]
+    },
+    "evaluation": {
+      "cpl_threshold": 50,
+      "centipawn_eval_range": {
+        "min": -2000,
+        "max": 2000
+      }
+    },
+    "workers": {
+      "count": 1
+    },
+    "correction_loop": {
+      "enabled": false,
+      "control_group": true,
+      "max_attempts": 2
+    },
+    "paths": {
+      "data_dir": "data",
+      "jobs_db": "jobs/db/jobs_plain_board.db",
+      "results_file": "results/plain_board/evaluations.jsonl",
+      "logs_dir": "results/plain_board/logs",
+      "plots_dir": "results/plain_board/plots",
+      "metrics_dir": "results/plain_board/metrics"
+    }
+  },
+  "random_seed": 42,
+  "worker_count": 1,
+  "stockfish_depth": 15
+}

@@ -30,18 +30,53 @@ chess-llm-bench/
 ├── data/              Puzzle datasets by difficulty tier (gitignored)
 ├── docs/              Runbook, scripts reference, change log, research notes
 ├── jobs/              Runtime job queue — SQLite DB + skipped-tier list (gitignored)
-├── results/           Evaluations, plots, metrics, logs (gitignored)
-│   ├── evaluations.jsonl
-│   ├── evaluations_retried.jsonl
+├── results/           Metrics, plots, logs (raw evaluations: see "Results and raw data")
+│   ├── metrics/                 base benchmark metrics (summary.json, per-model CSVs)
 │   ├── plots/
-│   ├── metrics/
-│   ├── logs/
-│   └── archive/
+│   ├── engine_strength/         T2-5 engine check (Lc0 800 vs 8,000 nodes)
+│   ├── finetuning_experiment/   base re-run, pieces-only and legal-moves fine-tunes
+│   ├── plain_board/             notation check (specs/plain-board-prompts.md)
+│   ├── evaluations_retried.jsonl
+│   └── logs/
 ├── scripts/           Python scripts (dataset build, workers, analysis)
 ├── specs/             Feature specifications
 ├── src/               Library modules
 └── tests/             pytest test suite
 ```
+
+---
+
+## Results and raw data
+
+**For a reviewer, start here:**
+1. [docs/FINDINGS.md](docs/FINDINGS.md): every result, with tables generated from the metrics.
+2. [docs/issues-log.md](docs/issues-log.md): every measurement problem found and how it was fixed.
+3. `results/metrics/summary.json`: the headline numbers, with provenance (git commit, data hash, engine).
+4. `results/finetuning_experiment/comparison.csv` and `comparison_legal.csv`: the fine-tuning results.
+5. `specs/`: what each experiment set out to test, written before it ran.
+
+**Raw evaluations.** One JSON record per model answer (prompt format, position, the model's answers,
+the engine's values and the scores; later runs also keep the raw reply). The files are 110–460 MB, over
+GitHub's 100 MB limit, so they are attached xz-compressed to the release
+[`data-2026-10-31`](https://github.com/rabrew/chess-llm-bench/releases/tag/data-2026-10-31), with
+SHA-256 checksums:
+
+| Release file | Goes to | What it is |
+|---|---|---|
+| `base_evaluations.jsonl.xz` | `results/evaluations.jsonl` | Base benchmark, 22 models, 526,662 records |
+| `base_rerun_evaluations.jsonl.xz` | `results/finetuning_experiment/` | Base re-run of the 5 fine-tuned models, with raw replies |
+| `pieces_ft_evaluations.jsonl.xz` | `results/finetuning_experiment/evaluations_ft.jsonl` | Pieces-only fine-tune |
+| `legal_ft_evaluations.jsonl.xz` | `results/finetuning_experiment/evaluations_legal_ft.jsonl` | Pieces + legal moves fine-tune |
+| `plain_board_evaluations_PARTIAL_*.jsonl.xz` | `results/plain_board/evaluations.jsonl` | Notation check, **in progress** (snapshot) |
+| `*_pre_audit_backup.jsonl.xz` | — | The same files before the October 2026 audit corrections, for comparison |
+
+```bash
+gh release download data-2026-10-31 --repo rabrew/chess-llm-bench --dir release_data
+cd release_data && sha256sum -c SHA256SUMS.txt && xz -dk *.xz
+```
+
+Not published: the Lichess source dataset (download from [database.lichess.org](https://database.lichess.org/#puzzles)),
+the job-queue databases (runtime state) and the fine-tuned model weights (several GB each).
 
 ---
 

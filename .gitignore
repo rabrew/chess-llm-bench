@@ -18,14 +18,16 @@ jobs/
 chess_bench.db
 data/jobs.db
 
-# Results (generated output — not committed, reproduced from evaluations.jsonl)
+# Results: everything is committed except the raw evaluation files, which are over GitHub's
+# 100 MB file limit. They are published xz-compressed on the GitHub release "data-2026-10-31"
+# (README, "Results and raw data").
 results/evaluations.jsonl
-results/evaluations_retried.jsonl
-results/plots/
-results/logs/
 results/archive/
 results/benchmark.db
-results/finetuning_experiment/
+results/finetuning_experiment/evaluations_base_rerun.jsonl
+results/finetuning_experiment/evaluations_ft.jsonl
+results/finetuning_experiment/evaluations_legal_ft.jsonl
+results/finetuning_experiment/*.bak-*
 
 # Fine-tuning runtime cache (Unsloth)
 unsloth_compiled_cache/
@@ -44,8 +46,5 @@ dashboard/tailwind.min.js
 # OS
 .DS_Store
 
-# T2-5 engine-strength evaluation caches (regenerable)
-results/engine_strength/
-# Plain-board run (specs/plain-board-prompts.md): only the metrics are tracked
-results/plain_board/*
-!results/plain_board/metrics/
+# Plain-board run (specs/plain-board-prompts.md): raw records go on the data release
+results/plain_board/evaluations.jsonl

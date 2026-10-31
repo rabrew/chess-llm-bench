@@ -1,0 +1,972 @@
+{
+  "total_jobs": 119981,
+  "models_tested": 5,
+  "positions_tested": 4000,
+  "overall_metrics": {
+    "t1_mean_error": 787.1963557869342,
+    "t1_mean_error_excl_mate": 124.77255403713181,
+    "t1_relative_error": 1.2143254222943598,
+    "t1_direction_accuracy_t50": 0.4828772776331661,
+    "t1_direction_accuracy_by_threshold": {
+      "t0": 0.35840264110215225,
+      "t50": 0.4828772776331661,
+      "t100": 0.6960700907878865,
+      "t200": 0.8567836962732525
+    },
+    "t1_direction_baselines": {
+      "t0": {
+        "n": 78755,
+        "pct_W": 0.4791187861088185,
+        "pct_B": 0.46742429052123674,
+        "pct_E": 0.053456923369944766,
+        "majority_class": "W",
+        "majority_baseline_acc": 0.4791187861088185
+      },
+      "t50": {
+        "n": 78755,
+        "pct_W": 0.23542632213827694,
+        "pct_B": 0.22222081137705543,
+        "pct_E": 0.5423528664846676,
+        "majority_class": "E",
+        "majority_baseline_acc": 0.5423528664846676
+      },
+      "t100": {
+        "n": 78755,
+        "pct_W": 0.10855183797854104,
+        "pct_B": 0.1059869214653038,
+        "pct_E": 0.7854612405561552,
+        "majority_class": "E",
+        "majority_baseline_acc": 0.7854612405561552
+      },
+      "t200": {
+        "n": 78755,
+        "pct_W": 0.03658180432988382,
+        "pct_B": 0.030550441241825915,
+        "pct_E": 0.9328677544282903,
+        "majority_class": "E",
+        "majority_baseline_acc": 0.9328677544282903
+      }
+    },
+    "t1_direction_kappa_by_threshold": {
+      "t0": 0.020563639698982908,
+      "t50": 0.010336008668378206,
+      "t100": 0.0047382551343597545,
+      "t200": 0.007643378241186315
+    },
+    "t1_spearman_rho": 0.04727933911145491,
+    "t1_headline": {
+      "metric": "spearman_rho",
+      "value": 0.04727933911145491,
+      "n": 78755
+    },
+    "t1_zero_baseline": {
+      "n": 73468,
+      "mae": 124.77255403713181,
+      "zero_mae": 46.959792018293676,
+      "mae_ratio": 2.6570082335229546
+    },
+    "t2_first_attempt_combined": {
+      "n": 59981,
+      "first_attempt_legal_rate": 0.09314616295160134,
+      "final_legal_rate": 0.9604541438122072
+    },
+    "t2_blunder_rate": {
+      "n": 76688,
+      "rate": 0.4138065929480492,
+      "ci_low": 0.41035103275610263,
+      "ci_high": 0.41731431253911955
+    },
+    "t2_best_move_vs_random": {
+      "n": 76688,
+      "best_move_rate": 0.09438243271437513,
+      "random_best_move_rate": 0.08793307241382789,
+      "ratio_vs_random": 1.0733439663087794
+    },
+    "puzzle_meta": {
+      "setup_move_rate": 0.09624713123304819,
+      "n_moves": 76688,
+      "tactical_theme_rate": 0.03338398633935425,
+      "n_tactical_explanations": 63833
+    },
+    "t3_side_mark": {
+      "n": 78170,
+      "accuracy": 0.26580529614941795,
+      "majority_share": 0.542714596392478,
+      "cohen_kappa": 0.041298242809801745
+    },
+    "t2_legal_rate_buggy_includes_no_move_prompts": 0.6391678682458056,
+    "t2_legal_rate": 0.9588277215838762,
+    "t2_mean_cpl_raw": 4622.645915919049,
+    "t2_mean_cpl_clamped": 783.6078656373878,
+    "t2_mean_wp_loss": 350.3138246250273,
+    "t3_mean_score": 0.44102983759284903,
+    "t3_mean_score_v2": 0.44102983759284903
+  },
+  "by_model": [
+    {
+      "model": "deepseek-r1:7b",
+      "t1_absolute_error_mean": 738.2644588920493,
+      "t1_absolute_error_std": 2481.020034979852,
+      "t1_absolute_error_median": 53.5,
+      "t1_direction_correct_mean": 0.4997968305566843,
+      "t2_legal_mean": 0.6027688586797881,
+      "t2_cpl_mean": 4617.380837080595,
+      "t2_cpl_std": 5254.091035061254,
+      "t2_cpl_median": 2249.0,
+      "t3_p1_side_correct_mean": 0.23342621994686022,
+      "t3_p2_theme_correct_mean": 0.2625234916726071,
+      "t3_score_mean": 0.4959497116194673,
+      "t3_score_std": 0.6193832180239345,
+      "job_id_count": 23981,
+      "inference_ms_mean": 27581.62954005254,
+      "inference_ms_median": 5945.0,
+      "t1_relative_error_mean": 0.7654981118357447,
+      "t1_abs_error_excl_mate_mean": 76.16544517814383,
+      "t1_abs_error_excl_mate_median": 48.0,
+      "t2_cpl_clamped_mean": 779.0455205811138,
+      "t2_cpl_clamped_median": 955.0,
+      "t2_wp_loss_mean": 347.89247105100304,
+      "t2_wp_loss_median": 404.7765117488246,
+      "t2_legal_attempted_mean": 0.9045116075339465,
+      "t3_p2_theme_correct_v2_mean": 0.2625234916726071,
+      "t3_score_v2_mean": 0.4959497116194673,
+      "t1_direction_correct_t0_mean": 0.4080319653257483,
+      "t1_direction_correct_t50_mean": 0.4997968305566843,
+      "t1_direction_correct_t100_mean": 0.7333739672219964,
+      "t1_direction_correct_t200_mean": 0.8921170255993499,
+      "t1_spearman_rho": 0.0008224212232024698
+    },
+    {
+      "model": "gemma3:4b",
+      "t1_absolute_error_mean": 728.2855534709194,
+      "t1_absolute_error_std": 2490.4810865903896,
+      "t1_absolute_error_median": 47.0,
+      "t1_direction_correct_mean": 0.5244527829893684,
+      "t2_legal_mean": 0.6582916666666667,
+      "t2_cpl_mean": 4974.848787897969,
+      "t2_cpl_std": 5330.438281837157,
+      "t2_cpl_median": 2617.0,
+      "t3_p1_side_correct_mean": 0.2717669854365898,
+      "t3_p2_theme_correct_mean": 0.11600725045315333,
+      "t3_score_mean": 0.38777423588974314,
+      "t3_score_std": 0.5651818015845479,
+      "job_id_count": 24000,
+      "inference_ms_mean": 4785.570791666667,
+      "inference_ms_median": 4071.0,
+      "t1_relative_error_mean": 0.6223278143153141,
+      "t1_abs_error_excl_mate_mean": 60.77185572539555,
+      "t1_abs_error_excl_mate_median": 41.0,
+      "t2_cpl_clamped_mean": 801.3403379960757,
+      "t2_cpl_clamped_median": 969.0,
+      "t2_wp_loss_mean": 357.54538283422755,
+      "t2_wp_loss_median": 411.0198337965131,
+      "t2_legal_attempted_mean": 0.9874375,
+      "t3_p2_theme_correct_v2_mean": 0.11600725045315333,
+      "t3_score_v2_mean": 0.38777423588974314,
+      "t1_direction_correct_t0_mean": 0.10500312695434647,
+      "t1_direction_correct_t50_mean": 0.5244527829893684,
+      "t1_direction_correct_t100_mean": 0.7597873671044403,
+      "t1_direction_correct_t200_mean": 0.9108818011257036,
+      "t1_spearman_rho": 0.02995318095519885
+    },
+    {
+      "model": "llama3.2:3b",
+      "t1_absolute_error_mean": 976.4622163885243,
+      "t1_absolute_error_std": 2474.960628135474,
+      "t1_absolute_error_median": 89.0,
+      "t1_direction_correct_mean": 0.4232139508719295,
+      "t2_legal_mean": 0.6562083333333333,
+      "t2_cpl_mean": 4472.487523017335,
+      "t2_cpl_std": 5073.804267713349,
+      "t2_cpl_median": 2068.0,
+      "t3_p1_side_correct_mean": 0.23225,
+      "t3_p2_theme_correct_mean": 0.1725,
+      "t3_score_mean": 0.40475,
+      "t3_score_std": 0.5764748109852521,
+      "job_id_count": 24000,
+      "inference_ms_mean": 2109.840958333333,
+      "inference_ms_median": 1631.0,
+      "t1_relative_error_mean": 3.0839741847379627,
+      "t1_abs_error_excl_mate_mean": 327.3077129263553,
+      "t1_abs_error_excl_mate_median": 80.0,
+      "t2_cpl_clamped_mean": 780.1534700615912,
+      "t2_cpl_clamped_median": 948.0,
+      "t2_wp_loss_mean": 349.07669892076535,
+      "t2_wp_loss_median": 402.9046050124823,
+      "t2_legal_attempted_mean": 0.9843125,
+      "t3_p2_theme_correct_v2_mean": 0.1725,
+      "t3_score_v2_mean": 0.40475,
+      "t1_direction_correct_t0_mean": 0.3608975560972561,
+      "t1_direction_correct_t50_mean": 0.4232139508719295,
+      "t1_direction_correct_t100_mean": 0.5660978811175699,
+      "t1_direction_correct_t200_mean": 0.7351084442777673,
+      "t1_spearman_rho": 0.005883910976124295
+    },
+    {
+      "model": "mistral:7b",
+      "t1_absolute_error_mean": 738.2909375,
+      "t1_absolute_error_std": 2486.468130783738,
+      "t1_absolute_error_median": 57.0,
+      "t1_direction_correct_mean": 0.477625,
+      "t2_legal_mean": 0.6226666666666667,
+      "t2_cpl_mean": 4345.772818522484,
+      "t2_cpl_std": 5137.693609030367,
+      "t2_cpl_median": 1947.0,
+      "t3_p1_side_correct_mean": 0.2909375,
+      "t3_p2_theme_correct_mean": 0.2818125,
+      "t3_score_mean": 0.57275,
+      "t3_score_std": 0.6759149290494759,
+      "job_id_count": 24000,
+      "inference_ms_mean": 1400.8756666666666,
+      "inference_ms_median": 1343.0,
+      "t1_relative_error_mean": 0.7186559891742308,
+      "t1_abs_error_excl_mate_mean": 71.04811042615921,
+      "t1_abs_error_excl_mate_median": 51.0,
+      "t2_cpl_clamped_mean": 768.2756290149892,
+      "t2_cpl_clamped_median": 938.0,
+      "t2_wp_loss_mean": 344.18295959974705,
+      "t2_wp_loss_median": 399.7861112105493,
+      "t2_legal_attempted_mean": 0.934,
+      "t3_p2_theme_correct_v2_mean": 0.2818125,
+      "t3_score_v2_mean": 0.57275,
+      "t1_direction_correct_t0_mean": 0.398125,
+      "t1_direction_correct_t50_mean": 0.477625,
+      "t1_direction_correct_t100_mean": 0.724625,
+      "t1_direction_correct_t200_mean": 0.89175,
+      "t1_spearman_rho": 0.07356961827000236
+    },
+    {
+      "model": "qwen2.5:7b",
+      "t1_absolute_error_mean": 750.87975,
+      "t1_absolute_error_std": 2483.3410225348744,
+      "t1_absolute_error_median": 59.0,
+      "t1_direction_correct_mean": 0.490625,
+      "t2_legal_mean": 0.655875,
+      "t2_cpl_mean": 4687.069372975034,
+      "t2_cpl_std": 5072.312102653454,
+      "t2_cpl_median": 2311.0,
+      "t3_p1_side_correct_mean": 0.2785625,
+      "t3_p2_theme_correct_mean": 0.0673125,
+      "t3_score_mean": 0.345875,
+      "t3_score_std": 0.5264387955763162,
+      "job_id_count": 24000,
+      "inference_ms_mean": 1151.6875416666667,
+      "inference_ms_median": 1038.0,
+      "t1_relative_error_mean": 0.8463020596320916,
+      "t1_abs_error_excl_mate_mean": 84.82618600911285,
+      "t1_abs_error_excl_mate_median": 53.0,
+      "t2_cpl_clamped_mean": 788.0117527476018,
+      "t2_cpl_clamped_median": 965.0,
+      "t2_wp_loss_mean": 352.3373566382143,
+      "t2_wp_loss_median": 410.3952850764014,
+      "t2_legal_attempted_mean": 0.9838125,
+      "t3_p2_theme_correct_v2_mean": 0.0673125,
+      "t3_score_v2_mean": 0.345875,
+      "t1_direction_correct_t0_mean": 0.523625,
+      "t1_direction_correct_t50_mean": 0.490625,
+      "t1_direction_correct_t100_mean": 0.699375,
+      "t1_direction_correct_t200_mean": 0.8568125,
+      "t1_spearman_rho": 0.14015700135271963
+    }
+  ],
+  "by_difficulty": [
+    {
+      "model": "deepseek-r1:7b",
+      "difficulty": "easy",
+      "t1_absolute_error": 1648.7427722237233,
+      "t2_cpl": 5363.67715231788,
+      "t2_legal": 0.6047054897380277,
+      "t3_score": 0.4310926550739683,
+      "job_id": 5993,
+      "t1_relative_error": 0.8230279918769581,
+      "t1_abs_error_excl_mate": 81.17426187419768,
+      "t2_cpl_clamped": 730.5074503311258,
+      "t2_wp_loss": 316.6433625766085,
+      "t2_legal_attempted": 0.9075882794891059,
+      "t3_score_v2": 0.4310926550739683
+    },
+    {
+      "model": "deepseek-r1:7b",
+      "difficulty": "extreme",
+      "t1_absolute_error": 233.2227038742888,
+      "t2_cpl": 3903.6095371669003,
+      "t2_legal": 0.5945630420280187,
+      "t3_score": 0.4931542237148024,
+      "job_id": 5996,
+      "t1_relative_error": 0.7085222310190405,
+      "t1_abs_error_excl_mate": 71.16028642247315,
+      "t2_cpl_clamped": 786.509396914446,
+      "t2_wp_loss": 357.9831922878799,
+      "t2_legal_attempted": 0.8921421421421422,
+      "t3_score_v2": 0.4931542237148024
+    },
+    {
+      "model": "deepseek-r1:7b",
+      "difficulty": "hard",
+      "t1_absolute_error": 379.3272138228942,
+      "t2_cpl": 4314.030561674009,
+      "t2_legal": 0.6055351783927976,
+      "t3_score": 0.5186721991701245,
+      "job_id": 5998,
+      "t1_relative_error": 0.7323588558521363,
+      "t1_abs_error_excl_mate": 73.38440111420613,
+      "t2_cpl_clamped": 806.5377202643172,
+      "t2_wp_loss": 365.24742741550835,
+      "t2_legal_attempted": 0.9084542271135568,
+      "t3_score_v2": 0.5186721991701245
+    },
+    {
+      "model": "deepseek-r1:7b",
+      "difficulty": "medium",
+      "t1_absolute_error": 690.2896457765668,
+      "t2_cpl": 4876.540176114474,
+      "t2_legal": 0.6062729396062729,
+      "t3_score": 0.5408984679304076,
+      "job_id": 5994,
+      "t1_relative_error": 0.7982304535864831,
+      "t1_abs_error_excl_mate": 79.80952380952381,
+      "t2_cpl_clamped": 792.6507980187122,
+      "t2_wp_loss": 351.81105838888334,
+      "t2_legal_attempted": 0.9098647971957937,
+      "t3_score_v2": 0.5408984679304076
+    },
+    {
+      "model": "gemma3:4b",
+      "difficulty": "easy",
+      "t1_absolute_error": 1666.745936484121,
+      "t2_cpl": 5520.416328600406,
+      "t2_legal": 0.6573333333333333,
+      "t3_score": 0.377,
+      "job_id": 6000,
+      "t1_relative_error": 0.7066980858809415,
+      "t1_abs_error_excl_mate": 67.08196721311475,
+      "t2_cpl_clamped": 751.8585192697768,
+      "t2_wp_loss": 326.49165278303786,
+      "t2_legal_attempted": 0.986,
+      "t3_score_v2": 0.377
+    },
+    {
+      "model": "gemma3:4b",
+      "difficulty": "extreme",
+      "t1_absolute_error": 220.5025025025025,
+      "t2_cpl": 4327.341334007075,
+      "t2_legal": 0.6596666666666666,
+      "t3_score": 0.36734183545886473,
+      "job_id": 6000,
+      "t1_relative_error": 0.5388223794273633,
+      "t1_abs_error_excl_mate": 53.858233647238485,
+      "t2_cpl_clamped": 801.2801920161697,
+      "t2_wp_loss": 365.7332736373884,
+      "t2_legal_attempted": 0.9895,
+      "t3_score_v2": 0.36734183545886473
+    },
+    {
+      "model": "gemma3:4b",
+      "difficulty": "hard",
+      "t1_absolute_error": 356.47548774387195,
+      "t2_cpl": 4825.333839918946,
+      "t2_legal": 0.658,
+      "t3_score": 0.381,
+      "job_id": 6000,
+      "t1_relative_error": 0.5858233770446489,
+      "t1_abs_error_excl_mate": 58.220474471376995,
+      "t2_cpl_clamped": 832.7109929078014,
+      "t2_wp_loss": 374.5282391799454,
+      "t2_legal_attempted": 0.987,
+      "t3_score_v2": 0.381
+    },
+    {
+      "model": "gemma3:4b",
+      "difficulty": "medium",
+      "t1_absolute_error": 668.9146860145108,
+      "t2_cpl": 5228.432261331983,
+      "t2_legal": 0.6581666666666667,
+      "t3_score": 0.42575,
+      "job_id": 6000,
+      "t1_relative_error": 0.6579134390412154,
+      "t1_abs_error_excl_mate": 65.00399573787959,
+      "t2_cpl_clamped": 819.4570777412004,
+      "t2_wp_loss": 363.3746871315402,
+      "t2_legal_attempted": 0.98725,
+      "t3_score_v2": 0.42575
+    },
+    {
+      "model": "llama3.2:3b",
+      "difficulty": "easy",
+      "t1_absolute_error": 1893.89475,
+      "t2_cpl": 5218.712370351632,
+      "t2_legal": 0.6588333333333334,
+      "t3_score": 0.3785,
+      "job_id": 6000,
+      "t1_relative_error": 2.9598212187835755,
+      "t1_abs_error_excl_mate": 340.3176400476758,
+      "t2_cpl_clamped": 735.5512269162662,
+      "t2_wp_loss": 320.0533461087943,
+      "t2_legal_attempted": 0.98825,
+      "t3_score_v2": 0.3785
+    },
+    {
+      "model": "llama3.2:3b",
+      "difficulty": "extreme",
+      "t1_absolute_error": 481.09552388097023,
+      "t2_cpl": 3896.732037841984,
+      "t2_legal": 0.6518333333333334,
+      "t3_score": 0.378,
+      "job_id": 6000,
+      "t1_relative_error": 3.1012986198248256,
+      "t1_abs_error_excl_mate": 316.2317476469092,
+      "t2_cpl_clamped": 781.2336998210177,
+      "t2_wp_loss": 356.32134702957524,
+      "t2_legal_attempted": 0.97775,
+      "t3_score_v2": 0.378
+    },
+    {
+      "model": "llama3.2:3b",
+      "difficulty": "hard",
+      "t1_absolute_error": 616.9425,
+      "t2_cpl": 4096.074759249873,
+      "t2_legal": 0.6576666666666666,
+      "t3_score": 0.425,
+      "job_id": 6000,
+      "t1_relative_error": 3.1856532409819525,
+      "t1_abs_error_excl_mate": 328.11829896907216,
+      "t2_cpl_clamped": 792.2698935631018,
+      "t2_wp_loss": 358.6925905483842,
+      "t2_legal_attempted": 0.9865,
+      "t3_score_v2": 0.425
+    },
+    {
+      "model": "llama3.2:3b",
+      "difficulty": "medium",
+      "t1_absolute_error": 913.79225,
+      "t2_cpl": 4672.354912414318,
+      "t2_legal": 0.6565,
+      "t3_score": 0.4375,
+      "job_id": 6000,
+      "t1_relative_error": 3.0891279904702698,
+      "t1_abs_error_excl_mate": 326.43796592119276,
+      "t2_cpl_clamped": 811.7037319116527,
+      "t2_wp_loss": 361.37707631339856,
+      "t2_legal_attempted": 0.98475,
+      "t3_score_v2": 0.4375
+    },
+    {
+      "model": "mistral:7b",
+      "difficulty": "easy",
+      "t1_absolute_error": 1674.93,
+      "t2_cpl": 5131.284133837021,
+      "t2_legal": 0.6176666666666667,
+      "t3_score": 0.468,
+      "job_id": 6000,
+      "t1_relative_error": 0.7970651753967157,
+      "t1_abs_error_excl_mate": 77.90196662693683,
+      "t2_cpl_clamped": 721.8318942255802,
+      "t2_wp_loss": 313.8118314614518,
+      "t2_legal_attempted": 0.9265,
+      "t3_score_v2": 0.468
+    },
+    {
+      "model": "mistral:7b",
+      "difficulty": "extreme",
+      "t1_absolute_error": 237.46375,
+      "t2_cpl": 3709.509930220075,
+      "t2_legal": 0.621,
+      "t3_score": 0.57325,
+      "job_id": 6000,
+      "t1_relative_error": 0.6868876010224527,
+      "t1_abs_error_excl_mate": 68.89572736520854,
+      "t2_cpl_clamped": 769.9873859366613,
+      "t2_wp_loss": 351.6140735145031,
+      "t2_legal_attempted": 0.9315,
+      "t3_score_v2": 0.57325
+    },
+    {
+      "model": "mistral:7b",
+      "difficulty": "hard",
+      "t1_absolute_error": 364.75475,
+      "t2_cpl": 3810.0318086225025,
+      "t2_legal": 0.634,
+      "t3_score": 0.6205,
+      "job_id": 6000,
+      "t1_relative_error": 0.672488182771024,
+      "t1_abs_error_excl_mate": 67.12139175257732,
+      "t2_cpl_clamped": 765.532334384858,
+      "t2_wp_loss": 348.34968792145537,
+      "t2_legal_attempted": 0.951,
+      "t3_score_v2": 0.6205
+    },
+    {
+      "model": "mistral:7b",
+      "difficulty": "medium",
+      "t1_absolute_error": 676.01525,
+      "t2_cpl": 4749.648058252427,
+      "t2_legal": 0.618,
+      "t3_score": 0.62925,
+      "job_id": 6000,
+      "t1_relative_error": 0.7181829975067305,
+      "t1_abs_error_excl_mate": 71.23375931842385,
+      "t2_cpl_clamped": 815.7885652642934,
+      "t2_wp_loss": 362.7959142648935,
+      "t2_legal_attempted": 0.927,
+      "t3_score_v2": 0.62925
+    },
+    {
+      "model": "qwen2.5:7b",
+      "difficulty": "easy",
+      "t1_absolute_error": 1688.042,
+      "t2_cpl": 5455.929262086514,
+      "t2_legal": 0.655,
+      "t3_score": 0.34,
+      "job_id": 6000,
+      "t1_relative_error": 0.9262541295526443,
+      "t1_abs_error_excl_mate": 93.51072705601906,
+      "t2_cpl_clamped": 748.168193384224,
+      "t2_wp_loss": 325.4961228940915,
+      "t2_legal_attempted": 0.9825,
+      "t3_score_v2": 0.34
+    },
+    {
+      "model": "qwen2.5:7b",
+      "difficulty": "extreme",
+      "t1_absolute_error": 249.29125,
+      "t2_cpl": 4058.5498474059004,
+      "t2_legal": 0.6553333333333333,
+      "t3_score": 0.324,
+      "job_id": 6000,
+      "t1_relative_error": 0.8116721666929023,
+      "t1_abs_error_excl_mate": 81.63911495422177,
+      "t2_cpl_clamped": 800.1881993896236,
+      "t2_wp_loss": 364.8217477803638,
+      "t2_legal_attempted": 0.983,
+      "t3_score_v2": 0.324
+    },
+    {
+      "model": "qwen2.5:7b",
+      "difficulty": "hard",
+      "t1_absolute_error": 376.4245,
+      "t2_cpl": 4506.618902439024,
+      "t2_legal": 0.656,
+      "t3_score": 0.34325,
+      "job_id": 6000,
+      "t1_relative_error": 0.7980143678400781,
+      "t1_abs_error_excl_mate": 80.05567010309278,
+      "t2_cpl_clamped": 822.155487804878,
+      "t2_wp_loss": 371.35521425896656,
+      "t2_legal_attempted": 0.984,
+      "t3_score_v2": 0.34325
+    },
+    {
+      "model": "qwen2.5:7b",
+      "difficulty": "medium",
+      "t1_absolute_error": 689.76125,
+      "t2_cpl": 4727.640628962718,
+      "t2_legal": 0.6571666666666667,
+      "t3_score": 0.37625,
+      "job_id": 6000,
+      "t1_relative_error": 0.8492675744427417,
+      "t1_abs_error_excl_mate": 85.33093716719915,
+      "t2_cpl_clamped": 781.4983515090033,
+      "t2_wp_loss": 347.65643729968787,
+      "t2_legal_attempted": 0.98575,
+      "t3_score_v2": 0.37625
+    }
+  ],
+  "by_phase": [
+    {
+      "model": "deepseek-r1:7b",
+      "phase": "endgame",
+      "t1_absolute_error": 562.6193426724138,
+      "t2_cpl": 3644.0335441297775,
+      "t3_score": 0.30872830872830875,
+      "job_id": 5963
+    },
+    {
+      "model": "deepseek-r1:7b",
+      "phase": "middlegame",
+      "t1_absolute_error": 845.6723749877679,
+      "t2_cpl": 5035.5976862471325,
+      "t3_score": 0.5538187944590042,
+      "job_id": 16652
+    },
+    {
+      "model": "deepseek-r1:7b",
+      "phase": "opening",
+      "t1_absolute_error": 204.60359281437127,
+      "t2_cpl": 3791.3426042983565,
+      "t3_score": 0.6139954853273137,
+      "job_id": 1366
+    },
+    {
+      "model": "gemma3:4b",
+      "phase": "endgame",
+      "t1_absolute_error": 563.5280644349358,
+      "t2_cpl": 3329.6142531067717,
+      "t3_score": 0.2658450704225352,
+      "job_id": 5964
+    },
+    {
+      "model": "gemma3:4b",
+      "phase": "middlegame",
+      "t1_absolute_error": 832.2121375832883,
+      "t2_cpl": 5678.894343065694,
+      "t3_score": 0.4295356371490281,
+      "job_id": 16668
+    },
+    {
+      "model": "gemma3:4b",
+      "phase": "opening",
+      "t1_absolute_error": 179.84742041712403,
+      "t2_cpl": 3602.996651785714,
+      "t3_score": 0.4105378704720088,
+      "job_id": 1368
+    },
+    {
+      "model": "llama3.2:3b",
+      "phase": "endgame",
+      "t1_absolute_error": 815.5309356136821,
+      "t2_cpl": 3144.8825776872136,
+      "t3_score": 0.2152917505030181,
+      "job_id": 5964
+    },
+    {
+      "model": "llama3.2:3b",
+      "phase": "middlegame",
+      "t1_absolute_error": 1075.925935925126,
+      "t2_cpl": 5059.646467416141,
+      "t3_score": 0.4659827213822894,
+      "job_id": 16668
+    },
+    {
+      "model": "llama3.2:3b",
+      "phase": "opening",
+      "t1_absolute_error": 465.61909989023053,
+      "t2_cpl": 3098.418367346939,
+      "t3_score": 0.48464912280701755,
+      "job_id": 1368
+    },
+    {
+      "model": "mistral:7b",
+      "phase": "endgame",
+      "t1_absolute_error": 590.0752012072435,
+      "t2_cpl": 3337.100321888412,
+      "t3_score": 0.3055835010060362,
+      "job_id": 5964
+    },
+    {
+      "model": "mistral:7b",
+      "phase": "middlegame",
+      "t1_absolute_error": 836.739380849532,
+      "t2_cpl": 4786.586000193368,
+      "t3_score": 0.6551475881929446,
+      "job_id": 16668
+    },
+    {
+      "model": "mistral:7b",
+      "phase": "opening",
+      "t1_absolute_error": 184.94298245614036,
+      "t2_cpl": 3430.5383734249713,
+      "t3_score": 0.7335526315789473,
+      "job_id": 1368
+    },
+    {
+      "model": "qwen2.5:7b",
+      "phase": "endgame",
+      "t1_absolute_error": 601.2190643863179,
+      "t2_cpl": 3468.801483755436,
+      "t3_score": 0.20372233400402415,
+      "job_id": 5964
+    },
+    {
+      "model": "qwen2.5:7b",
+      "phase": "middlegame",
+      "t1_absolute_error": 849.761249100072,
+      "t2_cpl": 5213.978777899744,
+      "t3_score": 0.3985781137508999,
+      "job_id": 16668
+    },
+    {
+      "model": "qwen2.5:7b",
+      "phase": "opening",
+      "t1_absolute_error": 198.5548245614035,
+      "t2_cpl": 3578.22,
+      "t3_score": 0.32346491228070173,
+      "job_id": 1368
+    }
+  ],
+  "by_source": [
+    {
+      "model": "deepseek-r1:7b",
+      "source": "lichess_puzzles",
+      "t1_absolute_error": 738.2644588920493,
+      "t2_cpl": 4617.380837080595,
+      "t2_legal": 0.6027688586797881,
+      "t3_score": 0.4959497116194673,
+      "job_id": 23981
+    },
+    {
+      "model": "gemma3:4b",
+      "source": "lichess_puzzles",
+      "t1_absolute_error": 728.2855534709194,
+      "t2_cpl": 4974.848787897969,
+      "t2_legal": 0.6582916666666667,
+      "t3_score": 0.38777423588974314,
+      "job_id": 24000
+    },
+    {
+      "model": "llama3.2:3b",
+      "source": "lichess_puzzles",
+      "t1_absolute_error": 976.4622163885243,
+      "t2_cpl": 4472.487523017335,
+      "t2_legal": 0.6562083333333333,
+      "t3_score": 0.40475,
+      "job_id": 24000
+    },
+    {
+      "model": "mistral:7b",
+      "source": "lichess_puzzles",
+      "t1_absolute_error": 738.2909375,
+      "t2_cpl": 4345.772818522484,
+      "t2_legal": 0.6226666666666667,
+      "t3_score": 0.57275,
+      "job_id": 24000
+    },
+    {
+      "model": "qwen2.5:7b",
+      "source": "lichess_puzzles",
+      "t1_absolute_error": 750.87975,
+      "t2_cpl": 4687.069372975034,
+      "t2_legal": 0.655875,
+      "t3_score": 0.345875,
+      "job_id": 24000
+    }
+  ],
+  "hypothesis_tests": {
+    "H1": {
+      "description": "T1 error increases with difficulty",
+      "primary_metric": "relative_error",
+      "primary_supported": false,
+      "metrics": {
+        "absolute_error": {
+          "supported": false,
+          "values": {
+            "easy": 1715.471116751269,
+            "medium": 728.3922306401587,
+            "hard": 419.38402192670793,
+            "extreme": 285.12008533983544
+          },
+          "expect": "increasing"
+        },
+        "relative_error": {
+          "supported": false,
+          "values": {
+            "easy": 1.24896824052316,
+            "medium": 1.2297503447495346,
+            "hard": 1.2018780951108028,
+            "extreme": 1.1767053761263804
+          },
+          "expect": "increasing"
+        },
+        "direction_accuracy": {
+          "supported": false,
+          "values": {
+            "easy": 0.3948223350253807,
+            "medium": 0.46300910154065184,
+            "hard": 0.5309105674550807,
+            "extreme": 0.5427715127501778
+          },
+          "expect": "decreasing"
+        }
+      },
+      "supported": false,
+      "values": {
+        "easy": 1.24896824052316,
+        "medium": 1.2297503447495346,
+        "hard": 1.2018780951108028,
+        "extreme": 1.1767053761263804
+      }
+    },
+    "H2": {
+      "description": "T2 CPL increases with difficulty",
+      "primary_metric": "clamped_cpl",
+      "primary_supported": false,
+      "metrics": {
+        "absolute_cpl": {
+          "supported": false,
+          "values": {
+            "easy": 5340.000991804563,
+            "medium": 4851.907056798623,
+            "hard": 4313.998806187065,
+            "extreme": 3984.0747957259587
+          },
+          "expect": "increasing"
+        },
+        "clamped_cpl": {
+          "supported": false,
+          "values": {
+            "easy": 737.8886568878216,
+            "medium": 804.2675637615397,
+            "hard": 804.0731859233883,
+            "extreme": 788.0835428451708
+          },
+          "expect": "increasing"
+        },
+        "wp_loss": {
+          "supported": false,
+          "values": {
+            "easy": 320.6428935685083,
+            "medium": 357.4280974095356,
+            "hard": 363.7181274336128,
+            "extreme": 359.414849988643
+          },
+          "expect": "increasing"
+        }
+      },
+      "supported": false,
+      "values": {
+        "easy": 737.8886568878216,
+        "medium": 804.2675637615397,
+        "hard": 804.0731859233883,
+        "extreme": 788.0835428451708
+      }
+    },
+    "H3": {
+      "description": "T3 score decreases with difficulty",
+      "metric": "t3_score_v2",
+      "supported": false,
+      "values": {
+        "easy": 0.3986803002065179,
+        "medium": 0.4814870787365876,
+        "hard": 0.4572421434327156,
+        "extreme": 0.42672370407649723
+      }
+    },
+    "H4": {
+      "description": "Larger models perform better within family",
+      "supported": false,
+      "columns_used": {
+        "t1": "spearman_rho",
+        "t2": "blunder_rate",
+        "t3": "t3_score_v2"
+      },
+      "by_family": {}
+    },
+    "H5": {
+      "description": "T3 advantage over T2 is largest in openings, smallest in endgames",
+      "supported": true,
+      "phase_values": {
+        "opening": {
+          "t2_legal_normalised": 0.952610794207986,
+          "t3_score_normalised": 0.25634237811603794,
+          "gap_t3_minus_t2": -0.6962684160919481
+        },
+        "middlegame": {
+          "t2_legal_normalised": 0.9578532334725622,
+          "t3_score_normalised": 0.2500997605746209,
+          "gap_t3_minus_t2": -0.7077534728979413
+        },
+        "endgame": {
+          "t2_legal_normalised": 0.9629760048292167,
+          "t3_score_normalised": 0.12977485454085505,
+          "gap_t3_minus_t2": -0.8332011502883617
+        }
+      },
+      "gap_order": [
+        -0.6962684160919481,
+        -0.7077534728979413,
+        -0.8332011502883617
+      ],
+      "metrics_used": {
+        "t2": "t2_legal_attempted (normalised to [0,1])",
+        "t3": "t3_score_v2 (divided by 2 to normalise to [0,1])"
+      }
+    }
+  },
+  "provenance": {
+    "generated_at": "2026-10-29T16:26:18.404260+00:00",
+    "git_sha": "7c066b06f96edc1cbd52aa43b4c3c6116c5edaa6",
+    "git_dirty": true,
+    "results_file": "results/finetuning_experiment/evaluations_base_rerun.jsonl",
+    "results_sha256": "a68fec20d590397862efaa3fe92d6e1ebed04e16aa05af493adf08e626343b75",
+    "results_records": 119981,
+    "engine": {
+      "name": "lc0",
+      "binary": "/home/rabrew/lc0-src/build/release/lc0",
+      "weights": "/home/rabrew/lc0-nets/network.pb",
+      "weights_sha256": "dbe00ba42760178e8ce719b9d0118c91678e60f18cb5acca39e1ddcdd785cf91",
+      "nodes": 800
+    },
+    "config_path": "config/config_base_rerun.yaml",
+    "config": {
+      "stockfish": {
+        "path": "/usr/games/stockfish",
+        "depth": 15,
+        "threads": 1,
+        "workers": 24
+      },
+      "lc0": {
+        "binary": "/home/rabrew/lc0-src/build/release/lc0",
+        "weights": "/home/rabrew/lc0-nets/network.pb",
+        "onnx_model": "/home/rabrew/lc0-nets/network.onnx",
+        "nodes": 800
+      },
+      "ollama": {
+        "base_url": "http://localhost:11434",
+        "timeout": 600,
+        "max_retries": 3
+      },
+      "models": [
+        "llama3.2:3b",
+        "gemma3:4b",
+        "qwen2.5:7b",
+        "mistral:7b",
+        "deepseek-r1:7b"
+      ],
+      "dataset": {
+        "lichess_source": "local",
+        "lichess_csv_path": "data/lichess_puzzles.csv",
+        "pgn_path": "data/games.pgn"
+      },
+      "benchmark": {
+        "max_positions_per_tier": 1000,
+        "random_seed": 42,
+        "prompt_formats": [
+          "fen_only",
+          "pgn+fen",
+          "cot",
+          "eval_only",
+          "move_only",
+          "explanation_only"
+        ]
+      },
+      "evaluation": {
+        "cpl_threshold": 50,
+        "centipawn_eval_range": {
+          "min": -2000,
+          "max": 2000
+        }
+      },
+      "workers": {
+        "count": 1
+      },
+      "correction_loop": {
+        "enabled": false,
+        "control_group": true,
+        "max_attempts": 2
+      },
+      "paths": {
+        "data_dir": "data",
+        "jobs_db": "jobs/db/jobs_base_rerun.db",
+        "results_file": "results/finetuning_experiment/evaluations_base_rerun.jsonl",
+        "logs_dir": "results/finetuning_experiment/base_rerun/logs",
+        "plots_dir": "results/finetuning_experiment/base_rerun/plots",
+        "metrics_dir": "results/finetuning_experiment/base_rerun/metrics"
+      }
+    },
+    "python": "3.14.2",
+    "packages": {
+      "pandas": "3.0.1",
+      "numpy": "2.4.3",
+      "chess": "1.999"
+    }
+  }
+}

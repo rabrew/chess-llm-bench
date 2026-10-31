@@ -1,0 +1,100 @@
+{"model": "gemma3:4b-board-ft", "fen": "8/1Q2r1k1/5bpp/6q1/3p4/pP6/P1P2P2/1K1R3R w - - 1 35", "reply": "Qd8\n", "first_token": "Qd8", "kind": "illegal_san", "extracted": null}
+{"model": "gemma3:4b-board-ft", "fen": "4rrk1/pppq1ppn/3pb2p/4P3/5P2/2PQ3P/P1B3PK/R1B2R2 b - - 0 18", "reply": "e8\n", "first_token": "e8", "kind": "illegal_san", "extracted": null}
+{"model": "gemma3:4b-board-ft", "fen": "r1b1rk2/1p4p1/p1p2pP1/5P2/2QN2q1/1P5R/1P3K2/R7 b - - 2 31", "reply": "Qd8\n", "first_token": "Qd8", "kind": "illegal_san", "extracted": null}
+{"model": "gemma3:4b-board-ft", "fen": "2r5/p4kpp/5p2/4pb2/8/3nBN1P/PP1R1PP1/6K1 b - - 0 23", "reply": "e5\n", "first_token": "e5", "kind": "illegal_san", "extracted": null}
+{"model": "gemma3:4b-board-ft", "fen": "8/pp3ppk/2p3p1/4Q2n/1PP2Pq1/1PB3P1/7P/6K1 b - - 3 32", "reply": "g4\n", "first_token": "g4", "kind": "illegal_san", "extracted": null}
+{"model": "gemma3:4b-board-ft", "fen": "4r1k1/pppq2np/1b1p2pB/3Pr3/4PR2/3Q4/PPP3PP/5R1K b - - 4 22", "reply": "e5\n", "first_token": "e5", "kind": "illegal_san", "extracted": null}
+{"model": "gemma3:4b-board-ft", "fen": "2rq1rk1/1b1nbp1p/3p1np1/4pN2/1p2P1P1/pP2BP2/P1PQ3P/1KNR1B1R w - - 0 18", "reply": "Qxd6\n", "first_token": "Qxd6", "kind": "legal", "extracted": "Qxd6"}
+{"model": "gemma3:4b-board-ft", "fen": "1r3rk1/3qppbp/2Np1np1/2pP4/2P2P2/4P2P/PB2QP2/1R1R2K1 b - - 2 20", "reply": "e6", "first_token": "e6", "kind": "legal", "extracted": "e6"}
+{"model": "gemma3:4b-board-ft", "fen": "8/R1Br1pkp/1n4p1/8/p1pP2P1/2P1PPKP/8/8 w - - 4 43", "reply": "Bd7\n", "first_token": "Bd7", "kind": "illegal_san", "extracted": null}
+{"model": "gemma3:4b-board-ft", "fen": "r1bqrkQ1/pp5B/2pbpp1p/3n2p1/3P4/6B1/PPP2PPP/R3R1K1 b - - 3 19", "reply": "d6\n", "first_token": "d6", "kind": "illegal_san", "extracted": null}
+{"model": "gemma3:4b-board-ft", "fen": "2kr4/ppqrbp1p/2p3p1/3PPp2/1PP5/P3BQP1/4N2P/3R2K1 b - - 0 24", "reply": "d7", "first_token": "d7", "kind": "illegal_san", "extracted": null}
+{"model": "gemma3:4b-board-ft", "fen": "r1bqk2r/pp1n1ppp/4p3/2Pp4/1b2nB2/2NQPN2/PPP1BPPP/R3K2R b KQkq - 0 8", "reply": "d8\n", "first_token": "d8", "kind": "illegal_san", "extracted": null}
+{"model": "gemma3:4b-board-ft", "fen": "6rr/pp1b1k2/2p1pq2/3pRp2/3P1Qpp/2P3N1/PP3PPP/4R1K1 w - - 0 25", "reply": "Rxe5\n", "first_token": "Rxe5", "kind": "illegal_san", "extracted": null}
+{"model": "gemma3:4b-board-ft", "fen": "1r1r2k1/n2n1p2/3P2p1/4P1Q1/p3B1P1/Pq5P/1B3R2/6K1 b - - 0 37", "reply": "Qd8\n", "first_token": "Qd8", "kind": "illegal_san", "extracted": null}
+{"model": "gemma3:4b-board-ft", "fen": "2rbn1k1/1b3pp1/1P6/p1qp4/3N1PPp/2N4P/P1QB2B1/1R4K1 w - - 0 27", "reply": "Qxd8\n", "first_token": "Qxd8", "kind": "illegal_san", "extracted": null}
+{"model": "gemma3:4b-board-ft", "fen": "r2q1rk1/p2bbpp1/2p1pn1p/2p1P1N1/8/2N5/PPQB1PPP/2KR3R b - - 0 14", "reply": "Qd8\n", "first_token": "Qd8", "kind": "illegal_san", "extracted": null}
+{"model": "gemma3:4b-board-ft", "fen": "5rk1/1p4p1/7p/p3p3/3q2Q1/7P/P1P3P1/R1B4K w - - 2 29", "reply": "Qd7\n", "first_token": "Qd7", "kind": "legal", "extracted": "Qd7"}
+{"model": "gemma3:4b-board-ft", "fen": "r4rk1/pp2q1b1/4b1pp/Q1Bnpp2/8/1P2P1P1/P2R1PBP/R5K1 b - - 0 24", "reply": "e6\n", "first_token": "e6", "kind": "illegal_san", "extracted": null}
+{"model": "gemma3:4b-board-ft", "fen": "r2r2k1/pp3pp1/2p4B/2b5/3q4/6Q1/P5PP/3R1R1K b - - 6 25", "reply": "Qd8\n", "first_token": "Qd8", "kind": "illegal_san", "extracted": null}
+{"model": "gemma3:4b-board-ft", "fen": "r2q1rk1/pp2ppbp/3pb1pB/4n3/8/2N4P/PPPQ1PP1/2KR1B1R b - - 3 13", "reply": "d8\n", "first_token": "d8", "kind": "illegal_san", "extracted": null}
+{"model": "llama3.2:3b-board-ft", "fen": "8/1pp5/pk6/2p3P1/5Q2/4K3/Pq6/8 b - - 0 46", "reply": "e7", "first_token": "e7", "kind": "illegal_san", "extracted": null}
+{"model": "llama3.2:3b-board-ft", "fen": "8/p3q3/2k5/Q2p1p2/2p2P2/K1P5/P1P5/8 w - - 36 58", "reply": "Qh5", "first_token": "Qh5", "kind": "illegal_san", "extracted": null}
+{"model": "llama3.2:3b-board-ft", "fen": "8/6k1/2p5/3p1PpP/1b1P2B1/8/2K5/8 b - - 1 48", "reply": "e5", "first_token": "e5", "kind": "illegal_san", "extracted": null}
+{"model": "llama3.2:3b-board-ft", "fen": "7k/5pbp/P2p4/5P2/5P1P/N2b1Q2/Pq4PK/8 b - - 1 30", "reply": "Bf7", "first_token": "Bf7", "kind": "illegal_san", "extracted": null}
+{"model": "llama3.2:3b-board-ft", "fen": "1r5k/1p1bnppB/p2r1q1p/3pN3/8/2PR3P/PPQ2PP1/4R1K1 b - - 7 26", "reply": "e7", "first_token": "e7", "kind": "illegal_san", "extracted": null}
+{"model": "llama3.2:3b-board-ft", "fen": "2r1Q1k1/5ppp/p7/2bN2P1/8/1qp4P/1B3P2/4R1K1 b - - 0 26", "reply": "Bf7", "first_token": "Bf7", "kind": "illegal_san", "extracted": null}
+{"model": "llama3.2:3b-board-ft", "fen": "rq1kr3/p2b4/1p1nB3/3Q1p2/3P2pp/8/P4KPP/2R1R3 b - - 5 33", "reply": "e4", "first_token": "e4", "kind": "illegal_san", "extracted": null}
+{"model": "llama3.2:3b-board-ft", "fen": "8/8/6Rp/7P/4pkP1/8/1r4K1/8 w - - 2 46", "reply": "g5", "first_token": "g5", "kind": "illegal_san", "extracted": null}
+{"model": "llama3.2:3b-board-ft", "fen": "r7/4kpQ1/4p2p/4P2P/1p1q4/8/5RP1/1B3rK1 w - - 0 39", "reply": "h4", "first_token": "h4", "kind": "illegal_san", "extracted": null}
+{"model": "llama3.2:3b-board-ft", "fen": "4r1k1/p4ppp/5b2/1p5q/6Nn/1N5Q/PPr2PPP/R1BR2K1 w - - 0 23", "reply": "Qh3", "first_token": "Qh3", "kind": "illegal_san", "extracted": null}
+{"model": "llama3.2:3b-board-ft", "fen": "r1b2rk1/ppp2ppp/1q1b4/6N1/2B1P3/3Q2P1/P6P/2R1R2K b - - 3 24", "reply": "Qd7", "first_token": "Qd7", "kind": "illegal_san", "extracted": null}
+{"model": "llama3.2:3b-board-ft", "fen": "5k2/3P1pp1/7p/8/8/p3RP1P/r5P1/7K b - - 0 38", "reply": "Rf7", "first_token": "Rf7", "kind": "illegal_san", "extracted": null}
+{"model": "llama3.2:3b-board-ft", "fen": "3b4/3P1p2/p2kp3/1p4P1/1P1Q4/P5P1/5PK1/2q5 b - - 1 56", "reply": "e4", "first_token": "e4", "kind": "illegal_san", "extracted": null}
+{"model": "llama3.2:3b-board-ft", "fen": "2b2k1r/5p2/p2p1qpp/1pp1n3/5N2/4B3/PQP1BPPP/5RK1 w - - 0 22", "reply": "Bd5", "first_token": "Bd5", "kind": "illegal_san", "extracted": null}
+{"model": "llama3.2:3b-board-ft", "fen": "5rk1/4Qpp1/p2P3p/8/q1p5/3n2B1/5PPP/5RK1 b - - 0 28", "reply": "e7", "first_token": "e7", "kind": "illegal_san", "extracted": null}
+{"model": "llama3.2:3b-board-ft", "fen": "6k1/5pp1/7p/Q7/8/1P1r4/5KPP/4r3 b - - 2 42", "reply": "e4", "first_token": "e4", "kind": "illegal_san", "extracted": null}
+{"model": "llama3.2:3b-board-ft", "fen": "8/1p3pkp/6p1/8/p1p1K3/4P1P1/PP3P1P/8 w - - 2 29", "reply": "Kb5", "first_token": "Kb5", "kind": "illegal_san", "extracted": null}
+{"model": "llama3.2:3b-board-ft", "fen": "5B2/8/6p1/5bPp/5P2/pk6/7P/2K5 w - - 0 47", "reply": "Bf7", "first_token": "Bf7", "kind": "illegal_san", "extracted": null}
+{"model": "llama3.2:3b-board-ft", "fen": "kr6/5p2/q7/3Q3p/P1p4P/4B3/4nPPK/b7 b - - 0 38", "reply": "Qe6", "first_token": "Qe6", "kind": "illegal_san", "extracted": null}
+{"model": "llama3.2:3b-board-ft", "fen": "8/1pk5/p1p2p2/1PPpb1p1/P2q2B1/3n1P2/3Q3R/7K b - - 0 41", "reply": "Qg7", "first_token": "Qg7", "kind": "illegal_san", "extracted": null}
+{"model": "qwen2.5:7b-board-ft", "fen": "1r4k1/5ppp/2b5/2R5/K2p1PPP/P2P4/1r6/2R5 w - - 5 35", "reply": "Rc1", "first_token": "Rc1", "kind": "illegal_san", "extracted": null}
+{"model": "qwen2.5:7b-board-ft", "fen": "r2r2k1/ppb2pp1/7p/3B4/PP2P1qP/2PQ1pP1/5P2/R4RK1 w - - 5 24", "reply": "Qe3", "first_token": "Qe3", "kind": "legal", "extracted": "Qe3"}
+{"model": "qwen2.5:7b-board-ft", "fen": "3Q2k1/1q3p1p/4p1p1/1pP1PP2/1P4PP/4K3/6b1/8 b - - 1 32", "reply": "g5", "first_token": "g5", "kind": "illegal_san", "extracted": null}
+{"model": "qwen2.5:7b-board-ft", "fen": "1rbq1rk1/p1p2pbp/6p1/2Qn4/8/2N5/PPPB1PPP/2KR2NR w - - 0 14", "reply": "Qf5+", "first_token": "Qf5+", "kind": "illegal_san", "extracted": null}
+{"model": "qwen2.5:7b-board-ft", "fen": "1r6/1p5R/p7/4K3/PP6/5k2/8/8 b - - 0 53", "reply": "Rd7", "first_token": "Rd7", "kind": "illegal_san", "extracted": null}
+{"model": "qwen2.5:7b-board-ft", "fen": "1nkr3r/1p2qp2/1Pp1b3/2NpP1p1/Q2P1p2/2P1nN1p/4B1PP/R4RK1 b - - 3 21", "reply": "Rh8", "first_token": "Rh8", "kind": "illegal_san", "extracted": null}
+{"model": "qwen2.5:7b-board-ft", "fen": "r4k1r/pQp2Bp1/3p3p/2b3q1/4P2n/2N5/PP3P1P/R4RK1 w - - 4 17", "reply": "Rf2", "first_token": "Rf2", "kind": "illegal_san", "extracted": null}
+{"model": "qwen2.5:7b-board-ft", "fen": "r1b2r2/pp3pp1/2n1N1k1/1N1pP3/1b1P2QP/4q3/P5P1/R4K1R b - - 0 17", "reply": "Qh5", "first_token": "Qh5", "kind": "illegal_san", "extracted": null}
+{"model": "qwen2.5:7b-board-ft", "fen": "8/1p3r1p/8/1R1N1p2/P3p1kP/3nP1P1/5PK1/8 w - - 5 40", "reply": "Rc1", "first_token": "Rc1", "kind": "illegal_san", "extracted": null}
+{"model": "qwen2.5:7b-board-ft", "fen": "4r3/p1R5/5p1k/1P4pp/P7/5qP1/3Q1P1P/6K1 w - - 0 41", "reply": "Qh5+", "first_token": "Qh5+", "kind": "illegal_san", "extracted": null}
+{"model": "qwen2.5:7b-board-ft", "fen": "rn1qkb1r/1b2n1N1/p2pP3/2pP3p/2p5/4BQ2/PP3PPP/RN2K2R b KQkq - 0 16", "reply": "Bxh5", "first_token": "Bxh5", "kind": "illegal_san", "extracted": null}
+{"model": "qwen2.5:7b-board-ft", "fen": "7r/p3bppk/4p2p/3p4/3qnN2/1P2R1P1/P1PBQ2P/1R4K1 w - - 2 24", "reply": "Qf5", "first_token": "Qf5", "kind": "illegal_san", "extracted": null}
+{"model": "qwen2.5:7b-board-ft", "fen": "8/p5k1/6pp/2N1p3/3pP1KP/P2Pr3/1P6/3R4 w - - 5 36", "reply": "Rd1", "first_token": "Rd1", "kind": "illegal_san", "extracted": null}
+{"model": "qwen2.5:7b-board-ft", "fen": "5r1k/1b2P1bp/8/1p6/3P4/6QP/1P3P1P/R3RK1q w - - 1 35", "reply": "Ke2", "first_token": "Ke2", "kind": "legal", "extracted": "Ke2"}
+{"model": "qwen2.5:7b-board-ft", "fen": "8/8/b1p1P1k1/p4q2/Pp6/6P1/1Q1Kp3/7R w - - 0 40", "reply": "Qh5+", "first_token": "Qh5+", "kind": "illegal_san", "extracted": null}
+{"model": "qwen2.5:7b-board-ft", "fen": "1k4r1/ppp4p/7P/4b3/1P2P3/P4B1R/r3R1PK/8 w - - 1 37", "reply": "Rf2", "first_token": "Rf2", "kind": "illegal_san", "extracted": null}
+{"model": "qwen2.5:7b-board-ft", "fen": "8/r3k3/P1b2p2/2Pp1K1p/4n2P/4P3/8/R1R5 w - - 1 45", "reply": "Rc1", "first_token": "Rc1", "kind": "illegal_san", "extracted": null}
+{"model": "qwen2.5:7b-board-ft", "fen": "6k1/2q2r2/2n2pQ1/8/1p1P4/4P3/1PPK4/rN5R b - - 0 25", "reply": "Rb1", "first_token": "Rb1", "kind": "illegal_san", "extracted": null}
+{"model": "qwen2.5:7b-board-ft", "fen": "8/6pk/1b6/6P1/4RPKp/1R5P/P7/6r1 w - - 3 46", "reply": "Rb3", "first_token": "Rb3", "kind": "illegal_san", "extracted": null}
+{"model": "qwen2.5:7b-board-ft", "fen": "1rb1r3/4bp1k/p3p1pP/q2pP3/2pP4/2P2N1R/PK1NQPP1/7R w - - 4 24", "reply": "Kb3", "first_token": "Kb3", "kind": "illegal_san", "extracted": null}
+{"model": "mistral:7b-board-ft", "fen": "8/1b3k2/pq3b2/1p1p1QBr/3r3P/P1N3p1/1P4P1/3R1RK1 w - - 0 32", "reply": " Qh5+", "first_token": "Qh5+", "kind": "illegal_san", "extracted": null}
+{"model": "mistral:7b-board-ft", "fen": "r2q2k1/1p3pp1/4r1np/p1N2n1b/B1Pp4/3P1NQ1/PP3PPP/R4RK1 w - - 1 19", "reply": " Nb3", "first_token": "Nb3", "kind": "legal", "extracted": "Nb3"}
+{"model": "mistral:7b-board-ft", "fen": "4R1rk/6p1/4PpQp/7P/p7/6P1/p4P1K/q7 b - - 2 44", "reply": " Qh4", "first_token": "Qh4", "kind": "illegal_san", "extracted": null}
+{"model": "mistral:7b-board-ft", "fen": "2r1r1k1/1p2pp1p/p2p1bpB/q2P4/2P5/1P3Q1P/4RPP1/4R1K1 b - - 3 27", "reply": " Rc7", "first_token": "Rc7", "kind": "legal", "extracted": "Rc7"}
+{"model": "mistral:7b-board-ft", "fen": "2kr3r/1p1P1pbp/p3pnp1/2B5/q4P2/7P/PPPQR3/2KR4 b - - 0 22", "reply": " d4", "first_token": "d4", "kind": "illegal_san", "extracted": null}
+{"model": "mistral:7b-board-ft", "fen": "3rk2r/p1pn1ppp/2B1b3/8/8/BP6/P1Pq1PPP/Q3R1K1 b k - 4 17", "reply": " Qh4", "first_token": "Qh4", "kind": "illegal_san", "extracted": null}
+{"model": "mistral:7b-board-ft", "fen": "8/Qpk5/2p5/3pP2p/2nP3p/8/PPPKNq2/R3R3 w - - 3 26", "reply": " Rb1d3", "first_token": "Rb1d3", "kind": "illegal_san", "extracted": null}
+{"model": "mistral:7b-board-ft", "fen": "Q2nk3/p4pp1/4p3/4P3/3q1Pr1/P6p/1P3P2/RN3RK1 w - - 0 22", "reply": " Rb1f1\n\nExplanation: The rook moves to f1 to defend the king and attack the pawn on h3, preparing to castle kingside if possible.", "first_token": "Rb1f1", "kind": "illegal_san", "extracted": null}
+{"model": "mistral:7b-board-ft", "fen": "r3rk2/R3Rpp1/3Qb2p/3p2q1/8/P2B1P2/2P2P1P/6K1 w - - 3 26", "reply": " Rd7\n\nSide note: I'm not a chess engine but a model trained on a large dataset of chess games. The moves I suggest are based on my understanding of the rules and common strategies, but they may not always be the best or most creative ones.", "first_token": "Rd7", "kind": "illegal_san", "extracted": null}
+{"model": "mistral:7b-board-ft", "fen": "2k5/pp6/2nq1n1Q/7p/P2pP3/1P4rp/5P1N/R3R1K1 w - - 0 27", "reply": " Rb1d1\n\nExplanation: The king moves to a safer square and the rook supports the pawns on f2 b3 a4 e4. This sets up a potential attack on the black king.", "first_token": "Rb1d1", "kind": "illegal_san", "extracted": null}
+{"model": "mistral:7b-board-ft", "fen": "3Q2k1/1q3p1p/4p1p1/1pP1PP2/1P4PP/4K3/6b1/8 b - - 1 32", "reply": " g5", "first_token": "g5", "kind": "illegal_san", "extracted": null}
+{"model": "mistral:7b-board-ft", "fen": "6Bk/2b3p1/p5Pp/1p6/3q4/PK6/1PP5/5Q2 w - - 0 35", "reply": " Bf6", "first_token": "Bf6", "kind": "illegal_san", "extracted": null}
+{"model": "mistral:7b-board-ft", "fen": "6k1/p1p4r/4p1p1/5pP1/4rP1R/q1P3Q1/P1R1K3/6N1 w - - 2 35", "reply": " Rc6", "first_token": "Rc6", "kind": "illegal_san", "extracted": null}
+{"model": "mistral:7b-board-ft", "fen": "8/Q5pk/4p2p/1b1p4/5p1q/5P2/P1r2NP1/1R4K1 b - - 2 39", "reply": " Be6", "first_token": "Be6", "kind": "illegal_san", "extracted": null}
+{"model": "mistral:7b-board-ft", "fen": "1k1r2r1/pp1n1p1p/2p1pp2/8/QP1RR3/2P3NP/P4PPK/2q5 b - - 12 24", "reply": " Rg8", "first_token": "Rg8", "kind": "illegal_san", "extracted": null}
+{"model": "mistral:7b-board-ft", "fen": "1r3r2/pp5k/3p3b/2pN1p2/2q1pP2/P1N3P1/1P3KQP/3R4 b - - 3 28", "reply": " Rd8", "first_token": "Rd8", "kind": "illegal_san", "extracted": null}
+{"model": "mistral:7b-board-ft", "fen": "8/8/8/8/4Q3/2K5/5p2/3k4 b - - 10 59", "reply": " Qe4+", "first_token": "Qe4+", "kind": "illegal_san", "extracted": null}
+{"model": "mistral:7b-board-ft", "fen": "3r3k/3PR1p1/2r2p1p/2B5/1Pp1P3/7P/6P1/6K1 b - - 0 36", "reply": " a4", "first_token": "a4", "kind": "illegal_san", "extracted": null}
+{"model": "mistral:7b-board-ft", "fen": "5Q2/2k5/2p5/3qr3/8/P2P4/KPR2P2/8 w - - 2 55", "reply": " Rc6", "first_token": "Rc6", "kind": "illegal_san", "extracted": null}
+{"model": "mistral:7b-board-ft", "fen": "r6r/1bq1kpp1/pp2pb1p/1Bp5/5Q2/4B3/PPP2PPP/3RR1K1 b - - 3 19", "reply": " Rh8", "first_token": "Rh8", "kind": "illegal_san", "extracted": null}
+{"model": "deepseek-r1:7b-board-ft", "fen": "8/1K6/P4p2/6pp/5k2/5P1P/4Bb2/8 w - - 3 49", "reply": "a2", "first_token": "a2", "kind": "illegal_san", "extracted": null}
+{"model": "deepseek-r1:7b-board-ft", "fen": "3nr1k1/pr2q2p/1p2p1p1/1Pp1Qp2/2P2N2/6P1/P2R1P1P/4R1K1 b - - 5 24", "reply": "Rd1", "first_token": "Rd1", "kind": "illegal_san", "extracted": null}
+{"model": "deepseek-r1:7b-board-ft", "fen": "r3r1k1/1ppb1p1p/3p1qpb/p1nP4/2PN1N1P/1P3PP1/PBQ2nBK/R3R3 w - - 5 21", "reply": "Nf6", "first_token": "Nf6", "kind": "illegal_san", "extracted": null}
+{"model": "deepseek-r1:7b-board-ft", "fen": "6R1/8/3P4/p1p1p3/P1P1k3/1PK5/r5p1/8 b - - 0 54", "reply": "g3", "first_token": "g3", "kind": "illegal_san", "extracted": null}
+{"model": "deepseek-r1:7b-board-ft", "fen": "8/8/4K3/5p2/3p4/2pP2P1/3k4/2N5 w - - 1 72", "reply": "Nc7", "first_token": "Nc7", "kind": "illegal_san", "extracted": null}
+{"model": "deepseek-r1:7b-board-ft", "fen": "2k5/pp6/3pp1p1/4n2p/7R/P4r2/1PP1R2P/2K5 w - - 0 28", "reply": "Reh5", "first_token": "Reh5", "kind": "illegal_san", "extracted": null}
+{"model": "deepseek-r1:7b-board-ft", "fen": "8/5p1p/6pk/1Q6/8/4q3/PP1r1n1P/2R1KR2 w - - 0 27", "reply": "Qh3", "first_token": "Qh3", "kind": "illegal_san", "extracted": null}
+{"model": "deepseek-r1:7b-board-ft", "fen": "8/2Q3bk/2P3pp/p7/4Pp2/2q2P2/5PKP/8 b - - 0 37", "reply": "Qh3", "first_token": "Qh3", "kind": "illegal_san", "extracted": null}
+{"model": "deepseek-r1:7b-board-ft", "fen": "8/1p6/1P1Q4/3P1qk1/4p3/4Pnp1/4B1K1/6B1 w - - 1 52", "reply": "Qh7", "first_token": "Qh7", "kind": "illegal_san", "extracted": null}
+{"model": "deepseek-r1:7b-board-ft", "fen": "3r4/1Q1n1pk1/2p5/2b1p3/4P3/3B1q2/Q3nP2/RR3K2 w - - 0 38", "reply": "Qa8", "first_token": "Qa8", "kind": "illegal_san", "extracted": null}
+{"model": "deepseek-r1:7b-board-ft", "fen": "2r2r2/2qb1pkp/p5p1/3BR3/1p6/6Q1/PP3PPP/3R2K1 b - - 0 22", "reply": "Qh8", "first_token": "Qh8", "kind": "illegal_san", "extracted": null}
+{"model": "deepseek-r1:7b-board-ft", "fen": "5rk1/5p1p/3p2p1/2pP2q1/2BbP3/5Pn1/P3Q1PP/R2R3K w - - 1 24", "reply": "Rf7", "first_token": "Rf7", "kind": "illegal_san", "extracted": null}
+{"model": "deepseek-r1:7b-board-ft", "fen": "8/p2b1k2/2pKp3/2P3p1/1P4P1/8/8/8 b - - 2 42", "reply": "g3", "first_token": "g3", "kind": "illegal_san", "extracted": null}
+{"model": "deepseek-r1:7b-board-ft", "fen": "r5k1/pppb2p1/2p4p/8/4r3/2B4P/PPP3P1/3R1RK1 b - - 3 18", "reply": "Re8", "first_token": "Re8", "kind": "illegal_san", "extracted": null}
+{"model": "deepseek-r1:7b-board-ft", "fen": "r2qk2r/2p1nppp/p2b4/1p4N1/1PnPQ3/2P5/P4PPP/RNB1R1K1 w kq - 1 16", "reply": "Re1", "first_token": "Re1", "kind": "illegal_san", "extracted": null}
+{"model": "deepseek-r1:7b-board-ft", "fen": "2r1r1k1/5ppp/3Qp3/2B2bq1/3P4/P1P5/BP3RPP/4R2K w - - 5 29", "reply": "Qe7", "first_token": "Qe7", "kind": "legal", "extracted": "Qe7"}
+{"model": "deepseek-r1:7b-board-ft", "fen": "br3rk1/3q1pb1/p2p2p1/4p3/2B1P3/BP4P1/P6P/1R1QR1K1 w - - 3 29", "reply": "Rf7+", "first_token": "Rf7+", "kind": "illegal_san", "extracted": null}
+{"model": "deepseek-r1:7b-board-ft", "fen": "1k6/1p4p1/p2PR2p/P3p1pK/4r3/2r5/8/3R4 b - - 0 43", "reply": "Re8", "first_token": "Re8", "kind": "illegal_san", "extracted": null}
+{"model": "deepseek-r1:7b-board-ft", "fen": "r2q1r2/1b1n1p2/p3p1k1/3p4/Pp1b1PQ1/4P3/1PP3PP/R4RK1 b - - 1 20", "reply": "Rb3", "first_token": "Rb3", "kind": "illegal_san", "extracted": null}
+{"model": "deepseek-r1:7b-board-ft", "fen": "rn5r/pp4p1/7p/2p1Pb2/PP1pq3/k5Q1/5PPP/1RR3K1 b - - 0 25", "reply": "Qg1", "first_token": "Qg1", "kind": "illegal_san", "extracted": null}

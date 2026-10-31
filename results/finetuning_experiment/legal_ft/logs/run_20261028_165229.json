@@ -1,0 +1,96 @@
+{
+  "timestamp": "2026-10-28T16:52:29.089970Z",
+  "run_id": "20261028_165229",
+  "models": [
+    "llama3.2:3b-board-legal-ft",
+    "gemma3:4b-board-legal-ft",
+    "qwen2.5:7b-board-legal-ft",
+    "mistral:7b-board-legal-ft",
+    "deepseek-r1:7b-board-legal-ft"
+  ],
+  "prompt_formats": [
+    "fen_only",
+    "pgn+fen",
+    "cot",
+    "eval_only",
+    "move_only",
+    "explanation_only"
+  ],
+  "hypotheses": [
+    "H1",
+    "H2",
+    "H3",
+    "H4",
+    "H5"
+  ],
+  "scoring_method": "Option A",
+  "config_snapshot": {
+    "stockfish": {
+      "path": "/usr/games/stockfish",
+      "depth": 15,
+      "threads": 1,
+      "workers": 24
+    },
+    "lc0": {
+      "binary": "/home/rabrew/lc0-src/build/release/lc0",
+      "weights": "/home/rabrew/lc0-nets/network.pb",
+      "onnx_model": "/home/rabrew/lc0-nets/network.onnx",
+      "nodes": 800
+    },
+    "ollama": {
+      "base_url": "http://localhost:11434",
+      "timeout": 600,
+      "max_retries": 3
+    },
+    "models": [
+      "llama3.2:3b-board-legal-ft",
+      "gemma3:4b-board-legal-ft",
+      "qwen2.5:7b-board-legal-ft",
+      "mistral:7b-board-legal-ft",
+      "deepseek-r1:7b-board-legal-ft"
+    ],
+    "dataset": {
+      "lichess_source": "local",
+      "lichess_csv_path": "data/lichess_puzzles.csv",
+      "pgn_path": "data/games.pgn"
+    },
+    "benchmark": {
+      "max_positions_per_tier": 1000,
+      "random_seed": 42,
+      "prompt_formats": [
+        "fen_only",
+        "pgn+fen",
+        "cot",
+        "eval_only",
+        "move_only",
+        "explanation_only"
+      ]
+    },
+    "evaluation": {
+      "cpl_threshold": 50,
+      "centipawn_eval_range": {
+        "min": -2000,
+        "max": 2000
+      }
+    },
+    "workers": {
+      "count": 1
+    },
+    "correction_loop": {
+      "enabled": false,
+      "control_group": true,
+      "max_attempts": 2
+    },
+    "paths": {
+      "data_dir": "data",
+      "jobs_db": "jobs/db/jobs_legal_ft.db",
+      "results_file": "results/finetuning_experiment/evaluations_legal_ft.jsonl",
+      "logs_dir": "results/finetuning_experiment/legal_ft/logs",
+      "plots_dir": "results/finetuning_experiment/legal_ft/plots",
+      "metrics_dir": "results/finetuning_experiment/legal_ft/metrics"
+    }
+  },
+  "random_seed": 42,
+  "worker_count": 1,
+  "stockfish_depth": 15
+}

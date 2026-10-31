@@ -1,0 +1,968 @@
+{
+  "total_jobs": 120000,
+  "models_tested": 5,
+  "positions_tested": 4000,
+  "overall_metrics": {
+    "t1_mean_error": 738.5561097568598,
+    "t1_mean_error_excl_mate": 71.13965020438249,
+    "t1_relative_error": 0.7192997748927091,
+    "t1_direction_accuracy_t50": 0.48964310269391836,
+    "t1_direction_accuracy_by_threshold": {
+      "t0": 0.4421776361022564,
+      "t50": 0.48964310269391836,
+      "t100": 0.7373585849115569,
+      "t200": 0.9051190699418714
+    },
+    "t1_direction_baselines": {
+      "t0": {
+        "n": 79995,
+        "pct_W": 0.47976748546784176,
+        "pct_B": 0.4669916869804363,
+        "pct_E": 0.053240827551721985,
+        "majority_class": "W",
+        "majority_baseline_acc": 0.47976748546784176
+      },
+      "t50": {
+        "n": 79995,
+        "pct_W": 0.23576473529595598,
+        "pct_B": 0.22198887430464403,
+        "pct_E": 0.5422463903993999,
+        "majority_class": "E",
+        "majority_baseline_acc": 0.5422463903993999
+      },
+      "t100": {
+        "n": 79995,
+        "pct_W": 0.10875679729983125,
+        "pct_B": 0.10575660978811176,
+        "pct_E": 0.785486592912057,
+        "majority_class": "E",
+        "majority_baseline_acc": 0.785486592912057
+      },
+      "t200": {
+        "n": 79995,
+        "pct_W": 0.03675229701856366,
+        "pct_B": 0.030501906369148072,
+        "pct_E": 0.9327457966122883,
+        "majority_class": "E",
+        "majority_baseline_acc": 0.9327457966122883
+      }
+    },
+    "t1_direction_kappa_by_threshold": {
+      "t0": 0.02217355849969976,
+      "t50": -0.0051208935036848565,
+      "t100": -0.007330740079703717,
+      "t200": 0.002198398512144563
+    },
+    "t1_spearman_rho": 0.02881880546059782,
+    "t1_headline": {
+      "metric": "spearman_rho",
+      "value": 0.02881880546059782,
+      "n": 79995
+    },
+    "t1_zero_baseline": {
+      "n": 74615,
+      "mae": 71.13965020438249,
+      "zero_mae": 46.9706895396368,
+      "mae_ratio": 1.514554095365162
+    },
+    "t2_first_attempt_combined": null,
+    "t2_blunder_rate": {
+      "n": 61506,
+      "rate": 0.42828341950378823,
+      "ci_low": 0.42441347185640427,
+      "ci_high": 0.43221840145676843
+    },
+    "t2_best_move_vs_random": {
+      "n": 61512,
+      "best_move_rate": 0.07648914033034204,
+      "random_best_move_rate": 0.0749958885086352,
+      "ratio_vs_random": 1.0199111158145011
+    },
+    "puzzle_meta": {
+      "setup_move_rate": 0.07332617955971775,
+      "n_moves": 61506,
+      "tactical_theme_rate": 0.03180657616141487,
+      "n_tactical_explanations": 64232
+    },
+    "t3_side_mark": {
+      "n": 79652,
+      "accuracy": 0.2434339376286848,
+      "majority_share": 0.5422713805051976,
+      "cohen_kappa": 0.00684027565852921
+    },
+    "t2_legal_rate_buggy_includes_no_move_prompts": 0.51255,
+    "t2_legal_rate": 0.768825,
+    "t2_mean_cpl_raw": 4846.243748577374,
+    "t2_mean_cpl_clamped": 805.6245732123696,
+    "t2_mean_wp_loss": 359.9112433673558,
+    "t3_mean_score": 0.4021391043282462,
+    "t3_mean_score_v2": 0.4021391043282462
+  },
+  "by_model": [
+    {
+      "model": "deepseek-r1:7b-board-ft",
+      "t1_absolute_error_mean": 733.1051578618318,
+      "t1_absolute_error_std": 2489.329839703719,
+      "t1_absolute_error_median": 57.0,
+      "t1_direction_correct_mean": 0.4652078774617068,
+      "t2_legal_mean": 0.464125,
+      "t2_cpl_mean": 4607.6153155579495,
+      "t2_cpl_std": 5121.620805366723,
+      "t2_cpl_median": 2251.0,
+      "t3_p1_side_correct_mean": 0.23657465495608532,
+      "t3_p2_theme_correct_mean": 0.15238393977415307,
+      "t3_score_mean": 0.3889585947302384,
+      "t3_score_std": 0.5639068050576217,
+      "job_id_count": 24000,
+      "inference_ms_mean": 2903.7743333333333,
+      "inference_ms_median": 2521.0,
+      "t1_relative_error_mean": 0.6609805761047425,
+      "t1_abs_error_excl_mate_mean": 64.82431798377907,
+      "t1_abs_error_excl_mate_median": 52.0,
+      "t2_cpl_clamped_mean": 795.5619894065894,
+      "t2_cpl_clamped_median": 953.0,
+      "t2_wp_loss_mean": 356.0252350149027,
+      "t2_wp_loss_median": 406.75422421943836,
+      "t2_legal_attempted_mean": 0.6961875,
+      "t3_p2_theme_correct_v2_mean": 0.15238393977415307,
+      "t3_score_v2_mean": 0.3889585947302384,
+      "t1_direction_correct_t0_mean": 0.46458268208815257,
+      "t1_direction_correct_t50_mean": 0.4652078774617068,
+      "t1_direction_correct_t100_mean": 0.7583619881212879,
+      "t1_direction_correct_t200_mean": 0.9185995623632385,
+      "t1_spearman_rho": -0.004360622857073508
+    },
+    {
+      "model": "gemma3:4b-board-ft",
+      "t1_absolute_error_mean": 716.5850625,
+      "t1_absolute_error_std": 2492.916281910329,
+      "t1_absolute_error_median": 43.0,
+      "t1_direction_correct_mean": 0.54225,
+      "t2_legal_mean": 0.38658333333333333,
+      "t2_cpl_mean": 4763.3695839620605,
+      "t2_cpl_std": 5129.880619086268,
+      "t2_cpl_median": 2413.0,
+      "t3_p1_side_correct_mean": 0.2399375,
+      "t3_p2_theme_correct_mean": 0.11225,
+      "t3_score_mean": 0.3521875,
+      "t3_score_std": 0.540411618711702,
+      "job_id_count": 24000,
+      "inference_ms_mean": 3707.521125,
+      "inference_ms_median": 2761.0,
+      "t1_relative_error_mean": 0.49812248936791886,
+      "t1_abs_error_excl_mate_mean": 47.30058965424819,
+      "t1_abs_error_excl_mate_median": 38.0,
+      "t2_cpl_clamped_mean": 798.193252856219,
+      "t2_cpl_clamped_median": 971.5,
+      "t2_wp_loss_mean": 356.59777154679546,
+      "t2_wp_loss_median": 412.26905222250366,
+      "t2_legal_attempted_mean": 0.579875,
+      "t3_p2_theme_correct_v2_mean": 0.11225,
+      "t3_score_v2_mean": 0.3521875,
+      "t1_direction_correct_t0_mean": 0.4915,
+      "t1_direction_correct_t50_mean": 0.54225,
+      "t1_direction_correct_t100_mean": 0.7855,
+      "t1_direction_correct_t200_mean": 0.93275,
+      "t1_spearman_rho": 0.048913638429933834
+    },
+    {
+      "model": "llama3.2:3b-board-ft",
+      "t1_absolute_error_mean": 756.7673125,
+      "t1_absolute_error_std": 2488.5576840316908,
+      "t1_absolute_error_median": 54.0,
+      "t1_direction_correct_mean": 0.5070625,
+      "t2_legal_mean": 0.4781666666666667,
+      "t2_cpl_mean": 4705.208870686651,
+      "t2_cpl_std": 5261.248675701191,
+      "t2_cpl_median": 2412.0,
+      "t3_p1_side_correct_mean": 0.2388125,
+      "t3_p2_theme_correct_mean": 0.2219375,
+      "t3_score_mean": 0.46075,
+      "t3_score_std": 0.6102112010254042,
+      "job_id_count": 24000,
+      "inference_ms_mean": 1901.2474166666666,
+      "inference_ms_median": 1469.0,
+      "t1_relative_error_mean": 0.9027876635210214,
+      "t1_abs_error_excl_mate_mean": 91.00850978290002,
+      "t1_abs_error_excl_mate_median": 47.0,
+      "t2_cpl_clamped_mean": 802.8291216451726,
+      "t2_cpl_clamped_median": 965.0,
+      "t2_wp_loss_mean": 359.462626525695,
+      "t2_wp_loss_median": 409.14631835934637,
+      "t2_legal_attempted_mean": 0.71725,
+      "t3_p2_theme_correct_v2_mean": 0.2219375,
+      "t3_score_v2_mean": 0.46075,
+      "t1_direction_correct_t0_mean": 0.4488125,
+      "t1_direction_correct_t50_mean": 0.5070625,
+      "t1_direction_correct_t100_mean": 0.7211875,
+      "t1_direction_correct_t200_mean": 0.9039375,
+      "t1_spearman_rho": 0.02517724709209645
+    },
+    {
+      "model": "mistral:7b-board-ft",
+      "t1_absolute_error_mean": 742.0091875,
+      "t1_absolute_error_std": 2486.9869262023203,
+      "t1_absolute_error_median": 56.0,
+      "t1_direction_correct_mean": 0.48475,
+      "t2_legal_mean": 0.599875,
+      "t2_cpl_mean": 4613.111273181913,
+      "t2_cpl_std": 5123.18946773333,
+      "t2_cpl_median": 2345.0,
+      "t3_p1_side_correct_mean": 0.2491875,
+      "t3_p2_theme_correct_mean": 0.218625,
+      "t3_score_mean": 0.4678125,
+      "t3_score_std": 0.607648781911793,
+      "job_id_count": 24000,
+      "inference_ms_mean": 1591.083125,
+      "inference_ms_median": 1516.0,
+      "t1_relative_error_mean": 0.75599883545618,
+      "t1_abs_error_excl_mate_mean": 75.08730903243098,
+      "t1_abs_error_excl_mate_median": 50.0,
+      "t2_cpl_clamped_mean": 796.2607487671042,
+      "t2_cpl_clamped_median": 963.0,
+      "t2_wp_loss_mean": 355.9307534019967,
+      "t2_wp_loss_median": 408.75784748868284,
+      "t2_legal_attempted_mean": 0.8998125,
+      "t3_p2_theme_correct_v2_mean": 0.218625,
+      "t3_score_v2_mean": 0.4678125,
+      "t1_direction_correct_t0_mean": 0.3111875,
+      "t1_direction_correct_t50_mean": 0.48475,
+      "t1_direction_correct_t100_mean": 0.719625,
+      "t1_direction_correct_t200_mean": 0.884625,
+      "t1_spearman_rho": 0.016262441097590508
+    },
+    {
+      "model": "qwen2.5:7b-board-ft",
+      "t1_absolute_error_mean": 744.312125,
+      "t1_absolute_error_std": 2484.845393881163,
+      "t1_absolute_error_median": 63.0,
+      "t1_direction_correct_mean": 0.4489375,
+      "t2_legal_mean": 0.634,
+      "t2_cpl_mean": 5398.419952681388,
+      "t2_cpl_std": 5475.681466755523,
+      "t2_cpl_median": 3520.0,
+      "t3_p1_side_correct_mean": 0.24825,
+      "t3_p2_theme_correct_mean": 0.0926875,
+      "t3_score_mean": 0.3409375,
+      "t3_score_std": 0.5243722975977145,
+      "job_id_count": 24000,
+      "inference_ms_mean": 1100.7985833333332,
+      "inference_ms_median": 978.0,
+      "t1_relative_error_mean": 0.7785910852640621,
+      "t1_abs_error_excl_mate_mean": 77.47540873760386,
+      "t1_abs_error_excl_mate_median": 58.0,
+      "t2_cpl_clamped_mean": 828.4904048370137,
+      "t2_cpl_clamped_median": 981.0,
+      "t2_wp_loss_mean": 368.8810172563742,
+      "t2_wp_loss_median": 416.0175350724957,
+      "t2_legal_attempted_mean": 0.951,
+      "t3_p2_theme_correct_v2_mean": 0.0926875,
+      "t3_score_v2_mean": 0.3409375,
+      "t1_direction_correct_t0_mean": 0.4948125,
+      "t1_direction_correct_t50_mean": 0.4489375,
+      "t1_direction_correct_t100_mean": 0.702125,
+      "t1_direction_correct_t200_mean": 0.8856875,
+      "t1_spearman_rho": 0.06270432152519392
+    }
+  ],
+  "by_difficulty": [
+    {
+      "model": "deepseek-r1:7b-board-ft",
+      "difficulty": "easy",
+      "t1_absolute_error": 1672.4206051512879,
+      "t2_cpl": 5717.480650994575,
+      "t2_legal": 0.4608333333333333,
+      "t3_score": 0.39072681704260653,
+      "job_id": 6000,
+      "t1_relative_error": 0.7665916681950006,
+      "t1_abs_error_excl_mate": 74.26259314456036,
+      "t2_cpl_clamped": 772.4965641952983,
+      "t2_wp_loss": 335.1728313894303,
+      "t2_legal_attempted": 0.69125,
+      "t3_score_v2": 0.39072681704260653
+    },
+    {
+      "model": "deepseek-r1:7b-board-ft",
+      "difficulty": "extreme",
+      "t1_absolute_error": 227.38779084313234,
+      "t2_cpl": 3875.92029250457,
+      "t2_legal": 0.4558333333333333,
+      "t3_score": 0.3621987951807229,
+      "job_id": 6000,
+      "t1_relative_error": 0.5839799806001116,
+      "t1_abs_error_excl_mate": 58.378213285823364,
+      "t2_cpl_clamped": 787.9367458866545,
+      "t2_wp_loss": 360.6940313919343,
+      "t2_legal_attempted": 0.68375,
+      "t3_score_v2": 0.3621987951807229
+    },
+    {
+      "model": "deepseek-r1:7b-board-ft",
+      "difficulty": "hard",
+      "t1_absolute_error": 360.06276569142284,
+      "t2_cpl": 4056.69552874379,
+      "t2_legal": 0.4696666666666667,
+      "t3_score": 0.37879929665913087,
+      "job_id": 6000,
+      "t1_relative_error": 0.6224680496451589,
+      "t1_abs_error_excl_mate": 61.91157514823408,
+      "t2_cpl_clamped": 790.014194464159,
+      "t2_wp_loss": 358.51332475221847,
+      "t2_legal_attempted": 0.7045,
+      "t3_score_v2": 0.37879929665913087
+    },
+    {
+      "model": "deepseek-r1:7b-board-ft",
+      "difficulty": "medium",
+      "t1_absolute_error": 672.31175,
+      "t2_cpl": 4779.504785537044,
+      "t2_legal": 0.4701666666666667,
+      "t3_score": 0.424090338770389,
+      "job_id": 6000,
+      "t1_relative_error": 0.6708416301734778,
+      "t1_abs_error_excl_mate": 66.14483493077742,
+      "t2_cpl_clamped": 831.1042183622828,
+      "t2_wp_loss": 369.45178625683604,
+      "t2_legal_attempted": 0.70525,
+      "t3_score_v2": 0.424090338770389
+    },
+    {
+      "model": "gemma3:4b-board-ft",
+      "difficulty": "easy",
+      "t1_absolute_error": 1656.98325,
+      "t2_cpl": 5630.732351667389,
+      "t2_legal": 0.38483333333333336,
+      "t3_score": 0.3725,
+      "job_id": 6000,
+      "t1_relative_error": 0.6150529890905366,
+      "t1_abs_error_excl_mate": 56.021752085816445,
+      "t2_cpl_clamped": 776.3893460372456,
+      "t2_wp_loss": 336.82084284723464,
+      "t2_legal_attempted": 0.57725,
+      "t3_score_v2": 0.3725
+    },
+    {
+      "model": "gemma3:4b-board-ft",
+      "difficulty": "extreme",
+      "t1_absolute_error": 210.73075,
+      "t2_cpl": 3951.1462205700122,
+      "t2_legal": 0.4035,
+      "t3_score": 0.31075,
+      "job_id": 6000,
+      "t1_relative_error": 0.41792998802802567,
+      "t1_abs_error_excl_mate": 41.474313326551375,
+      "t2_cpl_clamped": 777.3581164807931,
+      "t2_wp_loss": 353.43027546013644,
+      "t2_legal_attempted": 0.60525,
+      "t3_score_v2": 0.31075
+    },
+    {
+      "model": "gemma3:4b-board-ft",
+      "difficulty": "hard",
+      "t1_absolute_error": 341.5905,
+      "t2_cpl": 4180.92223198594,
+      "t2_legal": 0.37933333333333336,
+      "t3_score": 0.336,
+      "job_id": 6000,
+      "t1_relative_error": 0.43859166705046376,
+      "t1_abs_error_excl_mate": 42.91237113402062,
+      "t2_cpl_clamped": 790.676625659051,
+      "t2_wp_loss": 358.65191634361327,
+      "t2_legal_attempted": 0.569,
+      "t3_score_v2": 0.336
+    },
+    {
+      "model": "gemma3:4b-board-ft",
+      "difficulty": "medium",
+      "t1_absolute_error": 657.03575,
+      "t2_cpl": 5330.844190140845,
+      "t2_legal": 0.37866666666666665,
+      "t3_score": 0.3895,
+      "job_id": 6000,
+      "t1_relative_error": 0.5209153133026496,
+      "t1_abs_error_excl_mate": 50.14057507987221,
+      "t2_cpl_clamped": 850.0836267605633,
+      "t2_wp_loss": 378.0142340624337,
+      "t2_legal_attempted": 0.568,
+      "t3_score_v2": 0.3895
+    },
+    {
+      "model": "llama3.2:3b-board-ft",
+      "difficulty": "easy",
+      "t1_absolute_error": 1687.25425,
+      "t2_cpl": 5823.183025830258,
+      "t2_legal": 0.45166666666666666,
+      "t3_score": 0.40875,
+      "job_id": 6000,
+      "t1_relative_error": 0.9261324883480215,
+      "t1_abs_error_excl_mate": 93.56555423122765,
+      "t2_cpl_clamped": 789.9125461254613,
+      "t2_wp_loss": 342.9141392013381,
+      "t2_legal_attempted": 0.6775,
+      "t3_score_v2": 0.40875
+    },
+    {
+      "model": "llama3.2:3b-board-ft",
+      "difficulty": "extreme",
+      "t1_absolute_error": 255.85475,
+      "t2_cpl": 3944.3699861687414,
+      "t2_legal": 0.482,
+      "t3_score": 0.4445,
+      "job_id": 6000,
+      "t1_relative_error": 0.8694512880624227,
+      "t1_abs_error_excl_mate": 87.61368260427264,
+      "t2_cpl_clamped": 798.2130013831259,
+      "t2_wp_loss": 364.2468276954301,
+      "t2_legal_attempted": 0.723,
+      "t3_score_v2": 0.4445
+    },
+    {
+      "model": "llama3.2:3b-board-ft",
+      "difficulty": "hard",
+      "t1_absolute_error": 386.2585,
+      "t2_cpl": 4406.873162393163,
+      "t2_legal": 0.4875,
+      "t3_score": 0.4895,
+      "job_id": 6000,
+      "t1_relative_error": 0.8830778058420786,
+      "t1_abs_error_excl_mate": 88.98041237113402,
+      "t2_cpl_clamped": 803.5323076923077,
+      "t2_wp_loss": 363.9651743535377,
+      "t2_legal_attempted": 0.73125,
+      "t3_score_v2": 0.4895
+    },
+    {
+      "model": "llama3.2:3b-board-ft",
+      "difficulty": "medium",
+      "t1_absolute_error": 697.70175,
+      "t2_cpl": 4719.880976602238,
+      "t2_legal": 0.4915,
+      "t3_score": 0.50025,
+      "job_id": 6000,
+      "t1_relative_error": 0.9324890718315627,
+      "t1_abs_error_excl_mate": 94.3727369542066,
+      "t2_cpl_clamped": 818.5283146829433,
+      "t2_wp_loss": 365.5123174275919,
+      "t2_legal_attempted": 0.73725,
+      "t3_score_v2": 0.50025
+    },
+    {
+      "model": "mistral:7b-board-ft",
+      "difficulty": "easy",
+      "t1_absolute_error": 1678.7505,
+      "t2_cpl": 5342.456091441316,
+      "t2_legal": 0.5978333333333333,
+      "t3_score": 0.41775,
+      "job_id": 6000,
+      "t1_relative_error": 0.8446524573986359,
+      "t1_abs_error_excl_mate": 83.72407628128725,
+      "t2_cpl_clamped": 758.6361862280457,
+      "t2_wp_loss": 329.3380623483058,
+      "t2_legal_attempted": 0.89675,
+      "t3_score_v2": 0.41775
+    },
+    {
+      "model": "mistral:7b-board-ft",
+      "difficulty": "extreme",
+      "t1_absolute_error": 245.25075,
+      "t2_cpl": 4013.6543243990054,
+      "t2_legal": 0.6031666666666666,
+      "t3_score": 0.46825,
+      "job_id": 6000,
+      "t1_relative_error": 0.7622704809544085,
+      "t1_abs_error_excl_mate": 76.56332655137335,
+      "t2_cpl_clamped": 810.2906880353689,
+      "t2_wp_loss": 369.36045229125057,
+      "t2_legal_attempted": 0.90475,
+      "t3_score_v2": 0.46825
+    },
+    {
+      "model": "mistral:7b-board-ft",
+      "difficulty": "hard",
+      "t1_absolute_error": 367.471,
+      "t2_cpl": 4316.535367545076,
+      "t2_legal": 0.6008333333333333,
+      "t3_score": 0.4705,
+      "job_id": 6000,
+      "t1_relative_error": 0.6971972922645262,
+      "t1_abs_error_excl_mate": 69.67628865979381,
+      "t2_cpl_clamped": 811.5597780859916,
+      "t2_wp_loss": 367.0808583676587,
+      "t2_legal_attempted": 0.90125,
+      "t3_score_v2": 0.4705
+    },
+    {
+      "model": "mistral:7b-board-ft",
+      "difficulty": "medium",
+      "t1_absolute_error": 676.5645,
+      "t2_cpl": 4786.683770217513,
+      "t2_legal": 0.5976666666666667,
+      "t3_score": 0.51475,
+      "job_id": 6000,
+      "t1_relative_error": 0.7198751112071493,
+      "t1_abs_error_excl_mate": 71.41480298189563,
+      "t2_cpl_clamped": 804.356664807585,
+      "t2_wp_loss": 357.7683925899967,
+      "t2_legal_attempted": 0.8965,
+      "t3_score_v2": 0.51475
+    },
+    {
+      "model": "qwen2.5:7b-board-ft",
+      "difficulty": "easy",
+      "t1_absolute_error": 1679.407,
+      "t2_cpl": 6205.55420090114,
+      "t2_legal": 0.6288333333333334,
+      "t3_score": 0.37175,
+      "job_id": 6000,
+      "t1_relative_error": 0.8534039033157452,
+      "t1_abs_error_excl_mate": 84.62365911799762,
+      "t2_cpl_clamped": 799.3657566922873,
+      "t2_wp_loss": 347.1140783765922,
+      "t2_legal_attempted": 0.94325,
+      "t3_score_v2": 0.37175
+    },
+    {
+      "model": "qwen2.5:7b-board-ft",
+      "difficulty": "extreme",
+      "t1_absolute_error": 244.61725,
+      "t2_cpl": 4823.585245046924,
+      "t2_legal": 0.6393333333333333,
+      "t3_score": 0.307,
+      "job_id": 6000,
+      "t1_relative_error": 0.7550751471757499,
+      "t1_abs_error_excl_mate": 75.83011190233978,
+      "t2_cpl_clamped": 834.5852450469239,
+      "t2_wp_loss": 378.1333096230205,
+      "t2_legal_attempted": 0.959,
+      "t3_score_v2": 0.307
+    },
+    {
+      "model": "qwen2.5:7b-board-ft",
+      "difficulty": "hard",
+      "t1_absolute_error": 370.846,
+      "t2_cpl": 5002.4615785360775,
+      "t2_legal": 0.6398333333333334,
+      "t3_score": 0.312,
+      "job_id": 6000,
+      "t1_relative_error": 0.7343716047900749,
+      "t1_abs_error_excl_mate": 73.4631443298969,
+      "t2_cpl_clamped": 837.9218546496484,
+      "t2_wp_loss": 376.8361487263627,
+      "t2_legal_attempted": 0.95975,
+      "t3_score_v2": 0.312
+    },
+    {
+      "model": "qwen2.5:7b-board-ft",
+      "difficulty": "medium",
+      "t1_absolute_error": 682.37825,
+      "t2_cpl": 5578.84262208068,
+      "t2_legal": 0.628,
+      "t3_score": 0.373,
+      "job_id": 6000,
+      "t1_relative_error": 0.7715136857746783,
+      "t1_abs_error_excl_mate": 76.95553780617678,
+      "t2_cpl_clamped": 841.839702760085,
+      "t2_wp_loss": 373.15254516552403,
+      "t2_legal_attempted": 0.942,
+      "t3_score_v2": 0.373
+    }
+  ],
+  "by_phase": [
+    {
+      "model": "deepseek-r1:7b-board-ft",
+      "phase": "endgame",
+      "t1_absolute_error": 574.0749685534591,
+      "t2_cpl": 3547.2830459770116,
+      "t3_score": 0.23312262958280658,
+      "job_id": 5964
+    },
+    {
+      "model": "deepseek-r1:7b-board-ft",
+      "phase": "middlegame",
+      "t1_absolute_error": 833.4793410748042,
+      "t2_cpl": 5086.648564778899,
+      "t3_score": 0.440310637529348,
+      "job_id": 16668
+    },
+    {
+      "model": "deepseek-r1:7b-board-ft",
+      "phase": "opening",
+      "t1_absolute_error": 203.0153677277717,
+      "t2_cpl": 3395.2512077294687,
+      "t3_score": 0.44127332601536773,
+      "job_id": 1368
+    },
+    {
+      "model": "gemma3:4b-board-ft",
+      "phase": "endgame",
+      "t1_absolute_error": 552.2520120724346,
+      "t2_cpl": 3070.5619146722165,
+      "t3_score": 0.19969818913480886,
+      "job_id": 5964
+    },
+    {
+      "model": "gemma3:4b-board-ft",
+      "phase": "middlegame",
+      "t1_absolute_error": 819.7885169186466,
+      "t2_cpl": 5667.526695768973,
+      "t3_score": 0.40739740820734344,
+      "job_id": 16668
+    },
+    {
+      "model": "gemma3:4b-board-ft",
+      "phase": "opening",
+      "t1_absolute_error": 175.56688596491227,
+      "t2_cpl": 3613.49430523918,
+      "t3_score": 0.3442982456140351,
+      "job_id": 1368
+    },
+    {
+      "model": "llama3.2:3b-board-ft",
+      "phase": "endgame",
+      "t1_absolute_error": 595.6224849094567,
+      "t2_cpl": 3466.8530759162304,
+      "t3_score": 0.22510060362173037,
+      "job_id": 5964
+    },
+    {
+      "model": "llama3.2:3b-board-ft",
+      "phase": "middlegame",
+      "t1_absolute_error": 857.8633909287257,
+      "t2_cpl": 5306.948024948025,
+      "t3_score": 0.5348272138228942,
+      "job_id": 16668
+    },
+    {
+      "model": "llama3.2:3b-board-ft",
+      "phase": "opening",
+      "t1_absolute_error": 227.52631578947367,
+      "t2_cpl": 3535.914364640884,
+      "t3_score": 0.5855263157894737,
+      "job_id": 1368
+    },
+    {
+      "model": "mistral:7b-board-ft",
+      "phase": "endgame",
+      "t1_absolute_error": 625.2980382293763,
+      "t2_cpl": 3342.757191871206,
+      "t3_score": 0.32193158953722334,
+      "job_id": 5964
+    },
+    {
+      "model": "mistral:7b-board-ft",
+      "phase": "middlegame",
+      "t1_absolute_error": 830.1319294456443,
+      "t2_cpl": 5187.938998045469,
+      "t3_score": 0.5094492440604752,
+      "job_id": 16668
+    },
+    {
+      "model": "mistral:7b-board-ft",
+      "phase": "opening",
+      "t1_absolute_error": 177.12280701754386,
+      "t2_cpl": 3739.910935738444,
+      "t3_score": 0.5964912280701754,
+      "job_id": 1368
+    },
+    {
+      "model": "qwen2.5:7b-board-ft",
+      "phase": "endgame",
+      "t1_absolute_error": 599.8651911468813,
+      "t2_cpl": 3729.853594080338,
+      "t3_score": 0.21403420523138833,
+      "job_id": 5964
+    },
+    {
+      "model": "qwen2.5:7b-board-ft",
+      "phase": "middlegame",
+      "t1_absolute_error": 840.8201043916487,
+      "t2_cpl": 6088.51768275339,
+      "t3_score": 0.38228941684665224,
+      "job_id": 16668
+    },
+    {
+      "model": "qwen2.5:7b-board-ft",
+      "phase": "opening",
+      "t1_absolute_error": 198.1765350877193,
+      "t2_cpl": 4308.470056497175,
+      "t3_score": 0.39035087719298245,
+      "job_id": 1368
+    }
+  ],
+  "by_source": [
+    {
+      "model": "deepseek-r1:7b-board-ft",
+      "source": "lichess_puzzles",
+      "t1_absolute_error": 733.1051578618318,
+      "t2_cpl": 4607.6153155579495,
+      "t2_legal": 0.464125,
+      "t3_score": 0.3889585947302384,
+      "job_id": 24000
+    },
+    {
+      "model": "gemma3:4b-board-ft",
+      "source": "lichess_puzzles",
+      "t1_absolute_error": 716.5850625,
+      "t2_cpl": 4763.3695839620605,
+      "t2_legal": 0.38658333333333333,
+      "t3_score": 0.3521875,
+      "job_id": 24000
+    },
+    {
+      "model": "llama3.2:3b-board-ft",
+      "source": "lichess_puzzles",
+      "t1_absolute_error": 756.7673125,
+      "t2_cpl": 4705.208870686651,
+      "t2_legal": 0.4781666666666667,
+      "t3_score": 0.46075,
+      "job_id": 24000
+    },
+    {
+      "model": "mistral:7b-board-ft",
+      "source": "lichess_puzzles",
+      "t1_absolute_error": 742.0091875,
+      "t2_cpl": 4613.111273181913,
+      "t2_legal": 0.599875,
+      "t3_score": 0.4678125,
+      "job_id": 24000
+    },
+    {
+      "model": "qwen2.5:7b-board-ft",
+      "source": "lichess_puzzles",
+      "t1_absolute_error": 744.312125,
+      "t2_cpl": 5398.419952681388,
+      "t2_legal": 0.634,
+      "t3_score": 0.3409375,
+      "job_id": 24000
+    }
+  ],
+  "hypothesis_tests": {
+    "H1": {
+      "description": "T1 error increases with difficulty",
+      "primary_metric": "relative_error",
+      "primary_supported": false,
+      "metrics": {
+        "absolute_error": {
+          "supported": false,
+          "values": {
+            "easy": 1674.963248162408,
+            "medium": 677.1984,
+            "hard": 365.246012300615,
+            "extreme": 236.76966544981747
+          },
+          "expect": "increasing"
+        },
+        "relative_error": {
+          "supported": false,
+          "values": {
+            "easy": 0.8011684301076837,
+            "medium": 0.7231269624579035,
+            "hard": 0.6751439177118639,
+            "extreme": 0.6777554432835462
+          },
+          "expect": "increasing"
+        },
+        "direction_accuracy": {
+          "supported": false,
+          "values": {
+            "easy": 0.39726986349317467,
+            "medium": 0.4707,
+            "hard": 0.5405770288514425,
+            "extreme": 0.5500325048757314
+          },
+          "expect": "decreasing"
+        }
+      },
+      "supported": false,
+      "values": {
+        "easy": 0.8011684301076837,
+        "medium": 0.7231269624579035,
+        "hard": 0.6751439177118639,
+        "extreme": 0.6777554432835462
+      }
+    },
+    "H2": {
+      "description": "T2 CPL increases with difficulty",
+      "primary_metric": "clamped_cpl",
+      "primary_supported": false,
+      "metrics": {
+        "absolute_cpl": {
+          "supported": false,
+          "values": {
+            "easy": 5755.940768621236,
+            "medium": 5046.7470122109635,
+            "hard": 4436.6042165168465,
+            "extreme": 4167.075598271303
+          },
+          "expect": "increasing"
+        },
+        "clamped_cpl": {
+          "supported": false,
+          "values": {
+            "easy": 779.6179344955098,
+            "medium": 827.8936087295401,
+            "hard": 809.585914764276,
+            "extreme": 804.9625233825711
+          },
+          "expect": "increasing"
+        },
+        "wp_loss": {
+          "supported": false,
+          "values": {
+            "easy": 338.40244119914956,
+            "medium": 368.14522596296274,
+            "hard": 366.1114217881284,
+            "extreme": 366.5606367152846
+          },
+          "expect": "increasing"
+        }
+      },
+      "supported": false,
+      "values": {
+        "easy": 779.6179344955098,
+        "medium": 827.8936087295401,
+        "hard": 809.585914764276,
+        "extreme": 804.9625233825711
+      }
+    },
+    "H3": {
+      "description": "T3 score decreases with difficulty",
+      "metric": "t3_score_v2",
+      "supported": false,
+      "values": {
+        "easy": 0.392296148074037,
+        "medium": 0.44033024768576434,
+        "hard": 0.39737750863320154,
+        "extreme": 0.3785528422738191
+      }
+    },
+    "H4": {
+      "description": "Larger models perform better within family",
+      "supported": false,
+      "columns_used": {
+        "t1": "spearman_rho",
+        "t2": "blunder_rate",
+        "t3": "t3_score_v2"
+      },
+      "by_family": {}
+    },
+    "H5": {
+      "description": "T3 advantage over T2 is largest in openings, smallest in endgames",
+      "supported": false,
+      "phase_values": {
+        "opening": {
+          "t2_legal_normalised": 0.7798245614035088,
+          "t3_score_normalised": 0.23579732397455583,
+          "gap_t3_minus_t2": -0.544027237428953
+        },
+        "middlegame": {
+          "t2_legal_normalised": 0.749712023038157,
+          "t3_score_normalised": 0.22743236915096718,
+          "gap_t3_minus_t2": -0.5222796538871898
+        },
+        "endgame": {
+          "t2_legal_normalised": 0.819718309859155,
+          "t3_score_normalised": 0.11939171156654414,
+          "gap_t3_minus_t2": -0.7003265982926108
+        }
+      },
+      "gap_order": [
+        -0.544027237428953,
+        -0.5222796538871898,
+        -0.7003265982926108
+      ],
+      "metrics_used": {
+        "t2": "t2_legal_attempted (normalised to [0,1])",
+        "t3": "t3_score_v2 (divided by 2 to normalise to [0,1])"
+      }
+    }
+  },
+  "provenance": {
+    "generated_at": "2026-10-29T16:26:43.635172+00:00",
+    "git_sha": "7c066b06f96edc1cbd52aa43b4c3c6116c5edaa6",
+    "git_dirty": true,
+    "results_file": "results/finetuning_experiment/evaluations_ft.jsonl",
+    "results_sha256": "6b6011756a43e94cef23c485c03529f7a3203f7509ba4ace03cbc85736d5cee7",
+    "results_records": 120000,
+    "engine": {
+      "name": "lc0",
+      "binary": "/home/rabrew/lc0-src/build/release/lc0",
+      "weights": "/home/rabrew/lc0-nets/network.pb",
+      "weights_sha256": "dbe00ba42760178e8ce719b9d0118c91678e60f18cb5acca39e1ddcdd785cf91",
+      "nodes": 800
+    },
+    "config_path": "config/config_finetuned.yaml",
+    "config": {
+      "stockfish": {
+        "path": "/usr/games/stockfish",
+        "depth": 15,
+        "threads": 1,
+        "workers": 24
+      },
+      "lc0": {
+        "binary": "/home/rabrew/lc0-src/build/release/lc0",
+        "weights": "/home/rabrew/lc0-nets/network.pb",
+        "onnx_model": "/home/rabrew/lc0-nets/network.onnx",
+        "nodes": 800
+      },
+      "ollama": {
+        "base_url": "http://localhost:11434",
+        "timeout": 600,
+        "max_retries": 3
+      },
+      "models": [
+        "llama3.2:3b-board-ft",
+        "gemma3:4b-board-ft",
+        "qwen2.5:7b-board-ft",
+        "mistral:7b-board-ft",
+        "deepseek-r1:7b-board-ft"
+      ],
+      "dataset": {
+        "lichess_source": "local",
+        "lichess_csv_path": "data/lichess_puzzles.csv",
+        "pgn_path": "data/games.pgn"
+      },
+      "benchmark": {
+        "max_positions_per_tier": 1000,
+        "random_seed": 42,
+        "prompt_formats": [
+          "fen_only",
+          "pgn+fen",
+          "cot",
+          "eval_only",
+          "move_only",
+          "explanation_only"
+        ]
+      },
+      "evaluation": {
+        "cpl_threshold": 50,
+        "centipawn_eval_range": {
+          "min": -2000,
+          "max": 2000
+        }
+      },
+      "workers": {
+        "count": 1
+      },
+      "correction_loop": {
+        "enabled": false,
+        "control_group": true,
+        "max_attempts": 2
+      },
+      "paths": {
+        "data_dir": "data",
+        "jobs_db": "jobs/db/jobs_ft.db",
+        "results_file": "results/finetuning_experiment/evaluations_ft.jsonl",
+        "logs_dir": "results/finetuning_experiment/logs",
+        "plots_dir": "results/finetuning_experiment/plots",
+        "metrics_dir": "results/finetuning_experiment/metrics"
+      }
+    },
+    "python": "3.14.2",
+    "packages": {
+      "pandas": "3.0.1",
+      "numpy": "2.4.3",
+      "chess": "1.999"
+    }
+  }
+}

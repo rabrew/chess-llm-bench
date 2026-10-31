@@ -1,0 +1,6 @@
+model,prompt_format,n,n_unknown,first_attempt_legal_rate,text_rescue_share,isolated_retry_share,final_legal_rate
+deepseek-r1:7b-board-ft,move_only,4000,0,0.66025,0.0,0.0,0.66025
+gemma3:4b-board-ft,move_only,4000,0,0.55875,0.0,0.0,0.55875
+llama3.2:3b-board-ft,move_only,4000,0,0.7005,0.0,0.0,0.7005
+mistral:7b-board-ft,move_only,4000,0,0.89025,0.0,0.0,0.89025
+qwen2.5:7b-board-ft,move_only,4000,0,0.94575,0.0,0.0,0.94575

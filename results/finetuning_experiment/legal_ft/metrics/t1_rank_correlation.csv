@@ -1,0 +1,6 @@
+model,n,spearman_rho
+deepseek-r1:7b-board-legal-ft,15694,0.02104669864168112
+gemma3:4b-board-legal-ft,15959,0.08713845472575679
+llama3.2:3b-board-legal-ft,16000,0.050902631461642825
+mistral:7b-board-legal-ft,16000,0.03270958181427597
+qwen2.5:7b-board-legal-ft,16000,0.0278942951593011
