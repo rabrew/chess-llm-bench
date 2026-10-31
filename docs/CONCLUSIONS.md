@@ -1,7 +1,9 @@
 # Project conclusions after the analysis fixes
 
-**Project:** Ryan Brew, PR09426 — *Do LLMs Reason? Benchmarking Logical Performance via Chess*  
-**Snapshot:** 31 October 2026, after CPU reanalysis of existing responses  
+**Project:** Ryan Brew, PR09426 — *Do LLMs Reason? Benchmarking Logical Performance via Chess*
+
+**Snapshot:** 31 October 2026, after CPU reanalysis of existing responses
+
 **Status:** Base and fine-tuning results analysed; plain-board and Claude move-quality results incomplete.
 
 ## Main conclusion
