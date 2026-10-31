@@ -1,0 +1,35 @@
+{
+  "seed": 42,
+  "per_tier": 250,
+  "positions": 1000,
+  "moves": 85102,
+  "nodes": [
+    800,
+    8000
+  ],
+  "lc0_binary": "/home/rabrew/lc0-src/build/release/lc0",
+  "lc0_weights": "/home/rabrew/lc0-nets/network.pb",
+  "engine_failures": {
+    "800": 0,
+    "8000": 0
+  },
+  "overall_blunder_rate": {
+    "stored": 0.42004888251744965,
+    "800": 0.42065991398557023,
+    "8000": 0.4209654297196306
+  },
+  "comparisons": {
+    "stored_vs_800": {
+      "rho": 0.9909655561829477,
+      "max_rank_shift": 2.0,
+      "models": 22
+    },
+    "stored_vs_8000": {
+      "rho": 0.9695087521174479,
+      "max_rank_shift": 4.0,
+      "models": 22
+    }
+  },
+  "criterion": "stored_vs_8000 rho >= 0.9",
+  "ranking_holds": true
+}

@@ -9,7 +9,7 @@ fine-tuning experiments (pieces only, and pieces + legal moves).
 > any table no longer matches the data. `summary.json` records the git commit, the data hash and the
 > engine settings the numbers came from (`provenance`). Numbers in the running text are quoted from
 > these tables. The audit that changed earlier figures is summarised at the end and logged in full in
-> `docs/issues-log.md` (Issues 14–23).
+> `docs/issues-log.md` (Issues 14–25).
 
 **Data.**
 - 4,000 Lichess puzzle positions (1,000 per rating tier) × 22 open-source models (2B–70B) × 6 prompt
@@ -389,9 +389,12 @@ Results, one column per criterion (base → pieces + legal moves):
   - Probably on in the April runs and off in the October re-run.
   - Legality and ρ match across the two to within 0.3 points.
   - The earlier claim that chain-of-thought explained DeepSeek-R1's T1 results is withdrawn.
-- **Engine strength.** Move quality uses Lc0 at 800 nodes. A check at a higher node count (that the
-  model ranking doesn't change) was not run. Adjacent models are statistically tied anyway, so only
-  large gaps are claimed.
+- **Engine strength.** Move quality uses Lc0 at 800 nodes. A check at 10× the nodes (T2-5,
+  `results/metrics/engine_strength_summary.json`) re-scored 1,000 seeded positions (85,102 moves).
+  The model ranking by blunder rate held: Spearman ρ = 0.97 against the pre-registered 0.9 (re-running
+  800 nodes gives 0.99, the engine's own noise). No model moved more than 4 places (gemma3:4b, 11th to
+  15th), and the overall blunder rate barely changed (42.0% to 42.1%). Mean CPL rises by about 10
+  at 8,000 nodes, so absolute CPL depends a little on search depth; the ranking does not.
 - **Explanation marking.** T3 is marked by rules (side named, theme words present), not judged by a
   person or a model. It measures whether the right words appear, not whether the reasoning is sound.
 - **Fine-tuning scope.** Only five models of 3–7B have been fine-tuned so far. The larger models (batch 2)
