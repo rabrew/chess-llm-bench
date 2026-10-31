@@ -59,3 +59,27 @@ Python stdlib (`sqlite3`, `argparse`). No new packages.
 - `run_all.sh` has no `except Exception` fallback to 0 and no hard-coded `results/plots/` or
   `results/metrics/`
 - `run_workers.py` does not use `utcnow`, and `write_run_log` keeps the trailing-`Z` timestamp format
+
+---
+
+## Added 2026-10-31: tier target from the config, and one skip list per run
+
+Two more defects, found before the plain-board run (`specs/plain-board-prompts.md`):
+
+| # | Defect | Effect |
+|---|---|---|
+| 5 | `JOBS_PER_TIER=5900` is hard-coded for 1,000 positions × 6 formats | A run with fewer positions or formats (plain-board: 125 × 3 = 375 per tier) never reaches it, so every finished tier is recorded as abandoned |
+| 6 | `skipped_tiers.txt` sits next to the jobs DB, shared by every config | An entry from one run (e.g. `llama3.2:3b::easy`) makes a later run with a different config skip that tier without running it |
+
+**Fix**
+- `scripts/tier_target.py --config <path>` prints the results needed per model per tier:
+  `floor(positions per tier × number of prompt formats × 5,900 / 6,000)`. Positions per tier is
+  `benchmark.sample_per_tier` when set, otherwise `benchmark.max_positions_per_tier`. The 5,900/6,000
+  allowance (jobs that fail every attempt) is the one the full benchmark always used, so its target
+  stays 5,900. A missing or invalid setting exits 1 with the reason; `run_all.sh` stops.
+- `run_all.sh` sets `JOBS_PER_TIER` from that script, and keeps its skip list at
+  `<jobs DB path without .db>_skipped_tiers.txt`, so each config has its own.
+
+**Tests:** the target is 5,900 for the full benchmark and 368 for plain-board; `sample_per_tier`
+wins over `max_positions_per_tier`; a missing `prompt_formats` or positions setting exits 1;
+`run_all.sh` has no hard-coded `JOBS_PER_TIER=` number and no shared `skipped_tiers.txt` path.

@@ -117,3 +117,45 @@ def test_run_log_timestamp_keeps_z_format(tmp_path):
     run_workers.write_run_log({}, "20261023_000000", str(tmp_path))
     stamp = json.loads((tmp_path / "run_20261023_000000.json").read_text())["timestamp"]
     assert re.fullmatch(r"\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(\.\d+)?Z", stamp)
+
+
+# ---------- tier target from the config (added 2026-10-31) ----------
+
+import tier_target  # noqa: E402
+
+SIX_FORMATS = ["fen_only", "pgn+fen", "cot", "eval_only", "move_only", "explanation_only"]
+
+
+def test_tier_target_full_benchmark_is_unchanged():
+    assert tier_target.results_needed_per_tier({"max_positions_per_tier": 1000, "prompt_formats": SIX_FORMATS}) == 5900
+
+
+def test_tier_target_uses_sample_per_tier_first():
+    bench = {"max_positions_per_tier": 1000, "sample_per_tier": 125,
+             "prompt_formats": ["fen_only", "board_text", "board_text+legal"]}
+    assert tier_target.results_needed_per_tier(bench) == 368
+
+
+@pytest.mark.parametrize("bench", [
+    {"max_positions_per_tier": 1000},
+    {"max_positions_per_tier": 1000, "prompt_formats": []},
+    {"prompt_formats": SIX_FORMATS},
+])
+def test_tier_target_bad_config_raises(bench):
+    with pytest.raises(ValueError):
+        tier_target.results_needed_per_tier(bench)
+
+
+def test_tier_target_cli_exits_1_on_bad_config(tmp_path):
+    config = tmp_path / "c.yaml"
+    config.write_text("benchmark:\n  max_positions_per_tier: 10\n")
+    result = subprocess.run([sys.executable, str(REPO / "scripts" / "tier_target.py"), "--config", str(config)],
+                            capture_output=True, text=True)
+    assert result.returncode == 1 and "prompt_formats" in result.stderr
+
+
+def test_run_all_takes_tier_target_and_skip_list_from_the_config():
+    assert not re.search(r"JOBS_PER_TIER=\d", RUN_ALL)
+    assert "scripts/tier_target.py" in RUN_ALL
+    assert "jobs/db/skipped_tiers.txt" not in RUN_ALL
+    assert 'SKIPPED_TIERS="${JOBS_DB%.db}_skipped_tiers.txt"' in RUN_ALL

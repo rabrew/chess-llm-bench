@@ -114,7 +114,16 @@ En passant: none
 2. Estimate the full run: 500 positions × 21 models × 3 formats = 31,500 jobs, plus retries.
 3. If the estimate is over 60 hours, cut to 60 per tier (240 positions) **before** starting, and
    record the change in this spec. The criteria do not change.
-4. Run in a `tmux` session with the existing workers; it resumes from the jobs database.
+4. Run in a `tmux` session with `BENCH_CONFIG=config/config_plain_board.yaml bin/run_all.sh`; it resumes
+   from the jobs database. Its tier target comes from this config (368 results per model per tier;
+   `specs/run-all-tier-tracking.md`, defects 5–6).
+5. `run_all.sh`'s step 7 (`retry_illegal_moves.py`) re-asks with a FEN prompt, but only into the
+   separate `_retried.jsonl` file. The comparison reads `evaluations.jsonl`, so no FEN reaches the
+   plain-format results.
+
+**Probe result (2026-10-31):** no prompt is cut off (longest 669 of 1,024 tokens, yi:34b). Seconds per
+prompt: llama3.2:3b 0.25, qwen2.5:14b 0.5, mixtral:8x7b 3.8–4.7. Estimated full run about 30 hours, so
+the full 500 positions are kept.
 
 ## Edge cases
 

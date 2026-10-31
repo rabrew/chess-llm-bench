@@ -159,8 +159,8 @@ restart_ollama_for_model() {
     print_info "Ollama ready (NUM_PARALLEL=$num_parallel, workers=$workers, PID=$OLLAMA_BG_PID)"
 }
 
-JOBS_PER_TIER=5900  # 6000 jobs per tier; skip if >= this many results already saved
-SKIPPED_TIERS="$(dirname "$JOBS_DB")/skipped_tiers.txt"  # persistent record of tiers abandoned due to exhausted queue
+JOBS_PER_TIER=$(python scripts/tier_target.py --config "$BENCH_CONFIG") || exit 1  # results that make a tier complete
+SKIPPED_TIERS="${JOBS_DB%.db}_skipped_tiers.txt"  # this config's record of tiers abandoned due to exhausted queue
 
 tier_done() {
     local model="$1" tier="$2"
