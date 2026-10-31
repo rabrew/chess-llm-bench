@@ -1,0 +1,3 @@
+Eval: -220
+Move: Bxc4
+Explanation: Black — Exchanging the bishop for the knight exposes White’s queenside pawns and gives Black’s rooks strong activity.

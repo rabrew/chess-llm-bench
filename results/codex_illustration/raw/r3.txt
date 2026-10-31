@@ -1,0 +1,3 @@
+Eval: -85
+Move: f5
+Explanation: Black — The pawn advance blocks White’s attacking bishop and leaves the exposed rook on h7 under threat.

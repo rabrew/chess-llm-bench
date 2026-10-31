@@ -1,0 +1,5 @@
+{"type":"thread.started","thread_id":"01a19425-dc44-7593-9c51-a90511cc5a51"}
+{"type":"turn.started"}
+{"type":"item.completed","item":{"id":"item_0","type":"agent_message","text":"I’ll check the forcing moves and queen exchanges to assess the position."}}
+{"type":"item.completed","item":{"id":"item_1","type":"agent_message","text":"Eval: 0\nMove: Qxc6+\nExplanation: Equal — Black can exchange queens and promote the g-pawn as White promotes the remaining pawn, reaching a drawn queen ending."}}
+{"type":"turn.completed","usage":{"input_tokens":29059,"cached_input_tokens":14336,"cache_write_input_tokens":0,"output_tokens":548,"reasoning_output_tokens":421}}

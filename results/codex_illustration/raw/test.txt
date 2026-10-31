@@ -1,0 +1,3 @@
+Eval: 19
+Move: f5
+Explanation: Equal — White’s slight edge is balanced by Black’s active rooks and central counterplay.

@@ -1,0 +1,5 @@
+{"type":"thread.started","thread_id":"01a19426-3758-7892-ae6d-157df8d4864a"}
+{"type":"turn.started"}
+{"type":"item.completed","item":{"id":"item_0","type":"agent_message","text":"I’ll check the tactical position and best move."}}
+{"type":"item.completed","item":{"id":"item_1","type":"agent_message","text":"Eval: -430\nMove: Qd5+\nExplanation: Black — The extra exchange and exposed White king give Black a strong advantage, with the advanced c3-pawn adding dangerous threats."}}
+{"type":"turn.completed","usage":{"input_tokens":29116,"cached_input_tokens":27264,"cache_write_input_tokens":0,"output_tokens":1075,"reasoning_output_tokens":956}}

@@ -1,0 +1,3 @@
+Eval: -120
+Move: Qc1+
+Explanation: Black — The forcing check gains time to target White’s pawns while maintaining a material advantage.

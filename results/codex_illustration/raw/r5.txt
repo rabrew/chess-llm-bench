@@ -1,0 +1,3 @@
+Eval: 0
+Move: Qxc6+
+Explanation: Equal — Black can exchange queens and promote the g-pawn as White promotes the remaining pawn, reaching a drawn queen ending.

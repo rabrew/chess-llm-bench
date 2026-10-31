@@ -1,0 +1,3 @@
+Eval: 0
+Move: Re8+
+Explanation: Equal — Black’s active king and rook counterbalance White’s more advanced king, leaving neither side a decisive advantage.

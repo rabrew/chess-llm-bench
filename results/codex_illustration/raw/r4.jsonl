@@ -1,0 +1,5 @@
+{"type":"thread.started","thread_id":"01a19424-d265-7483-b746-676c8a8d7ab9"}
+{"type":"turn.started"}
+{"type":"item.completed","item":{"id":"item_0","type":"agent_message","text":"I’ll check the tactics and best continuation."}}
+{"type":"item.completed","item":{"id":"item_1","type":"agent_message","text":"Eval: -60\nMove: Bf5\nExplanation: Black — The active queen and pressure against White’s center give Black the initiative."}}
+{"type":"turn.completed","usage":{"input_tokens":29080,"cached_input_tokens":14080,"cache_write_input_tokens":0,"output_tokens":1833,"reasoning_output_tokens":1717}}

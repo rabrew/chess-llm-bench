@@ -1,0 +1,18 @@
+You are analysing a chess position.
+Current position (FEN):
+6rk/pR3Qbp/1np1P1p1/8/2qP4/6PP/P2P2B1/7K b - - 0 27
+Answer all three questions below.
+
+1. What is the centipawn evaluation of this position from White's perspective?
+   A positive number means White is better. A negative number means Black is better.
+   0 means equal. Give only a number, no explanation.
+
+2. What is the best move for the side to play? Give only the move in SAN notation.
+
+3. Who stands better in this position — White, Black, or is it equal?
+   Give a one-sentence explanation of the key reason.
+
+Respond using this exact format:
+Eval: <integer>
+Move: <SAN move>
+Explanation: <White / Black / Equal> — <one sentence reason>
