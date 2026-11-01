@@ -168,3 +168,15 @@ companies for credits (Gary gave a free Codex subscription, not API credits).
 - Full CPU checks: main 1,164 passed; Claude 1,105 passed, one existing missing
   fixture skip. Required Ruff and main renderer consistency checks passed.
 - Updated numerical results and limitations are in `docs/CONCLUSIONS.md`.
+
+
+## Overnight resumption (2026-11-01T00:41:20+00:00)
+
+Ryan explicitly authorized “cap and resume”. The GPU power limit was changed
+from 360 W to 250 W and verified. Experiment 6 resumed in tmux `plainboard2`
+from the main checkout, with `SKIP_INSTALL=1` and append-only output to
+`~/plainboard.log`; the wrapper appends `EXIT <status>` on termination.
+The earlier paused status is superseded. No inference settings or registered
+criteria changed. The limit remains 250 W until explicitly restored; do not
+automatically raise it overnight. Runtime source files are now frozen while
+the job runs. Successful collection/scoring is not yet established.
