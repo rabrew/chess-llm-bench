@@ -94,7 +94,7 @@ def test_every_variant_is_registered_without_a_guessed_size():
         info = parse_model_info(variant.tag)
         assert info["family"] == "claude"
         assert info["size_b"] is None
-    assert set(API_MODEL_FAMILIES) == {v.tag for v in _variants()}
+    assert {tag for tag, family in API_MODEL_FAMILIES.items() if family == "claude"} == {v.tag for v in _variants()}
 
 
 def test_every_variant_has_a_price():

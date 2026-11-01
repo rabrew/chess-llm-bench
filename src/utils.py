@@ -178,6 +178,10 @@ API_MODEL_FAMILIES: dict[str, str] = {
     "claude-sonnet:5.5-nothink": "claude",
     "claude-sonnet:5.5-think": "claude",
     "claude-opus:5.5-low": "claude",
+    "gpt-5.4": "openai",
+    "gpt-5.4-2026-03-05": "openai",
+    "gpt-6.1-sol": "openai",
+    "gpt-6-luna": "openai",
 }
 
 
@@ -201,7 +205,7 @@ def parse_model_info(model_tag: str) -> dict[str, Any]:
     if model_tag in API_MODEL_FAMILIES:
         return {
             "family": API_MODEL_FAMILIES[model_tag],
-            "size_str": model_tag.split(":", 1)[1],
+            "size_str": model_tag.split(":", 1)[1] if ":" in model_tag else None,
             "size_b": None,
             "active_b": None,
             "is_moe": False,

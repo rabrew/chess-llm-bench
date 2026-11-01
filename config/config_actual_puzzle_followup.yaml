@@ -1,0 +1,19 @@
+# Exploratory actual-solver-position study; fixed by specs/actual-puzzle-followup.md.
+output_dir: results/actual_puzzle_followup
+parent_results: results/plain_board/evaluations.jsonl
+puzzle_meta: data/puzzle_meta.json
+puzzle_csv: data/lichess_puzzles.csv.zst
+models: [qwen2.5:7b, qwen2.5:32b, gemma4:31b]
+formats: [fen_only, board_text]
+seed: 42
+positions_per_tier: 25
+resamples: 1000
+ollama:
+  base_url: http://localhost:11434
+  timeout: 600
+  idle_timeout: 600
+lc0:
+  binary: /home/rabrew/lc0-src/build/release/lc0
+  weights: /home/rabrew/lc0-nets/network.pb
+  onnx_model: /home/rabrew/lc0-nets/network.onnx
+  nodes: 800

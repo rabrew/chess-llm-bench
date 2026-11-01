@@ -161,6 +161,16 @@ def rescore_t3_theme(theme: str | None, explanation: str | None) -> int | None:
     return 1 if theme_mentioned(theme, explanation) else 0
 
 
+def _result_fens(df: pd.DataFrame, data_dir: str) -> pd.Series:
+    """Prefer self-contained FENs; consult tier files only for missing rows."""
+    fens = _optional_column(df, "fen").copy()
+    missing = ~fens.map(lambda value: isinstance(value, str) and bool(value.strip()))
+    if missing.any() and "position_id" in df.columns:
+        recovered = df.loc[missing, "position_id"].map(_build_fen_lookup(data_dir))
+        fens.loc[missing] = recovered
+    return fens
+
+
 def load_results_df(
     results_file: str = "results/evaluations.jsonl",
     data_dir: str = "data",
@@ -187,6 +197,8 @@ def load_results_df(
     if not results:
         return pd.DataFrame()
     df = pd.DataFrame(results)
+
+    resolved_fens = None
 
     # ----- Model family / size --------------------------------------------
     # Stored values came from the old guessing parser (D3); recompute them.
@@ -225,13 +237,9 @@ def load_results_df(
     # (t2_eval_before); the no-search t1_stockfish_eval is only a fallback
     # for records never backfilled (specs/cpl-eval-before.md, T2-6).
     if "t2_cpl" in df.columns and "t1_stockfish_eval" in df.columns:
-        fen_lookup = _build_fen_lookup(data_dir)
-        if "fen" in df.columns:
-            fens = df["fen"]
-        elif "position_id" in df.columns:
-            fens = df["position_id"].map(fen_lookup)
-        else:
-            fens = pd.Series([None] * len(df))
+        fens = _result_fens(df, data_dir)
+        resolved_fens = fens
+        df["fen"] = fens
 
         white_to_move = fens.map(
             lambda f: _white_to_move_from_fen(f) if isinstance(f, str) else None
@@ -291,10 +299,8 @@ def load_results_df(
     # The ~98% final legality is mostly the worker's isolated move retry; only
     # rows with a saved raw reply show whether the model's own answer was legal.
     if "t2_legal" in df.columns and "prompt_format" in df.columns:
-        if "fen" in df.columns:
-            fens = df["fen"]
-        else:
-            fens = _optional_column(df, "position_id").map(_build_fen_lookup(data_dir))
+        fens = resolved_fens if resolved_fens is not None else _result_fens(df, data_dir)
+        df["fen"] = fens
         df["t2_move_source"] = _move_sources(df, fens)
         df["t2_first_attempt_legal"] = _first_attempt_legal(df["t2_move_source"], df["t2_legal"])
 
