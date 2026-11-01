@@ -20,24 +20,30 @@
         }
       },
       "C1": {
-        "status": "pending",
-        "verdict": "pending",
+        "status": "complete",
+        "verdict": "no clear difference",
         "local_model": "gemma4:31b",
         "comparison": {
-          "n_pairs": 0,
+          "n_pairs": 498,
           "left": "local",
           "right": "claude",
-          "left_value": null,
-          "right_value": null,
-          "left_ci": null,
-          "right_ci": null,
-          "difference": null,
-          "left_usable": 0,
+          "left_value": 0.3453815261044177,
+          "right_value": 0.2891566265060241,
+          "left_ci": [
+            0.30522088353413657,
+            0.38755020080321284
+          ],
+          "right_ci": [
+            0.2509538152610442,
+            0.3293172690763052
+          ],
+          "difference": -0.05622489959839361,
+          "left_usable": 498,
           "right_usable": 500,
           "fen_mismatches": 0
         },
-        "blunder_drop": null,
-        "cohort_complete": false,
+        "blunder_drop": 0.05622489959839361,
+        "cohort_complete": true,
         "scoring_complete": true,
         "expected_positions": 500
       },
@@ -230,24 +236,30 @@
         }
       },
       "C1": {
-        "status": "pending",
-        "verdict": "pending",
+        "status": "complete",
+        "verdict": "frontier model plays clearly better",
         "local_model": "gemma4:31b",
         "comparison": {
-          "n_pairs": 0,
+          "n_pairs": 498,
           "left": "local",
           "right": "claude",
-          "left_value": null,
-          "right_value": null,
-          "left_ci": null,
-          "right_ci": null,
-          "difference": null,
-          "left_usable": 0,
+          "left_value": 0.3453815261044177,
+          "right_value": 0.1927710843373494,
+          "left_ci": [
+            0.30522088353413657,
+            0.38755020080321284
+          ],
+          "right_ci": [
+            0.15863453815261044,
+            0.2289156626506024
+          ],
+          "difference": -0.15261044176706828,
+          "left_usable": 498,
           "right_usable": 500,
           "fen_mismatches": 0
         },
-        "blunder_drop": null,
-        "cohort_complete": false,
+        "blunder_drop": 0.15261044176706828,
+        "cohort_complete": true,
         "scoring_complete": true,
         "expected_positions": 500
       },
@@ -482,7 +494,7 @@
       "cpl_without_stored_reference": 0
     },
     "local": {
-      "records": 20991,
+      "records": 31487,
       "malformed_lines": 0,
       "file_missing": false,
       "missing_fen": 0,
@@ -496,8 +508,8 @@
   },
   "provenance": {
     "claude": {
-      "generated_at": "2026-10-31T23:46:06.364604+00:00",
-      "git_sha": "99f73b860a0acd4feb3cecbe8c4143a7608b984e",
+      "generated_at": "2026-11-01T16:06:15.704668+00:00",
+      "git_sha": "1da3d14be7ea486ae75a887c4623fb7745873fb5",
       "git_dirty": false,
       "results_file": "results/claude/evaluations.jsonl",
       "results_sha256": "0290a9903bdceeb72581ec2cc269e4812068cfceb74f23576d356cf6aab7cdbb",
@@ -603,12 +615,12 @@
       }
     },
     "local": {
-      "generated_at": "2026-10-31T23:46:06.455524+00:00",
-      "git_sha": "99f73b860a0acd4feb3cecbe8c4143a7608b984e",
+      "generated_at": "2026-11-01T16:06:15.809195+00:00",
+      "git_sha": "1da3d14be7ea486ae75a887c4623fb7745873fb5",
       "git_dirty": false,
       "results_file": "/home/rabrew/Desktop/clb-analysis/results/plain_board/evaluations.jsonl",
-      "results_sha256": "3aabe858619d3b07a7eeadefc84e817dcdaca6025a9f54c92007d0116791aacc",
-      "results_records": 20991,
+      "results_sha256": "bcec5c767ae6e2e0ff55a34e8ebc2dfb39bf1dd1dc9e7b17a966016b1e3519c0",
+      "results_records": 31487,
       "engine": {
         "name": "lc0",
         "binary": "/home/rabrew/lc0-src/build/release/lc0",
@@ -705,6 +717,7 @@
       }
     },
     "responses_file": "results/claude/responses.jsonl",
-    "responses_sha256": "c60f6efad061973fec9ae11ff88a6ec58d2818b39fa5edf071c91f7793bded7c"
+    "responses_sha256": "c60f6efad061973fec9ae11ff88a6ec58d2818b39fa5edf071c91f7793bded7c",
+    "analysis_metadata_note": "Offline read_scored loads stored FEN with temporary empty dataset directories, omitting redundant original dataset-tier lookup. Both inputs have zero missing FEN. Original config and result provenance retained; no API, engine, or Ollama calls made."
   }
 }
