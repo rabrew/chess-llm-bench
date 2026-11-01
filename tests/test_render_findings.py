@@ -88,6 +88,9 @@ def _sources(tmp_path):
         board_test=tmp_path / "missing_board.csv",
         legal_comparison=tmp_path / "missing_legal.csv",
         legal_board_test=tmp_path / "missing_legal_board.csv",
+        plain_summary=tmp_path / "missing_plain_summary.json",
+        claude_summary=tmp_path / "missing_claude_summary.json",
+        gpt_summary=tmp_path / "missing_gpt_summary.json",
     )
 
 
