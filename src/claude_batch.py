@@ -5,14 +5,18 @@ Only the transport differs: requests go out in batches at half price, and every 
 an append-only store, which is also the resume cache.
 """
 
+import fcntl
 import hashlib
 import json
 import logging
+import os
+import tempfile
 import re
 import stat
 import time
 from collections import Counter
 from collections.abc import Callable, Iterable, Mapping
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -38,6 +42,8 @@ EXPORT_PREFIX = "export "
 GROUP_OTHER_BITS = stat.S_IRWXG | stat.S_IRWXO
 BATCH_ENDED = "ended"
 SUCCEEDED = "succeeded"
+SUBMISSION_UNKNOWN = "submission_unknown"
+SUBMISSION_REVIEW = "Claude submission state requires manual review; no further requests were sent."
 PARSED_FIELDS = ("eval", "move", "explanation")
 
 
@@ -240,26 +246,106 @@ class ResponseStore:
 
     def append(self, rows: list[dict[str, Any]]) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)
+        created = not self.path.exists()
         with open(self.path, "a") as f:
             for row in rows:
                 f.write(json.dumps(row) + "\n")
+            f.flush()
+            os.fsync(f.fileno())
+        if created:
+            directory = os.open(self.path.parent, os.O_RDONLY | os.O_DIRECTORY)
+            try:
+                os.fsync(directory)
+            finally:
+                os.close(directory)
+
+
+class SubmissionSafetyError(RuntimeError):
+    """A paid submission cannot safely be retried without operator review."""
+
+
+@contextmanager
+def execution_lock(ledger_path: str | Path):
+    """One mutating CLI owns collection, submission and export for this ledger."""
+    path = Path(str(Path(ledger_path).resolve()) + ".lock")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a") as stream:
+        try:
+            fcntl.flock(stream.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            raise SubmissionSafetyError("Claude runner is already running for this ledger; no requests sent.") from None
+        try:
+            yield
+        finally:
+            fcntl.flock(stream.fileno(), fcntl.LOCK_UN)
 
 
 class BatchLedger:
-    """Batches submitted but not yet collected, so a restart polls them instead of paying twice."""
+    """Durable open batches and unresolved submissions; ambiguous state fails closed."""
 
     def __init__(self, path: str | Path):
         self.path = Path(path)
 
+    def _read(self) -> list[dict[str, Any]]:
+        try:
+            rows = json.loads(self.path.read_text()) if self.path.exists() else []
+            if not isinstance(rows, list):
+                raise ValueError
+            ids = []
+            for row in rows:
+                if not isinstance(row, dict) or type(row.get("round")) is not int or row["round"] not in (FIRST_ROUND, RETRY_ROUND):
+                    raise ValueError
+                if row.get("state") == SUBMISSION_UNKNOWN:
+                    raise SubmissionSafetyError(SUBMISSION_REVIEW)
+                if set(row) != {"id", "round"} or not isinstance(row["id"], str) or not row["id"].strip():
+                    raise ValueError
+                ids.append(row["id"])
+            if len(ids) != len(set(ids)):
+                raise ValueError
+            return rows
+        except (OSError, ValueError, TypeError):
+            raise SubmissionSafetyError(SUBMISSION_REVIEW) from None
+
     def open_batches(self) -> list[dict[str, Any]]:
-        return json.loads(self.path.read_text()) if self.path.exists() else []
+        return self._read()
 
     def _save(self, batches: list[dict[str, Any]]) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        self.path.write_text(json.dumps(batches, indent=2) + "\n")
+        temporary = None
+        try:
+            with tempfile.NamedTemporaryFile(mode="w", dir=self.path.parent, delete=False) as stream:
+                temporary = Path(stream.name)
+                stream.write(json.dumps(batches, indent=2) + "\n")
+                stream.flush()
+                os.fsync(stream.fileno())
+            os.replace(temporary, self.path)
+            directory = os.open(self.path.parent, os.O_RDONLY | os.O_DIRECTORY)
+            try:
+                os.fsync(directory)
+            finally:
+                os.close(directory)
+        finally:
+            if temporary is not None:
+                temporary.unlink(missing_ok=True)
+
+    def reserve(self, requests: list[dict[str, Any]], round_no: int) -> list[dict[str, Any]]:
+        previous = self.open_batches()
+        identities = [request.get("custom_id") for request in requests]
+        if type(round_no) is not int or round_no not in (FIRST_ROUND, RETRY_ROUND) or not identities or any(
+                not isinstance(identity, str) or not identity for identity in identities) or len(set(identities)) != len(identities):
+            raise SubmissionSafetyError(SUBMISSION_REVIEW)
+        self._save(previous + [{"state": SUBMISSION_UNKNOWN, "round": round_no, "request_ids": identities}])
+        return previous
+
+    def accept(self, previous: list[dict[str, Any]], batch_id: str, round_no: int) -> None:
+        if (type(round_no) is not int or round_no not in (FIRST_ROUND, RETRY_ROUND)
+                or not isinstance(batch_id, str) or not batch_id.strip()
+                or any(row["id"] == batch_id for row in previous)):
+            raise SubmissionSafetyError(SUBMISSION_REVIEW)
+        self._save(previous + [{"id": batch_id, "round": round_no}])
 
     def add(self, batch_id: str, round_no: int) -> None:
-        self._save(self.open_batches() + [{"id": batch_id, "round": round_no}])
+        self.accept(self.open_batches(), batch_id, round_no)
 
     def remove(self, batch_id: str) -> None:
         self._save([batch for batch in self.open_batches() if batch["id"] != batch_id])
@@ -300,7 +386,10 @@ def stored_row(result: Any, batch_id: str, lookup: Mapping[str, tuple], prices: 
 
 def wait_for_batch(client: Any, batch_id: str, poll_seconds: float, sleep: Callable[[float], None]) -> None:
     while True:
-        batch = client.messages.batches.retrieve(batch_id)
+        try:
+            batch = client.messages.batches.retrieve(batch_id)
+        except Exception:
+            raise SubmissionSafetyError(SUBMISSION_REVIEW) from None
         if batch.processing_status == BATCH_ENDED:
             return
         logger.info(f"{batch_id}: {batch.processing_status}, {batch.request_counts.processing} still processing")
@@ -309,7 +398,11 @@ def wait_for_batch(client: Any, batch_id: str, poll_seconds: float, sleep: Calla
 
 def collect_batch(client: Any, batch_id: str, store: ResponseStore, lookup: Mapping[str, tuple],
                   prices: Mapping[str, Mapping[str, float]], discount: float) -> int:
-    rows = [stored_row(result, batch_id, lookup, prices, discount) for result in client.messages.batches.results(batch_id)]
+    try:
+        rows = [stored_row(result, batch_id, lookup, prices, discount)
+                for result in client.messages.batches.results(batch_id)]
+    except Exception:
+        raise SubmissionSafetyError(SUBMISSION_REVIEW) from None
     kept = [row for row in rows if row is not None]
     store.append(kept)
     logger.info(f"{batch_id}: stored {len(kept)} of {len(rows)} results")
@@ -337,10 +430,15 @@ def run_round(client: Any, requests: list[dict[str, Any]], round_no: int, ledger
               lookup: Mapping[str, tuple], prices: Mapping[str, Mapping[str, float]], discount: float,
               poll_seconds: float, sleep: Callable[[float], None] = time.sleep) -> None:
     """Submit one batch, record it before waiting, then collect it."""
+    ledger.open_batches()
     if not requests:
         return
-    batch = client.messages.batches.create(requests=requests)
-    ledger.add(batch.id, round_no)
+    try:
+        previous = ledger.reserve(requests, round_no)
+        batch = client.messages.batches.create(requests=requests)
+        ledger.accept(previous, batch.id, round_no)
+    except Exception:
+        raise SubmissionSafetyError(SUBMISSION_REVIEW) from None
     logger.info(f"Submitted {batch.id}: {len(requests)} round-{round_no} requests")
     _finish(client, batch.id, ledger, store, lookup, prices, discount, poll_seconds, sleep)
 

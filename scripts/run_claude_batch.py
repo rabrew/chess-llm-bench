@@ -14,6 +14,7 @@ import json
 import logging
 import os
 import sys
+from contextlib import nullcontext
 from pathlib import Path
 from typing import Any
 
@@ -64,7 +65,45 @@ def run_rounds(client: Any, jobs: list[dict], variants: dict[str, cb.Variant], l
                      claude["batch_discount"], claude["poll_seconds"])
 
 
-def main() -> None:
+def make_client(sdk: Any, api_key: str) -> Any:
+    """Do not let the SDK retry an ambiguously accepted paid submission."""
+    try:
+        return sdk.Anthropic(api_key=api_key, max_retries=0)
+    except Exception:
+        raise SystemExit("Claude client initialization failed; check configuration privately.") from None
+
+
+def execute_live(config: dict, jobs: list[dict], by_tag: dict, lookup: dict,
+                 store: cb.ResponseStore, ledger: cb.BatchLedger) -> None:
+    """Caller holds the execution lock through credential access and final export."""
+    claude, paths = config["claude"], config["paths"]
+    try:
+        ledger.open_batches()
+    except cb.SubmissionSafetyError as error:
+        raise SystemExit(str(error)) from None
+    try:
+        api_key = cb.load_api_key(os.environ, claude["key_file"])
+    except cb.MissingApiKey as error:
+        raise SystemExit(str(error))
+    import anthropic
+
+    client = make_client(anthropic, api_key)
+    eval_range = tuple(config["evaluation"]["centipawn_eval_range"][k] for k in ("min", "max"))
+    try:
+        cb.collect_open_batches(client, ledger, store, lookup, claude["prices_per_mtok"], claude["batch_discount"],
+                                claude["poll_seconds"])
+        run_rounds(client, jobs, by_tag, lookup, store, ledger, claude)
+    except cb.SubmissionSafetyError as error:
+        raise SystemExit(str(error)) from None
+    except cb.BudgetExceeded as error:
+        logger.error(str(error))
+    written, failed = cb.write_finished(jobs, by_tag, store.load(), paths["results_file"], paths["failures_file"],
+                                        eval_range, claude["prices_per_mtok"], claude["batch_discount"])
+    logger.info(f"Wrote {written} records and {failed} failures")
+    print_status(store, claude["budget_usd"])
+
+
+def _main() -> None:
     args = parse_args()
     setup_logging()
     config = load_config(args.config)
@@ -77,38 +116,31 @@ def main() -> None:
         print_status(store, claude["budget_usd"])
         return
 
-    positions = cb.sample_positions(config, DataLoader(paths["data_dir"]))
-    lookup = cb.request_lookup(cb.build_jobs(positions, all_variants, formats), all_variants)
-    jobs = cb.build_jobs(cb.pilot_positions(positions, args.positions_per_tier), variants, formats)
-    by_tag = {v.tag: v for v in all_variants}
+    with nullcontext() if args.dry_run else cb.execution_lock(ledger.path):
+        if not args.dry_run:
+            ledger.open_batches()
+        positions = cb.sample_positions(config, DataLoader(paths["data_dir"]))
+        lookup = cb.request_lookup(cb.build_jobs(positions, all_variants, formats), all_variants)
+        jobs = cb.build_jobs(cb.pilot_positions(positions, args.positions_per_tier), variants, formats)
+        by_tag = {v.tag: v for v in all_variants}
 
-    if args.dry_run:
-        stored = store.load()
-        pending = cb.first_round_pending(jobs, by_tag, stored)
-        estimate = cb.estimate_usd(cb.count_by_variant(pending, lookup), list(stored.values()), claude)
-        print(f"{len(jobs)} jobs, {len(pending)} first-round requests to send, estimated ${estimate:.2f} "
-              f"(spent so far ${cb.spent_usd(stored.values()):.2f} of ${claude['budget_usd']:.2f}); "
-              f"re-asks come on top")
-        return
+        if args.dry_run:
+            stored = store.load()
+            pending = cb.first_round_pending(jobs, by_tag, stored)
+            estimate = cb.estimate_usd(cb.count_by_variant(pending, lookup), list(stored.values()), claude)
+            print(f"{len(jobs)} jobs, {len(pending)} first-round requests to send, estimated ${estimate:.2f} "
+                  f"(spent so far ${cb.spent_usd(stored.values()):.2f} of ${claude['budget_usd']:.2f}); "
+                  f"re-asks come on top")
+            return
 
+        execute_live(config, jobs, by_tag, lookup, store, ledger)
+
+
+def main() -> None:
     try:
-        api_key = cb.load_api_key(os.environ, claude["key_file"])
-    except cb.MissingApiKey as error:
-        raise SystemExit(str(error))
-    import anthropic
-
-    client = anthropic.Anthropic(api_key=api_key)
-    eval_range = tuple(config["evaluation"]["centipawn_eval_range"][k] for k in ("min", "max"))
-    try:
-        cb.collect_open_batches(client, ledger, store, lookup, claude["prices_per_mtok"], claude["batch_discount"],
-                                claude["poll_seconds"])
-        run_rounds(client, jobs, by_tag, lookup, store, ledger, claude)
-    except cb.BudgetExceeded as error:
-        logger.error(str(error))
-    written, failed = cb.write_finished(jobs, by_tag, store.load(), paths["results_file"], paths["failures_file"],
-                                        eval_range, claude["prices_per_mtok"], claude["batch_discount"])
-    logger.info(f"Wrote {written} records and {failed} failures")
-    print_status(store, claude["budget_usd"])
+        _main()
+    except cb.SubmissionSafetyError as error:
+        raise SystemExit(str(error)) from None
 
 
 if __name__ == "__main__":
