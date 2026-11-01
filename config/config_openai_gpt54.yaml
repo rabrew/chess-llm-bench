@@ -1,0 +1,17 @@
+# Account free-allowance eligibility must be confirmed before execution.
+openai:
+  model: gpt-5.4
+  key_file: ~/.config/chess-llm-bench/openai.env
+  max_output_tokens: 4000
+  timeout_seconds: 120
+  prices_per_mtok: {input: 2.50, output: 15.0}
+quota:
+  rolling_tokens: 200000
+  window_seconds: 86400
+benchmark:
+  positions_per_tier: 125
+  random_seed: 42
+  prompt_formats: [fen_only, board_text, board_text+legal]
+paths:
+  source_results: results/plain_board/evaluations.jsonl
+  output_dir: results/openai_gpt54
