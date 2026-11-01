@@ -1,0 +1,19 @@
+# Setup pilot only. Paid submission requires Ryan's approval and --execute.
+openai:
+  models:
+    - gpt-6.1-sol
+    - gpt-6-luna
+  key_file: ~/.config/chess-llm-bench/openai.env
+  budget_usd: 2.0
+  max_output_tokens: 4000
+  timeout_seconds: 120
+  prices_per_mtok:
+    gpt-6.1-sol: {input: 2.0, output: 10.0}
+    gpt-6-luna: {input: 0.10, output: 0.50}
+benchmark:
+  positions_per_tier: 5
+  random_seed: 42
+  prompt_format: board_text
+paths:
+  source_results: results/plain_board/evaluations.jsonl
+  output_dir: results/openai_pilot
