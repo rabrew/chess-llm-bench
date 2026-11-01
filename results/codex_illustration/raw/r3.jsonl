@@ -1,0 +1,5 @@
+{"type":"thread.started","thread_id":"01a19424-0577-7552-8c3a-03a48665844d"}
+{"type":"turn.started"}
+{"type":"item.completed","item":{"id":"item_0","type":"agent_message","text":"I’ll check Black’s forcing moves and the resulting material balance."}}
+{"type":"item.completed","item":{"id":"item_1","type":"agent_message","text":"Eval: -85\nMove: f5\nExplanation: Black — The pawn advance blocks White’s attacking bishop and leaves the exposed rook on h7 under threat."}}
+{"type":"turn.completed","usage":{"input_tokens":29125,"cached_input_tokens":14208,"cache_write_input_tokens":0,"output_tokens":1434,"reasoning_output_tokens":1318}}

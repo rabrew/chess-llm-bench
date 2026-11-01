@@ -1,0 +1,5 @@
+{"type":"thread.started","thread_id":"01a19426-d565-7572-8aea-53e66e6701fb"}
+{"type":"turn.started"}
+{"type":"item.completed","item":{"id":"item_0","type":"agent_message","text":"I’ll check the tactics and best move."}}
+{"type":"item.completed","item":{"id":"item_1","type":"agent_message","text":"Eval: -35\nMove: Rd8\nExplanation: Black — Pressure along the d-file makes White’s central pawns vulnerable and gives Black the easier development."}}
+{"type":"turn.completed","usage":{"input_tokens":29093,"cached_input_tokens":14208,"cache_write_input_tokens":0,"output_tokens":994,"reasoning_output_tokens":874}}

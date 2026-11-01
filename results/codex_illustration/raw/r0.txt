@@ -1,0 +1,3 @@
+Eval: -150
+Move: Bxc4
+Explanation: Black — The pinned rook on d4 allows Black to exchange the knight and gain material through tactical pressure.

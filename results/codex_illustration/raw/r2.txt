@@ -1,0 +1,3 @@
+Eval: 650
+Move: Nf5
+Explanation: White — Nf5 opens the g-file against Black’s mating threat and creates powerful threats against the exposed king.

@@ -1,0 +1,5 @@
+{"type":"thread.started","thread_id":"01a19428-0f63-7d30-8347-4c18d7ca26af"}
+{"type":"turn.started"}
+{"type":"item.completed","item":{"id":"item_0","type":"agent_message","text":"I’ll check the forcing moves and evaluation."}}
+{"type":"item.completed","item":{"id":"item_1","type":"agent_message","text":"Eval: 175\nMove: Kh1\nExplanation: White — White escapes the bishop’s check while retaining active pieces and the prospect of an extra pawn after ...cxd5 Bxd5."}}
+{"type":"turn.completed","usage":{"input_tokens":29075,"cached_input_tokens":27392,"cache_write_input_tokens":0,"output_tokens":1527,"reasoning_output_tokens":1401}}

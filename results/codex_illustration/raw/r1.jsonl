@@ -1,0 +1,5 @@
+{"type":"thread.started","thread_id":"01a19422-8ca7-7371-9850-ae57513e3a11"}
+{"type":"turn.started"}
+{"type":"item.completed","item":{"id":"item_0","type":"agent_message","text":"I’ll check the tactics and material balance."}}
+{"type":"item.completed","item":{"id":"item_1","type":"agent_message","text":"Eval: 143\nMove: Rc1\nExplanation: White — White has two extra pawns, and Rc1 saves the attacked rook while gaining a tempo against Black’s knight."}}
+{"type":"turn.completed","usage":{"input_tokens":28900,"cached_input_tokens":14208,"cache_write_input_tokens":0,"output_tokens":986,"reasoning_output_tokens":867}}

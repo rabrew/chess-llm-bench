@@ -48,3 +48,9 @@ dashboard/tailwind.min.js
 
 # Plain-board run (specs/plain-board-prompts.md): raw records go on the data release
 results/plain_board/evaluations.jsonl
+
+# Secrets: API keys live outside the repo (specs/commercial-models.md); never commit a key file
+.env
+*.env
+# Claude runs: open-batch ledger is runtime state
+results/claude/batches.json

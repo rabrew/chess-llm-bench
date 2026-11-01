@@ -28,3 +28,6 @@ trl>=0.8.0
 datasets>=2.18.0
 huggingface-hub>=0.22.0
 zstandard>=0.21.0
+
+# API models (specs/commercial-models.md)
+anthropic>=2.3.0

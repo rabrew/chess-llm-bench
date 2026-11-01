@@ -1,0 +1,5 @@
+{"type":"thread.started","thread_id":"01a1941f-8d2d-7c83-aaa4-d025f13c6b4e"}
+{"type":"turn.started"}
+{"type":"item.completed","item":{"id":"item_0","type":"agent_message","text":"I’ll check the position for tactics and the strongest move."}}
+{"type":"item.completed","item":{"id":"item_1","type":"agent_message","text":"Eval: -220\nMove: Bxc4\nExplanation: Black — Exchanging the bishop for the knight exposes White’s queenside pawns and gives Black’s rooks strong activity."}}
+{"type":"turn.completed","usage":{"input_tokens":29129,"cached_input_tokens":18944,"cache_write_input_tokens":0,"output_tokens":3177,"reasoning_output_tokens":3052}}

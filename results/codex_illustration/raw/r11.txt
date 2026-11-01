@@ -1,0 +1,3 @@
+Eval: 0
+Move: Qf4
+Explanation: Equal — White’s active queen counterplay balances Black’s threats against the exposed king on the b-file.

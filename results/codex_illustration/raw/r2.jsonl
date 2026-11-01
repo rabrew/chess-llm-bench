@@ -1,0 +1,5 @@
+{"type":"thread.started","thread_id":"01a19423-061e-7702-88a0-d8a9b0518519"}
+{"type":"turn.started"}
+{"type":"item.completed","item":{"id":"item_0","type":"agent_message","text":"I’ll check the forcing lines and look for an available chess engine."}}
+{"type":"item.completed","item":{"id":"item_1","type":"agent_message","text":"Eval: 650\nMove: Nf5\nExplanation: White — Nf5 opens the g-file against Black’s mating threat and creates powerful threats against the exposed king."}}
+{"type":"turn.completed","usage":{"input_tokens":29253,"cached_input_tokens":23168,"cache_write_input_tokens":0,"output_tokens":1814,"reasoning_output_tokens":1695}}

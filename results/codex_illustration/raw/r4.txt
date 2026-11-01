@@ -1,0 +1,3 @@
+Eval: -60
+Move: Bf5
+Explanation: Black — The active queen and pressure against White’s center give Black the initiative.

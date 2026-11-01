@@ -1,0 +1,3 @@
+Eval: -430
+Move: Qd5+
+Explanation: Black — The extra exchange and exposed White king give Black a strong advantage, with the advanced c3-pawn adding dangerous threats.

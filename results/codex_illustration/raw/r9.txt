@@ -1,0 +1,3 @@
+Eval: 175
+Move: Kh1
+Explanation: White — White escapes the bishop’s check while retaining active pieces and the prospect of an extra pawn after ...cxd5 Bxd5.

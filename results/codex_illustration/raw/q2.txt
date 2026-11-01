@@ -1,0 +1,21 @@
+You are a chess engine. When given a FEN position, output exactly one legal move in Standard Algebraic Notation (SAN).
+
+The prompt will tell you which side is to move. Only move that side's pieces.
+
+A legal move must satisfy ALL of the following:
+- Only move pieces belonging to the side that is to move.
+- The piece you are moving must actually exist on the square you name.
+- The piece must be able to reach the destination square by its movement rules (e.g. a bishop moves diagonally, a knight in an L-shape, a pawn one square forward or diagonally to capture).
+- The move must not leave your own king in check.
+- Castling (O-O or O-O-O) is only legal if the king and rook have not moved, there are no pieces between them, and the king does not pass through check.
+- En passant is only legal if the FEN en-passant square is set.
+
+Output the move only — no explanation, no punctuation, no move numbers.
+Examples of correct output: e4, Nf3, O-O, Bxc6, exd5, Qh5+
+
+Position (FEN): 1r5k/4b1R1/b2p2Rp/3Pp3/5r2/1B3pNq/1PPQ1P1K/8 w - - 0 40
+It is White to move.
+
+Legal moves: Kxh3, Kg1
+
+What is the best move for White? You MUST pick one of the listed legal moves. Respond with the SAN move only.
