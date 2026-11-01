@@ -454,3 +454,32 @@ release policy remains separate; no original responses or caches were deleted.
 - No GPT-5.4 campaign has started; free-project eligibility and exclusive use of
   the shared daily pool remain unconfirmed. No additional paid Luna/Sonnet or
   training work was started. GPU cap remains 250 W.
+
+
+## 11. GPT-5.4 campaign authorized and started (1 November 2026)
+
+This supersedes the earlier prepared-not-started status. Ryan authorized
+“yes go with gpt 5.4” following the eligibility/shared-pool explanation. The
+runner was launched with operator-confirmation flags. It does not verify the
+provider's billing entitlement; estimated list-price usage must not be reported
+as an independently confirmed charge or as verified free billing.
+
+An initial **20-request** checkpoint (not 20 distinct positions) was reviewed:
+7 FEN, 7 plain-board, 6 plain+legal. All returned parseable fields; no caps or
+refusals. Fourteen moves were legal. Input 6,822 plus output 853 = **7,675 tokens**,
+with zero reported reasoning tokens at the model's default setting. Returned
+model: `gpt-5.4-2026-03-05`; estimated list price **$0.02985**. Outputs committed
+at `68374c5`. This small prefix is not a population-level result.
+
+The same fixed **500 positions × three formats = 1,500 requests** continues in
+background tmux `gpt54`. It reserves conservatively before each request and
+stops at the **200k rolling-24-hour token guard**. No new model, thinking variant,
+move rescue, training or GPU workload was started. No automatic daily scheduler
+was installed. Live files are not edited/enriched; subsequent completed
+checkpoints can be committed without pretending the initial20 snapshot is final.
+
+Required remaining work for this campaign: complete quota-limited collection,
+score a finished snapshot with Lc0, report first-answer/conditional coverage and
+uncertainty, and integrate results. A small actual-puzzle experiment would answer
+the existing setup-position limitation; longer fine-tuning and another broad
+model sweep are optional, not prerequisites for the current conclusions.

@@ -496,8 +496,9 @@ A later, separately authorized API feasibility pilot used 20 shared positions
 each for GPT-6.1 Sol and GPT-6 Luna. All 40 requests completed for an estimated
 $0.5613 at uncached token rates. Sol hit a 4,000-token cap twice and Luna 18 times;
 these truncations produced missing answers. This is a setup/cost result, **not a
-clean model-ability comparison**. No additional GPT-5.4 campaign has started;
-free-allowance entitlement is unverified. See `docs/PROJECT_RECORD.md` and
+clean model-ability comparison**. A subsequent GPT-5.4 campaign has started with a local rolling-token guard;
+free-credit application remains unverified, and its partial results are not
+yet a completed model comparison. See `docs/PROJECT_RECORD.md` and
 `results/openai_pilot/summary.json`.
 
 ---

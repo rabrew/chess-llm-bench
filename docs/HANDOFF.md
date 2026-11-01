@@ -37,8 +37,10 @@ following completed runs:
   records disclosed, all **30,625 legal moves** have finite nonnegative CPL.
 - OpenAI setup pilot: **40/40 requests complete**, estimated **$0.5612788**.
   Sol: 17/20 legal first answers, two caps. Luna: 2/20 legal, 18 caps.
-- GPT-5.4 daily campaign: **prepared but not started**. It requires confirmation
-  of the eligible project and exclusive use of the reported shared free pool.
+- GPT-5.4 campaign: **running in tmux `gpt54`**, authorized by Ryan after the
+  eligibility/exclusive-pool explanation. First 20 requests were independently
+  audited and committed; the 1,500-request plan is continuing until its rolling
+  quota guard stops it. Provider free-credit application remains unverified.
 - GPU power limit remains **250 W**, set with Ryan's approval. Do not raise it
   automatically. No reboot or 70B loading was performed.
 
@@ -101,15 +103,14 @@ on claude.ai can't be updated by Codex; edit the HTML in the repo instead.
 
 ## 6. Next steps
 
-1. Confirm free-project enrolment and exclusive use of the shared larger-model
-   allowance before running GPT-5.4. User reported 250k/day for listed larger
-   models and 2.5M/day for listed smaller models; eligibility is not verified by
-   the runner. User wants GPT-5.4, retains Luna, excludes mini/nano. Sol/Luna
-   are not on the pasted free list; no further paid Luna expansion is approved.
-2. Use `scripts/openai_daily_benchmark.py` first in offline mode. Its fixed
-   500-position/three-format plan has 1,500 requests and a 200k rolling-token
-   guard. Actual execution requires all three explicit flags and confirmed
-   account conditions; no recurring scheduler has been installed.
+1. Monitor the current GPT-5.4 campaign via `results/openai_gpt54/summary.json`
+   and `run.log` / tmux `gpt54`. It uses a 200k input+output-token rolling limit
+   inside the user-reported 250k pool. Do not edit running code/config/outputs.
+   Local accounting cannot independently verify invoice/free-credit application.
+2. The runner stops on quota exhaustion and records earliest resume time; there
+   is no automatic daily scheduler. Resume the same plan only once permitted by
+   the quota guard. Unknown/ambiguous request reservations need manual review,
+   never automatic retries. No additional paid Luna expansion is approved.
 3. Confirm the raw-data publication/backup plan. Final plain-board raw JSONL and
    original run logs remain local under existing data-release policy; metrics,
    figures, comparison reports and OpenAI pilot outputs are committed.
@@ -241,3 +242,22 @@ Final findings, simple summary, conclusions and four HTML write-up sources are
 updated. Browser rendering was not checked. Raw final plain-board JSONL, retry
 output and original run logs remain local; formal metrics/plots/comparisons and
 OpenAI pilot replies are committed. GPT-5.4 remains prepared, not started.
+
+
+## GPT-5.4 execution update (1 November 2026)
+
+Ryan said “yes go with gpt 5.4” after the pending eligibility/exclusive-pool
+explanation. Execution used the explicit operator-confirmation flags; billing
+entitlement itself has not been queried or independently verified.
+
+First 20 requests: 7 FEN, 7 plain board, 6 plain+legal, 14 legal first moves,
+no caps/refusals/missing fields, 7,675 input+output tokens. Returned model was
+`gpt-5.4-2026-03-05`. Estimated uncached list price $0.02985, distinct from
+actual free-credit application. Checkpoint is committed at `68374c5`.
+
+Continuation is running in tmux `gpt54`, sequential requests to the frozen
+500-position/three-format plan, no tools or rescue. It stops before the next
+reservation would exceed 200,000 tokens in a rolling 24 hours. Only completed
+checkpoints are committed; live response/ledger exports will differ in the
+working tree until the next safe checkpoint. The GPU remains idle/capped250W.
+Engine scoring is pending a finished snapshot; never enrich live campaign files.
