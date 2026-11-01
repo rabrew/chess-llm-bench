@@ -180,3 +180,26 @@ The earlier paused status is superseded. No inference settings or registered
 criteria changed. The limit remains 250 W until explicitly restored; do not
 automatically raise it overnight. Runtime source files are now frozen while
 the job runs. Successful collection/scoring is not yet established.
+
+## OpenAI pilot preparation (1 November 2026)
+
+- Ryan stored an OpenAI credential outside the repository. Its contents were
+  not inspected or displayed; file permissions are owner-only.
+- `specs/openai-pilot.md` and `config/config_openai_pilot.yaml` define a setup
+  pilot: GPT-6.1 Sol and GPT-6 Luna, 20 shared positions per model (5/tier),
+  plain-board prompts, no tools, no rescue, API default reasoning/sampling.
+- `venv/bin/python scripts/openai_pilot.py` is an offline-only plan. It does not
+  read credentials, contact services or create output files. Current plan: 40
+  requests, $1.1682 conservative reservation total within a $2 token-spend
+  ceiling. This is not a guarantee about provider billing or tax.
+- Paid submission requires explicit `--execute` and Ryan's spending approval;
+  approval of the proposed $2 pilot is still pending. No OpenAI requests have
+  been submitted. New outputs will be isolated under `results/openai_pilot/`.
+- An ambiguous request, missing/empty established ledger, lost completed ledger
+  entries or a changed plan must stop for review, never automatically resend.
+  This pilot tests setup and cost; it supplies no population-level verdict.
+- Separate collection audit: experiment 6's log ends in `EXIT 0` (13:42:45 GMT).
+  All 21 models have outputs: 31,487 records, with 19 models at 1,500, one at
+  1,491 and one at 1,496. All 30,625 legal moves have finite nonnegative CPL.
+  Saved metrics exist; the final registered comparison/provenance audit and
+  branch integration are still outstanding. Earlier running status is obsolete.
