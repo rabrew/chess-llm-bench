@@ -1,6 +1,6 @@
 # Chess LLM Benchmark — Simple Summary
 
-**Ryan Brew · draft of 2026-10-29**
+**Ryan Brew · updated 1 November 2026**
 
 ---
 
@@ -11,9 +11,9 @@ like chess?**
 
 Language models learn from huge amounts of internet text, which includes a lot of chess: game records,
 articles and puzzle solutions. Ask one a chess question and you get something that *sounds* right.
-Chess is a good way to check whether there is real reasoning underneath, because:
+Chess provides concrete behavioural checks, although performance cannot uniquely identify an internal reasoning mechanism:
 
-- every position has an objective answer that a chess engine can compute
+- a strong engine supplies a consistent reference, with search limitations disclosed
 - a move is either legal or illegal, with no grey area
 - you have to keep track of where every piece is
 
@@ -31,7 +31,10 @@ Chess is a good way to check whether there is real reasoning underneath, because
 
 ## What I found
 
-The numbers come straight from the results files (`results/metrics/summary.json`):
+The base numbers come from `results/metrics/summary.json`. Its displayed blunder
+interval below is legacy row-based output; corrected position-cluster analysis
+gives **40.74–42.97%** around the unchanged 41.86% point estimate. The 9.3%
+unaided legality applies only to the five base-rerun models.
 
 <!-- table:headline -->
 | Measure | Value |
@@ -50,7 +53,7 @@ The numbers come straight from the results files (`results/metrics/summary.json`
 
 ### 1. On their own, the models almost never give a legal move
 
-When a model has to give an evaluation, a move and an explanation in one answer, its move is legal
+In the five-model base rerun, when a model gives an evaluation, move and explanation together, its move is legal
 only about **1 time in 10**. The models mostly write a common opening move like "e4" or "Nf6",
 whatever the position. The final 97% legality only appears because the system asks again and hands
 the model a list of every legal move to choose from.
@@ -62,7 +65,7 @@ the model a list of every legal move to choose from.
 - **The human's move:** models more often play the move a human actually played in that position,
   usually the mistake that set up the puzzle.
 
-That looks like remembering familiar moves, not working out good ones.
+That is consistent with familiar-move behaviour, but does not independently prove memorisation.
 
 ### 3. Moves are either perfect or disasters
 
@@ -79,7 +82,7 @@ in between.
 ### 5. Bigger models are mostly not better
 
 From 2B to 70B the picture is the same for Llama, Qwen and DeepSeek-R1. The exception is Google's
-Gemma models, which do improve with size. That points to how a model was trained, not how big it is.
+Gemma models, which do improve with size. Size and training differ together here; this does not isolate their causes.
 
 ### 6. Asking them to "think step by step" doesn't help
 
@@ -91,9 +94,8 @@ repeatable.
 
 **Experiment 1: done.**
 - I fine-tuned five of the models to list exactly where every piece is.
-- **What they learned:** board-reading went from almost nothing to about 90–99% correct.
-- **What didn't change:** nothing else got better. Their moves got slightly *worse*, and they gave
-  *more* illegal moves, even with the list of legal moves in front of them.
+- **What they learned:** piece recall rose to about 89–99%; perfectly described boards were much less frequent, so this is not 99% complete-board accuracy.
+- **Transfer:** reliable overall play did not improve. Some individual measures improved, but final legality fell for all five models.
 - **What it means:** knowing where the pieces are didn't help them play.
 
 **Experiment 2: done.** The same five models were taught the piece positions *and every legal move*.
@@ -103,19 +105,32 @@ repeatable.
 - By the rule I set in advance, that means no conclusion about whether rules knowledge helps.
 - Still, their answers in the benchmark became *less* legal, not more, just as in Experiment 1.
 
+## The completed notation and Claude tests
+
+Giving 21 local models the same 500 positions as plain boards raised unaided
+legality from **21.19% to 25.51%**. Evaluation remained weak, and the paired
+blunder reduction was only **0.38 percentage points**. The exact registered
+verdict is **mixed**, not a definitive claim that notation is irrelevant.
+
+Claude showed stronger but limited competence. On 498 matched legal/scored
+positions, Opus blundered **19.28%** versus **34.54%** for Gemma4:31b and met the
+registered clear-improvement rule. Haiku did not meet its confidence-interval
+non-overlap requirement. Sonnet's thinking comparison was not run.
+
 ## The conclusion
 
-These models have learned what chess **looks like** (the notation, the vocabulary, the usual moves),
-not how it **works**. On every measure the evidence is more consistent with pattern matching than
-with reasoning. Being bigger mostly doesn't change that, and neither did teaching them where the
-pieces are.
+The tested local models have some chess knowledge, but their evaluations and
+moves are unreliable. The fine-tuning interventions did not improve dependable
+play. Frontier results are stronger, with substantial errors remaining.
+
+These findings are consistent with fragile reliance on learnt patterns, but
+cannot determine whether or how much a model reasons internally. Neither
+“LLMs cannot reason” nor a universal claim about fine-tuning follows.
 
 ## Honest limits
 
-- **Scope:** only open-source models up to 70B, and only chess. This says nothing about commercial
-  models or about reasoning in general.
-- **Possibly seen before:** the puzzles are public, so models may have seen them in training. That
-  makes the failures more striking, not less.
+- **Scope:** the base cohort is 22 local models; the commercial comparison is two Claude variants on 500 positions. Neither establishes a general theory of LLM reasoning.
+- **Possibly seen before:** public positions may be in training data, potentially inflating apparent competence. Contamination has not been ruled out.
 - **Setup position, not the puzzle:** the benchmark showed each puzzle's *starting* position, one move
   before the puzzle begins. That affects the "name the tactic" mark and the difficulty tiers, but not
   the move or evaluation scores.

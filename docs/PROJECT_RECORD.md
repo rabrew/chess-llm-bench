@@ -182,9 +182,9 @@ and Sonnet pilots. Offline scoring/comparison added no API expenditure.
 Limitations include public-puzzle contamination, unknown parameter counts,
 default API sampling settings, caps, and the unrun Sonnet comparison.
 
-The Claude branch remains separate. Latest compared outputs are committed at
+The Claude branch has been integrated after experiment 6 completed. Matched outputs are preserved at
 [`9ea9871`](https://github.com/rabrew/chess-llm-bench/tree/9ea9871/results/claude/metrics).
-Final integration/testing and publication updates remain outstanding.
+Final integration tests and publication source updates are now complete; see the dated update below.
 
 ### GPT illustration and OpenAI API setup pilot
 
@@ -342,14 +342,14 @@ allowance. This proposal is not an implemented or running daily campaign.
 | Actual puzzle themes and difficulty | New experiment on the actual puzzle positions |
 | Genuine move-history effect | New experiment with real histories |
 | GPT 12-position illustration | Illustrative only |
-| OpenAI 40-request pilot | Running at initial record creation; report final completeness/caps/cost before expansion |
-| GPT-5.4 daily free-quota benchmarking | Requested direction; entitlement confirmation, spec/tests/code and execution remain |
+| OpenAI 40-request pilot | Complete; 40 requests, 20 capped replies, estimated $0.5612788; not a clean ability comparison |
+| GPT-5.4 daily free-quota benchmarking | Spec/tests/code complete; no requests submitted, pending entitlement/exclusive-pool confirmation |
 
-The outstanding publication work includes final experiment 6/7 sections and
-generated tables in `FINDINGS.md`, the HTML write-up pages, updated conclusions,
-README/checklist statuses, full branch integration checks, master fast-forward
-and eventual Claude-worktree removal. Renderer support exists; that is not the
-same as every final page already being updated.
+Final experiment 6/7 sections and generated tables, HTML write-up sources,
+conclusions and README/checklist statuses have now been updated and reviewed.
+Branch integration, full checks, master fast-forward and archived worktree
+removal are recorded in the final update below. Human exhibition review and
+future experiments remain separate tasks.
 
 ## 8. Where to verify the record
 
@@ -372,3 +372,85 @@ same as every final page already being updated.
 For subsequent updates, append dated facts or explicitly supersede old status.
 Do not rewrite registered criteria, erase failed experiments, promote an interim
 result to final, or present a proposed action as completed.
+
+
+## 9. Subsequent completion and integration update (1 November 2026)
+
+The earlier pilot-running status is superseded. All **40 paid pilot requests**
+finished and passed an independent ledger/identity/usage audit. Recorded uncached
+list-price estimate: **$0.5612788**, within the approved $2 scope.
+
+| Pilot model | Legal first answers | Capped replies | Estimated USD |
+|---|---:|---:|---:|
+| GPT-6.1 Sol | 17/20 | 2/20 | 0.521006 |
+| GPT-6 Luna | 2/20 | 18/20 | 0.0402728 |
+
+There are 20 missing move/evaluation/explanation answers overall. Input usage
+was 14,906 tokens; output usage 129,665, including 128,782 reasoning tokens.
+Reasoning is already inside output and is not billed/countable a second time.
+These caps prevent a clean ability comparison; no move-quality claim is made.
+[Saved outputs](../results/openai_pilot/summary.json) are committed at `77f67fb`.
+No extra Luna requests or GPT-5.4 campaign requests have been submitted.
+
+Additional work completed:
+
+- Remaining generated E6 metrics and twelve figures committed at `35be11c`.
+- Claude branch merged after E6 completion at `4686a2c`; independent review
+  found no merge regressions and **1,286 CPU tests passed**.
+- A renderer test's temporary fixture accidentally fell back to real research
+  summaries after E6 outputs appeared. Baseline failure was recorded, all three
+  optional paths isolated to temporary files (`3ce21d1`), and checks rerun.
+- GPT-5.4 daily runner specified/configured at `4581c7c`, implemented at
+  `5b83402`, independently reviewed, with 30 new quota/clock/resume tests. Its
+  dry run describes **1,500 requests**, creates no campaign outputs and reads
+  no credentials. It needs explicit free-project and exclusive-pool operator
+  confirmation; a local counter is not an invoice entitlement check.
+- Experiment 6/7 findings tables now render from the final saved summaries;
+  the 12-position illustration has an independently reproducible structured
+  summary. Final write-up HTML is being reconciled with those results.
+- The original `~/Desktop/chess-llm-bench` checkout contained uncommitted code
+  and README edits. Its files and status were verified unchanged while moving
+  it to local branch `preserve/local-master-work-20261101`, preserving its old
+  baseline. That user's work remains **uncommitted and local**, not secretly
+  included in project publication. This permits a separate safe master update.
+- Independent review identified a pre-existing Claude paid-submission crash
+  window. Its safety correction is specified at `19aadf1` and is being tested
+  without paid requests; do not describe that hardening as complete until its
+  checks and commit are recorded.
+
+Original local run logs and the large raw plain-board JSONL are not implicitly
+published merely because analysis summaries/plots are pushed. Existing raw-data
+release policy remains separate; no original responses or caches were deleted.
+
+
+## 10. Final publication and safety checks (1 November 2026)
+
+- Claude submission hardening is complete at **`ed6c4d4`**. A durable unknown
+  reservation precedes paid batch creation; ambiguous outcomes block automatic
+  resubmission. SDK retries are disabled. An exclusive execution lock prevents
+  concurrent CLIs from overwriting reservation state. Raw replies are fsynced
+  before removing a completed batch from the ledger.
+- Independent review approved those changes. **1,308 full CPU tests passed**;
+  required Ruff, generated-table consistency and whitespace checks passed.
+  The python-chess deprecation warning is pre-existing. No live Claude calls
+  were used to validate execution safety.
+- FINDINGS, SIMPLE_SUMMARY, CONCLUSIONS, README, the readiness checklist and
+  four write-up HTML pages now incorporate completed experiment 6/7 results.
+  New findings tables are rendered from saved summaries; all 21 notation chart
+  rows were independently checked against the source. Browser rendering itself
+  was not verified. Historical base tables retain their disclosed legacy CIs;
+  corrected cluster uncertainty is reported separately rather than relabelled.
+- `master` was safely fast-forwarded and pushed after checks. Publication commits
+  are kept synchronized with `ft-fixes`; the preserved original checkout and its
+  uncommitted user edits are unchanged, and are not part of that publication.
+- The clean, merged Claude worktree was removed. Before removal, a private
+  backup was created and gzip-verified at
+  `~/.local/share/chess-llm-bench/worktree-backups/clb-claude-20261101T164357Z.tar.gz`.
+  Shared data/venv symlink targets were not removed. The historical Claude branch
+  and matched-result commits remain in git.
+- All code, documentation, formal metrics/figures and approved OpenAI pilot
+  replies are committed/pushed. The large raw plain-board JSONL, separate retry
+  output and original run logs remain local under existing raw-data policy.
+- No GPT-5.4 campaign has started; free-project eligibility and exclusive use of
+  the shared daily pool remain unconfirmed. No additional paid Luna/Sonnet or
+  training work was started. GPU cap remains 250 W.

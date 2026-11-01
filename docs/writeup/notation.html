@@ -84,7 +84,7 @@ footer { margin-top: 56px; padding-top: 16px; border-top: 1px solid var(--line);
   <p class="eyebrow">PR09426 · Do LLMs Reason? · Experiment 6</p>
   <h1>Is chess notation the barrier?</h1>
   <p class="lede">Every benchmark prompt described the position in FEN, a compact code that's hard even for many players. If the models failed only because they couldn't read FEN, the main conclusion would be unfair to them. This experiment removes the notation and asks again.</p>
-  <div class="status"><span class="pill">Interim</span><span>13 of 21 models finished · 31 Oct 2026 · blunder rate not yet scored</span></div>
+  <div class="status"><span class="pill">Final</span><span>21 models · 31,487 records · 13 missing · 1 Nov 2026</span></div>
 </header>
 
 <h2><span class="step">01</span>Hypothesis</h2>
@@ -139,22 +139,12 @@ Nc4, Nc6, Nd3+, Nf3+, …</pre>
     <p>Also lists every legal move.</p></div>
 </div>
 
-<h2><span class="step">03</span>Results so far</h2>
-<p>Pooled over the 13 finished models (all the 2B–32B models), paired by position:</p>
-<div class="tablebox"><table>
-  <thead><tr><th>Measure</th><th>FEN</th><th>Plain board</th><th>Plain + legal list</th><th>Threshold</th><th>H₀ holds?</th></tr></thead>
-  <tbody>
-    <tr><td>N4 · first answer legal</td><td class="n">16.9%</td><td class="n">24.6% <span class="wait">(23.3–25.9)</span></td><td class="n">88.4%</td><td class="n">&lt; 25%</td><td class="edge">On the edge</td></tr>
-    <tr><td>N2 · evaluation ρ</td><td class="n">0.10</td><td class="n">0.14 <span class="wait">(0.11–0.17)</span></td><td class="n">0.15</td><td class="n">&lt; 0.20</td><td class="ok">Yes</td></tr>
-    <tr><td>N3 · better side κ</td><td class="n">0.08</td><td class="n">0.09 <span class="wait">(0.06–0.11)</span></td><td class="n">0.08</td><td class="n">&lt; 0.20</td><td class="ok">Yes</td></tr>
-    <tr><td>N1 · blunder rate</td><td class="n wait">pending</td><td class="n wait">pending</td><td class="n wait">pending</td><td class="n">drop &lt; 5 pts</td><td class="wait">After the run</td></tr>
-  </tbody>
-</table></div>
-
+<h2><span class="step">03</span>Final results</h2>
+<p>Final: 21 models, 500 positions and 31,487 saved responses. Thirteen of the planned 31,500 responses are missing; all 30,625 legal moves have CPL. Each measure uses its own matched pairs, shown below.</p><div class="tablebox"><table><thead><tr><th>Measure</th><th>FEN</th><th>Plain board (95% CI)</th><th>Pairs</th><th>Registered condition</th><th>H₀ holds?</th></tr></thead><tbody><tr><td>N1 · blunder rate</td><td>42.2542%</td><td>41.8761% (95% CI 38.9913%–44.7903%)</td><td>9,786</td><td>drop &lt; 5 points</td><td>Yes</td></tr><tr><td>N2 · evaluation ρ</td><td>0.1214</td><td>0.1672 (95% CI 0.1364–0.1970)</td><td>10,059</td><td>&lt; 0.20</td><td>Yes</td></tr><tr><td>N3 · side κ</td><td>0.0802</td><td>0.0886 (95% CI 0.0673–0.1101)</td><td>10,089</td><td>&lt; 0.20</td><td>Yes</td></tr><tr><td>N4 · first answer legal</td><td>21.1861%</td><td>25.5149% (95% CI 24.3152%–26.7526%)</td><td>10,488</td><td>&lt; 25%</td><td>No</td></tr></tbody></table></div><p><b>Registered verdict: mixed.</b> N1–N3 hold; N4 fails because 25.5149% is above 25%. Its interval crosses that threshold, but the unchanged rule uses the point estimate. Plain boards improve legality by 4.3288 percentage points, while the paired blunder reduction is only 0.3781 points. Evaluation and side agreement remain weak.</p>
 <figure>
   <figcaption>
     <div class="title">First answer legal, FEN vs plain board</div>
-    <div class="sub">Share of combined-prompt answers whose first move was legal, before any re-asking. 500 positions per model.</div>
+    <div class="sub">Share of combined-prompt answers whose first move was legal, before any re-asking. Up to 500 matched positions per model; point estimates only, without model-level confidence intervals.</div>
   </figcaption>
   <div class="legend" aria-hidden="true">
     <span><i style="background:var(--series-fen)"></i>FEN</span>
@@ -170,23 +160,7 @@ Nc4, Nc6, Nd3+, Nf3+, …</pre>
   </details>
 </figure>
 
-<h3>What stands out</h3>
-<ul>
-  <li><b>Plain text helps models form legal moves.</b> Every finished model improved except gemma3:4b (13% → 7%). The larger models gained most: qwen2.5:32b 23% → 40%, gemma4:e2b 28% → 44%, qwen2.5:14b 16% → 35%.</li>
-  <li><b>Fewer wrong-colour moves.</b> Moves made for the wrong side fell from 14% to 8% of illegal first answers. Saying "Side to move: Black" in words helps.</li>
-  <li><b>Judging the position barely changes.</b> Naming the better side stays near chance (κ 0.08 → 0.09), even when every legal move is listed.</li>
-  <li><b>One model improves sharply on evaluation.</b> qwen2.5:32b's ρ rises from 0.08 to 0.33, above any model's FEN score in the main benchmark (best 0.25).</li>
-  <li><b>One model gets worse.</b> gemma3:12b's ρ falls from 0.35 to 0.08 without FEN. Its skill may be tied to seeing FEN strings in training.</li>
-</ul>
-
-<h2><span class="step">04</span>Conclusion <span class="pill" style="font-size:11px">Provisional</span></h2>
-<div class="box key">
-  <p><b>Chess notation is part of the problem, but not the main one.</b></p>
-  <p>A plain-English board helped the models produce legal moves, raising first-answer legality by about 8 points, and halved the moves made for the wrong colour. So notation does get in the way of <i>forming</i> a valid answer.</p>
-  <p>It did not help them <i>understand</i> the position. Their evaluations and their judgement of who stands better stayed close to chance, both on the plain board and when every legal move was handed to them. That is what a model which can read the board but not reason about it would do.</p>
-</div>
-<p>Under the pre-registered rule the verdict is likely to be <b>mixed</b>: first-answer legality (N4) is on its 25% threshold, and the models still to run are the larger ones that gain most. That doesn't weaken the main conclusion; it sharpens it. Notation affects whether a model gives a <i>legal</i> answer, not whether it gives a <i>good</i> one. The blunder rate (N1) will show whether move quality changed.</p>
-
+<h2><span class="step">04</span>Conclusion</h2><div class="box key"><p><b>Registered verdict: mixed.</b> Removing FEN helps first-answer legality, but the pooled blunder change is small and evaluation and side agreement remain weak. These outcomes measure chess competence; they do not identify an internal reasoning mechanism.</p></div><p>With a legal-move list, first-answer legality rises from 25.5100% to 87.2641% on 10,490 matched requests, while paired scored blunders rise from 41.7955% to 42.5137% on a separate 10,025-pair cohort. Assistance in forming legal moves must be distinguished from move quality.</p>
 <h3>Limitations</h3>
 <ul>
   <li>One plain-text format was tested. Others, such as an image of the board, might do better.</li>
@@ -194,18 +168,139 @@ Nc4, Nc6, Nd3+, Nf3+, …</pre>
   <li>500 positions rather than 4,000, to keep the run to about a day.</li>
 </ul>
 
-<div class="box check"><b>To update when the run finishes:</b> the "Interim" label, all four rows of the results table, the chart (21 models), and the verdict in the conclusion.</div>
+<p>Source: final provenance-bearing <code>results/plain_board/metrics/plain_board_summary.json</code>. Public puzzle contamination, missing responses and selection of legal/scored moves remain limitations.</p>
 
 <footer>Source: <code>results/plain_board/evaluations.jsonl</code>, analysed with the measures in <code>scripts/plain_board_compare.py</code>. Spec: <code>specs/plain-board-prompts.md</code>. Repository: github.com/rabrew/chess-llm-bench</footer>
 </div>
 
 <script>
 const DATA = [
-  ["gemma3:12b", .178, .270, .978], ["gemma3:4b", .128, .066, .962], ["gemma4:e2b", .280, .442, .992],
-  ["gemma4:e4b", .382, .406, .778], ["llama3.1:8b", .114, .162, .986], ["llama3.2:3b", .062, .068, .856],
-  ["mistral:7b", .144, .164, .698], ["phi4:14b", .196, .324, .816], ["qwen2.5:14b", .156, .350, .984],
-  ["qwen2.5:32b", .226, .396, .978], ["qwen2.5:7b", .128, .302, .966], ["solar:10.7b", .124, .156, .800],
-  ["wizardlm2:7b", .072, .085, .692],
+  [
+    "codellama:34b",
+    0.116,
+    0.08,
+    0.95
+  ],
+  [
+    "command-r:35b",
+    0.182,
+    0.368,
+    0.974
+  ],
+  [
+    "deepseek-r1:14b",
+    0.11,
+    0.134,
+    0.69
+  ],
+  [
+    "deepseek-r1:7b",
+    0.06237424547283702,
+    0.03621730382293763,
+    0.44176706827309237
+  ],
+  [
+    "gemma3:12b",
+    0.178,
+    0.27,
+    0.978
+  ],
+  [
+    "gemma3:4b",
+    0.128,
+    0.066,
+    0.962
+  ],
+  [
+    "gemma4:26b",
+    0.698,
+    0.494,
+    0.986
+  ],
+  [
+    "gemma4:31b",
+    0.736,
+    0.54,
+    0.972
+  ],
+  [
+    "gemma4:e2b",
+    0.28,
+    0.442,
+    0.992
+  ],
+  [
+    "gemma4:e4b",
+    0.382,
+    0.406,
+    0.778
+  ],
+  [
+    "llama3.1:8b",
+    0.114,
+    0.162,
+    0.986
+  ],
+  [
+    "llama3.2:3b",
+    0.062,
+    0.068,
+    0.856
+  ],
+  [
+    "mistral:7b",
+    0.144,
+    0.164,
+    0.698
+  ],
+  [
+    "mixtral:8x7b",
+    0.202,
+    0.38,
+    0.948
+  ],
+  [
+    "phi4:14b",
+    0.196,
+    0.324,
+    0.816
+  ],
+  [
+    "qwen2.5:14b",
+    0.156,
+    0.35,
+    0.984
+  ],
+  [
+    "qwen2.5:32b",
+    0.226,
+    0.396,
+    0.978
+  ],
+  [
+    "qwen2.5:7b",
+    0.128,
+    0.302,
+    0.966
+  ],
+  [
+    "solar:10.7b",
+    0.124,
+    0.156,
+    0.8
+  ],
+  [
+    "wizardlm2:7b",
+    0.07128309572301425,
+    0.0855397148676171,
+    0.6927710843373494
+  ],
+  [
+    "yi:34b",
+    0.15,
+    0.13,
+    0.876
+  ]
 ].sort((a, b) => b[2] - a[2]);
 const pct = v => (v * 100).toFixed(1) + "%";
 
@@ -218,7 +313,7 @@ for (const [m, f, p, l] of DATA) {
 
 const box = document.getElementById("chart");
 const NS = "http://www.w3.org/2000/svg";
-const ROW = 30, TOP = 8, BOTTOM = 28, LABEL = 108, RIGHT = 16, MAX = 0.5, THRESHOLD = 0.25;
+const ROW = 30, TOP = 8, BOTTOM = 28, LABEL = 108, RIGHT = 16, MAX = 0.8, THRESHOLD = 0.25;
 const tip = document.createElement("div"); tip.className = "tip"; tip.hidden = true; box.appendChild(tip);
 
 function el(name, attrs, parent) {

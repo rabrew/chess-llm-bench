@@ -120,7 +120,7 @@ footer { margin-top: 56px; padding-top: 16px; border-top: 1px solid var(--line);
   <li><b>Ground truth:</b> the Lc0 chess engine. One network pass for T1, an 800-node search for T2.</li>
   <li><b>Fairness checks:</b> every measure has a chance or trivial baseline, chance-corrected agreement (Cohen's κ), and bootstrap 95% confidence intervals.</li>
 </ul>
-<h3>Six experiments</h3>
+<h3>Seven experiments</h3>
 <div class="tablebox"><table>
   <thead><tr><th>#</th><th>Experiment</th><th>Question it answers</th></tr></thead>
   <tbody>
@@ -130,13 +130,13 @@ footer { margin-top: 56px; padding-top: 16px; border-top: 1px solid var(--line);
     <tr><td class="n">4</td><td>Fine-tune: board + legal moves</td><td>If it also learns the legal moves, does it play better?</td></tr>
     <tr><td class="n">5</td><td>Engine-strength check</td><td>Would a 10× stronger engine change the results?</td></tr>
     <tr><td class="n">6</td><td>Notation check</td><td>Do models fail only because chess notation (FEN) is hard to read?</td></tr>
-  </tbody>
+  <tr><td class="n">7</td><td>Claude Haiku and Opus</td><td>How do two frontier variants compare on the same 500 positions?</td></tr></tbody>
 </table></div>
 <p>Experiments 4 and 6 had success criteria committed to the repository <b>before</b> they ran, so the results couldn't change how they were judged.</p>
 
 <h2 id="results"><span class="step">03</span>Results</h2>
 <div class="stats">
-  <div class="stat"><div class="big">9.3%</div><div class="what">of the models' own first moves were legal (97% only after re-asking with a list of legal moves)</div></div>
+  <div class="stat"><div class="big">9.3%</div><div class="what">first-answer legality in the five-model raw-reply rerun (assisted final legality ≈97%)</div></div>
   <div class="stat"><div class="big">1.16×</div><div class="what">as likely as a random legal move to pick the engine's best move</div></div>
   <div class="stat"><div class="big">41.9%</div><div class="what">of legal moves were blunders, throwing away a won position or worse</div></div>
   <div class="stat"><div class="big">0.11</div><div class="what">rank correlation between models' evaluations and the engine's (1 = perfect, 0 = none)</div></div>
@@ -149,19 +149,19 @@ footer { margin-top: 56px; padding-top: 16px; border-top: 1px solid var(--line);
 
 <figure>
   <figcaption>
-    <div class="title">Blunder rate by model, with 95% confidence intervals</div>
+    <div class="title">Base benchmark blunder rate: point estimates</div>
     <div class="sub">Share of legal moves losing 1,000+ centipawns. Lower is better. Dashed line: all models pooled (41.9%).</div>
   </figcaption>
   <div class="chartbox" id="chart"></div>
   <details>
     <summary>Show as a table</summary>
     <div class="tablebox"><table id="datatable">
-      <thead><tr><th>Model</th><th>Size</th><th>Blunder rate</th><th>95% CI</th></tr></thead>
+      <thead><tr><th>Model</th><th>Size</th><th>Blunder rate</th><th>Uncertainty</th></tr></thead>
       <tbody></tbody>
     </table></div>
   </details>
 </figure>
-<p>Only the two largest Gemma 4 models stand clearly apart. Every other model's interval overlaps its neighbours', so their order is a statistical tie.</p>
+<p>The largest Gemma 4 models have the lowest point estimates. Adjacent ranks are not automatically significant; the chart does not display model-level uncertainty.</p>
 
 <div class="finding">
   <h3>2 · Without help, models rarely produce a legal move</h3>
@@ -185,19 +185,22 @@ footer { margin-top: 56px; padding-top: 16px; border-top: 1px solid var(--line);
 </div>
 <div class="finding">
   <h3>7 · Teaching the board didn't teach the game</h3>
-  <p>Fine-tuning five small models (3–7B) to list the pieces raised board reading from 1–19% to 89–99%. But evaluations stayed near chance, blunder rates rose slightly, and legality <i>fell</i> for all five. The legal-moves version didn't learn the rules well enough to pass its own pre-set check (65–81% of legal moves listed), so it can't answer whether knowing the rules would help.</p>
+  <p>Fine-tuning five small models (3–7B) to list the pieces raised board reading from 1–19% to 89–99%. Matched pooled final legality fell 95.88% → 76.89% and legal/scored non-blunder answers fell 56.21% → 43.96% of requests. Same-pair blunders changed 42.36% → 42.77%; some conditional measures improved. The legal-moves version didn't learn the rules well enough to pass its own pre-set check (65–81% of legal moves listed), so it can't answer whether knowing the rules would help.</p>
 </div>
 <div class="finding">
   <h3>8 · The engine isn't the reason</h3>
   <p>Re-scoring 85,102 moves with a 10× stronger engine kept the model ranking (ρ = 0.97), and the overall blunder rate barely moved (42.0% → 42.1%).</p>
 </div>
-<div class="finding">
-  <h3>9 · Notation is a small barrier, not the main one <span class="pill">Interim</span></h3>
-  <p>Given the board in plain English with no FEN, first-answer legality rose from 16.9% to 24.6%, but evaluation (ρ 0.10 → 0.14) and naming the better side (κ 0.08 → 0.09) stayed near chance. Results so far are from 13 of 21 models; the blunder rate is still to be scored.</p>
-</div>
+<div class="finding"><h3>9 · Final notation verdict: mixed</h3><p>Final: 21 models, 500 positions and 31,487 saved responses. Thirteen of the planned 31,500 responses are missing; all 30,625 legal moves have CPL. Each measure uses its own matched pairs, shown below.</p><div class="tablebox"><table><thead><tr><th>Measure</th><th>FEN</th><th>Plain board (95% CI)</th><th>Pairs</th><th>Registered condition</th><th>H₀ holds?</th></tr></thead><tbody><tr><td>N1 · blunder rate</td><td>42.2542%</td><td>41.8761% (95% CI 38.9913%–44.7903%)</td><td>9,786</td><td>drop &lt; 5 points</td><td>Yes</td></tr><tr><td>N2 · evaluation ρ</td><td>0.1214</td><td>0.1672 (95% CI 0.1364–0.1970)</td><td>10,059</td><td>&lt; 0.20</td><td>Yes</td></tr><tr><td>N3 · side κ</td><td>0.0802</td><td>0.0886 (95% CI 0.0673–0.1101)</td><td>10,089</td><td>&lt; 0.20</td><td>Yes</td></tr><tr><td>N4 · first answer legal</td><td>21.1861%</td><td>25.5149% (95% CI 24.3152%–26.7526%)</td><td>10,488</td><td>&lt; 25%</td><td>No</td></tr></tbody></table></div><p><b>Registered verdict: mixed.</b> N1–N3 hold; N4 fails because 25.5149% is above 25%. Its interval crosses that threshold, but the unchanged rule uses the point estimate. Plain boards improve legality by 4.3288 percentage points, while the paired blunder reduction is only 0.3781 points. Evaluation and side agreement remain weak.</p></div>
+<div class="finding"><h3>Claude: stronger but limited frontier competence</h3>
+<p>Haiku 5.5 and Opus 5.5 low-effort each answered 500 positions in three formats (1,500 records each). Their FEN first-answer legality was 88.8% and 93.8%; evaluation ρ was 0.4868 and 0.5769; side κ was 0.2621 and 0.3625. Assisted final FEN blunders were 29.0% and 19.2%, and engine-best moves 17.8% and 26.8%, versus 8.04% for random legal moves (2.21× and 3.33×).</p>
+<p><b>C1, 498 identical legal/scored pairs:</b> Gemma4:31b blunders were 34.5382%. Haiku scored 28.9157%: <b>“no clear difference”</b>, because the confidence intervals overlap despite a 5.6225-point reduction. Opus scored 19.2771%: <b>“frontier model plays clearly better”</b>, with a 15.2610-point reduction and non-overlapping intervals. These matched rates differ from the descriptive full-500 rates above.</p>
+<p><b>C4:</b> both receive the registered label <b>“notation was a major barrier”</b>. Its absolute plain-board ρ ≥ 0.30 branch triggers even though paired ρ falls from FEN for both variants. This formal result does not demonstrate a formatting gain. Sonnet C2/C3 are <b>not run</b>; pilot replies do not replace them.</p>
+<p>Recorded Claude cost, including retries and Sonnet pilots, is $12.2555896 (Haiku $0.8918706; Opus $11.058668; Sonnet pilots $0.305051). Offline scoring adds no API charge. Parameter counts are unknown; Claude used the API’s default sampling settings because temperature could not be set. Public-puzzle contamination, assistance and output caps limit interpretation; Haiku had 41 capped initial replies.</p>
+<p>The separate tool-disabled GPT illustration has only 12 positions (10 legal first moves, 12 legal final moves, six correct sides): <b>illustrative only</b>. The Sol/Luna 20-position-per-model API pilot tests setup and cost; capped replies prevent treating it as a completed frontier benchmark. No mini/nano experiment was run.</p></div>
 <div class="finding">
   <h3>10 · Simple metrics overstate the models</h3>
-  <p>Every correction made the models look worse: legality 64.6% (miscounted) → 9.3% first answer; best move "3–4× chance" → 1.16×; evaluation "low error" → worse than answering 0. Fair baselines matter.</p>
+  <p>Corrections changed the interpretation and uncertainty: legality 64.6% (miscounted) → 9.3% first answer; best move "3–4× chance" → 1.16×; evaluation "low error" → worse than answering 0. Fair baselines matter.</p>
 </div>
 
 <h3>Hypotheses scorecard</h3>
@@ -214,28 +217,18 @@ footer { margin-top: 56px; padding-top: 16px; border-top: 1px solid var(--line);
 <p><b>A caution on H1–H3:</b> the difficulty tiers are Lichess ratings of the puzzle that <i>follows</i> the position the models saw, not of that position itself. A flat result therefore says little about difficulty, and no conclusion rests on it.</p>
 
 <h2 id="conclusion"><span class="step">04</span>Conclusion</h2>
-<div class="box key">
-  <p><b>The models tested don't show reasoning about chess positions. Every result fits pattern matching on familiar chess text better than reasoning, and none points the other way.</b></p>
-  <p>They produce answers shaped like chess (a move in the right format, a number, a sentence about a bishop), but those answers barely depend on the actual position. Their own moves are rarely legal, their choices are near chance, their evaluations lose to always saying "equal", and their explanations lose to a fixed guess.</p>
-</div>
-<p>Neither more parameters, step-by-step prompting, teaching them to read the board, nor removing the chess notation changed this. The one exception, Google's Gemma models improving with size, points to what the models were trained on rather than to reasoning emerging with scale.</p>
-<p>This doesn't show that language models <i>can't</i> learn chess. A transformer trained on chess data has reached grandmaster level (Ruoss et al., 2024). It shows that general-purpose open-source models, despite seeing plenty of chess text, haven't learned to work out a position from it.</p>
-<p>The project also shows how easily simple metrics flatter these systems: at every step, adding a fair baseline made the models look weaker.</p>
-<blockquote>
-  <p><b>In one sentence:</b> the models talk about chess like players, but choose and judge like guessers.</p>
-</blockquote>
-
+<div class="box key"><p><b>The tested local models show weak chess competence; frontier Claude models show stronger but limited competence.</b> Opus meets C1’s clear-better criterion; Haiku does not. The local notation verdict is mixed, and the fine-tunes did not reliably improve overall play. These behavioural results cannot identify an internal reasoning mechanism or establish a claim about every LLM.</p></div>
 <h2 id="limits">Limitations</h2>
 <ul>
-  <li><b>Open-source models only,</b> 2B–70B, run locally. No commercial models (GPT, Claude, Gemini) yet, and no reasoning-trained model above 14B.</li>
+  <li><b>Scope:</b> 22 local models (2B–70B) and two full Claude variants. Claude parameter counts are unknown; Sonnet C2/C3 were not run.</li>
   <li><b>Difficulty tiers</b> describe the next position, not the one shown, so H1–H3 can't be tested properly.</li>
   <li><b>Explanations are marked by rules,</b> checking for the right words, not judging the reasoning.</li>
   <li><b>Model outputs aren't exactly repeatable</b> (default temperature). The positions, engine values and scoring are.</li>
   <li><b>Fine-tuning</b> covered five small models only, and the legal-moves version didn't learn its target.</li>
-  <li><b>Contamination:</b> the puzzles are public and may be in the models' training data, which makes their failure more striking, not less.</li>
-  <li><b>The notation experiment is still running</b> (13 of 21 models).</li>
+  <li><b>Contamination:</b> the puzzles are public and may be in the models' training data, which limits claims about generalization, especially for frontier successes.</li>
+  <li><b>Claude settings:</b> API defaults; temperature could not be set. Caps, assisted final moves and possible public-puzzle contamination remain limitations.</li>
 </ul>
-<div class="box check"><b>Mock write-up.</b> Numbers are from <code>docs/FINDINGS.md</code> as of 31 Oct 2026. Finding 9 updates when the notation run finishes. Rewrite in your own words before submitting.</div>
+<div class="box check"><b>Publication draft:</b> final experiment 6/7 summaries dated 1 Nov 2026; rewrite in your own words before submitting. The base chart shows point estimates only; historical row-based intervals are omitted. Corrected pooled position-cluster CI: 40.74–42.97%.</div>
 
 <footer>Code, specs, metrics and raw data: github.com/rabrew/chess-llm-bench</footer>
 </div>
@@ -256,7 +249,7 @@ const POOLED = 41.9, AXIS_MIN = 34, AXIS_MAX = 46;
 const tbody = document.querySelector("#datatable tbody");
 for (const [m, size, v, lo, hi] of DATA) {
   const tr = document.createElement("tr");
-  tr.innerHTML = `<td>${m}</td><td class="n">${size}</td><td class="n">${v.toFixed(1)}%</td><td class="n">${lo.toFixed(1)}–${hi.toFixed(1)}%</td>`;
+  tr.innerHTML = `<td>${m}</td><td class="n">${size}</td><td class="n">${v.toFixed(1)}%</td><td>Not displayed</td>`;
   tbody.appendChild(tr);
 }
 
@@ -278,7 +271,7 @@ function draw() {
   const plot = width - LABEL - RIGHT;
   const x = v => LABEL + ((v - AXIS_MIN) / (AXIS_MAX - AXIS_MIN)) * plot;
   const svg = el("svg", { width, height, viewBox: `0 0 ${width} ${height}`, role: "img",
-    "aria-label": "Blunder rate per model with 95% confidence intervals" }, box);
+    "aria-label": "Base blunder-rate point estimates per model" }, box);
   for (let t = AXIS_MIN; t <= AXIS_MAX; t += 2) {
     el("line", { x1: x(t), x2: x(t), y1: TOP, y2: height - BOTTOM, stroke: "var(--grid)", "stroke-width": 1 }, svg);
     const label = el("text", { x: x(t), y: height - 8, "text-anchor": "middle", "font-size": 11.5, fill: "var(--muted)" }, svg);
@@ -291,12 +284,11 @@ function draw() {
     const y = TOP + i * ROW + ROW / 2;
     const name = el("text", { x: LABEL - 10, y: y + 4, "text-anchor": "end", "font-size": 12.5, fill: "var(--fg)" }, svg);
     name.textContent = model;
-    el("line", { x1: x(lo), x2: x(hi), y1: y, y2: y, stroke: "var(--series-1)", "stroke-width": 2, "stroke-linecap": "round", opacity: .45 }, svg);
     el("circle", { cx: x(v), cy: y, r: 5, fill: "var(--series-1)", stroke: "var(--surface)", "stroke-width": 2 }, svg);
     const hit = el("rect", { x: LABEL, y: y - ROW / 2, width: plot, height: ROW, fill: "transparent", tabindex: 0,
-      "aria-label": `${model}, ${size}: ${v}% (95% CI ${lo}–${hi}%)` }, svg);
+      "aria-label": `${model}, ${size}: ${v}% (point estimate)` }, svg);
     const show = () => {
-      tip.textContent = `${model} (${size}) · ${v.toFixed(1)}%  [${lo.toFixed(1)}–${hi.toFixed(1)}]`;
+      tip.textContent = `${model} (${size}) · ${v.toFixed(1)}% (point estimate)`;
       tip.style.left = x(v) + "px"; tip.style.top = y + "px"; tip.hidden = false;
     };
     hit.addEventListener("pointerenter", show); hit.addEventListener("focus", show);

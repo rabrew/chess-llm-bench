@@ -1,0 +1,14 @@
+{
+  "model": "gpt-6.1-sol (Codex illustration)",
+  "n_positions": 12,
+  "first_answer_legal_count": 10,
+  "final_legal_count": 12,
+  "side_correct_count": 6,
+  "scope": "Illustrative only; not a population benchmark",
+  "provenance": {
+    "source": "results/codex_illustration/replies.json",
+    "source_sha256": "6ad8b5de34a33d51f2fe90f0ec485c392eb979943b778d98aaa3c1be1a032453",
+    "analysis_git_sha": "4686a2c6877b630ddcbc431e74da75055025122c",
+    "method": "Offline parsing and existing retry/scoring of saved replies; engine=None; no new inference"
+  }
+}

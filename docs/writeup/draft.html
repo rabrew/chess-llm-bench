@@ -99,14 +99,14 @@ a { color: var(--accent); }
 <div class="box note" id="about">
   <p><b>About this draft.</b> It's a starting point to rewrite in your own words, not text to hand in. If the project is assessed, check the rules on AI help and say in your acknowledgements how you used it.</p>
   <p><b>Sources.</b> Every numbered citation <sup class="c">[n]</sup> is in the reference list. I confirmed each one exists (authors, title, venue, year) by searching for it. I haven't read the full text of most of them, so read each paper's abstract at least before you cite it. Places that still need a source, or a check against the code or data, are marked <span class="flag">CHECK</span>. All of them are collected in the <a href="#flags">source checklist</a> at the end.</p>
-  <p><b>Your own results</b> come from <code>docs/FINDINGS.md</code> and need no outside source. The plain-board experiment is still running, so its section has placeholders.</p>
+  <p><b>Your own results</b> come from <code>docs/FINDINGS.md</code> and need no outside source. Experiments 6 and 7 now have final comparisons; their sources are the committed summary files.</p>
 </div>
 
 <h2 id="abstract">Abstract</h2>
 <div class="abstract">
 <p>Large language models (LLMs) write fluent explanations of almost anything, including chess. Does that fluency come from reasoning about the position, or from reproducing patterns in their training text? This project tests 22 open-source LLMs, from 2 to 70 billion parameters, on 4,000 Lichess puzzle positions. Each model is asked to evaluate the position, choose a move and explain who stands better, giving 526,662 scored answers. A neural chess engine, Leela Chess Zero, provides the correct answers. Every score is set against a chance baseline.</p>
-<p>The models rarely produce a legal move unaided (9.3% of first answers). When given a list of legal moves, they pick the engine's best move barely more often than a random pick (10.2% against 8.8%). They play the human move that led into the puzzle, usually a mistake, more often than the best move. Their evaluations are no better than answering "equal" every time, and their explanations name the better side less often than a fixed guess. Moves are either essentially perfect (19%) or disastrous (42% blunders), with little in between. Larger models do no better, except in Google's Gemma families. Chain-of-thought prompting changes nothing. Fine-tuning five small models to read the board raised board-reading accuracy from 1–19% to 89–99%, but did not improve play, and legality fell. A check with ten times more engine search left the model ranking unchanged.</p>
-<p>Taken together, the results are more consistent with pattern matching than with reasoning about the position. An audit of the project's own metrics found that naive measures made weak models look capable at every step. The audit itself is a result.</p>
+<p>In the five-model raw-reply rerun, first-answer legality was 9.3%; this figure does not describe all 22 base models. When given a list of legal moves, they pick the engine's best move barely more often than a random pick (10.2% against 8.8%). They play the human move that led into the puzzle, usually a mistake, more often than the best move. Their evaluations are no better than answering "equal" every time, and their explanations name the better side less often than a fixed guess. Moves are either essentially perfect (19%) or disastrous (42% blunders), with little in between. Larger models do no better, except in Google's Gemma families. Chain-of-thought prompting changes nothing. Fine-tuning five small models to read the board raised board-reading accuracy from 1–19% to 89–99%, but did not improve play, and legality fell. A check with ten times more engine search largely preserved the model ranking (ρ = 0.97; maximum shift four places).</p>
+<p>The completed 21-model notation experiment gave the registered verdict “mixed”: legality improved, while evaluation, side agreement and move quality remained limited. On 498 matched legal/scored positions, Claude Opus reduced blunders from Gemma4:31b’s 34.5382% to 19.2771%, meeting C1’s “frontier model plays clearly better” criterion; Haiku showed “no clear difference”. The tested local models show weak chess competence and frontier models stronger but limited competence. These behavioural results do not identify an internal reasoning mechanism. The audit also shows why baselines, assistance and uncertainty must be reported.</p>
 </div>
 
 <!-- ============================================================ -->
@@ -237,7 +237,7 @@ a { color: var(--accent); }
   <li><b>H4 (size):</b> within a model family, larger models do better.</li>
   <li><b>Prompting:</b> does asking for step-by-step reasoning help?</li>
   <li><b>Fine-tuning:</b> does teaching a model to read the board, and then the legal moves, improve its evaluations, moves and explanations?</li>
-  <li><b>Notation (in progress):</b> do the models do better if the position is given as a plain board diagram instead of a FEN?</li>
+  <li><b>Notation (complete):</b> do the models do better if the position is given as a plain board diagram instead of a FEN?</li>
 </ul>
 <p>If the models reason, we'd expect performance well above chance, gains with size, and gains when they're helped to read the board. If they pattern-match, we'd expect near-chance performance, familiar-looking but wrong answers, and little benefit from extra help.</p>
 
@@ -378,13 +378,13 @@ Explanation: &lt;White / Black / Equal&gt; — &lt;one sentence reason&gt;</pre>
   <tr><td>qwen2.5:7b</td><td class="n">5.4% → 96.1%</td><td class="n">0.14 → 0.06</td><td class="n">98.4% → 95.1%</td><td class="n">42.0% → 44.4%</td></tr>
 </table></div>
 <p class="caption">Table 5. Pieces-only fine-tune, base → fine-tuned.</p>
-<p><b>Pieces only.</b> Board reading improved enormously, from 1–19% piece recall to 89–99%. Nothing else improved:</p>
+<p><b>Pieces only.</b> Board reading improved enormously, from 1–19% piece recall to 89–99%. Reliable overall play did not improve:</p>
 <ul>
   <li>T1 ρ stayed near zero.</li>
-  <li>The blunder rate rose slightly for all five models.</li>
+  <li>On identical legal/scored pairs, pooled pieces-only blunders changed from 42.36% to 42.77%; this does not imply every model or metric worsened.</li>
   <li>Final legality <em>fell</em> for all five, by up to 41 points.</li>
 </ul>
-<p>Probing the failures showed well-formed but illegal moves (92 of 100), even with the list of legal moves in the prompt. Knowing where the pieces are did not help the models choose, judge, or even legally form moves.</p>
+<p>Probing the failures showed well-formed but illegal moves (92 of 100), even with the list of legal moves in the prompt. This intervention did not reliably improve overall move choice or legality, despite its board-description gains.</p>
 <p><b>Pieces + legal moves.</b> This version's criteria were fixed before training. The first criterion asked whether the training itself worked: legal-move recall and precision of at least 0.9 on held-out positions. It failed for all five models: they listed only 65–81% of the legal moves, and only 52–60% of what they listed was legal. By the rule fixed in advance, the training didn't take, so no conclusion about transfer can be drawn. What it does show: even approximate knowledge of the legal moves made answers <em>less</em> legal, not more (final legality fell by 6 to 69 points).</p>
 
 <h3>11.10 The audit: naive metrics flattered the models</h3>
@@ -401,18 +401,14 @@ Explanation: &lt;White / Black / Equal&gt; — &lt;one sentence reason&gt;</pre>
 <p class="caption">Table 6. How the audit changed the headline claims. Full detail in <code>docs/issues-log.md</code>, Issues 14–25.</p>
 <p>At every step, the naive version of a metric made the models look more capable. The legality figure turned a 9% skill into 97%. The chance baseline was set nearly three times too low, which made the models look "3–4× better than random". Substring matching gave credit for "mate" inside "material". This is a methodological result in its own right: a benchmark without baselines and without checks on its own metrics can easily report reasoning that isn't there.</p>
 
-<h3>11.11 Plain-board prompts (in progress)</h3>
-<p><span class="flag">PLACEHOLDER</span> Results due when the run finishes. The pass marks were fixed in advance in <code>specs/plain-board-prompts.md</code>. "Notation is not the main barrier" if, on the plain board compared with FEN:</p>
-<ul>
-  <li>the blunder rate improves by less than 5 points,</li>
-  <li>evaluation ρ stays below 0.20,</li>
-  <li>side-naming κ stays below 0.20, and</li>
-  <li>first-answer legality stays below 25%.</li>
-</ul>
-
-<!-- ============================================================ -->
+<h3>11.11 Plain-board prompts: final registered result</h3><p>Final: 21 models, 500 positions and 31,487 saved responses. Thirteen of the planned 31,500 responses are missing; all 30,625 legal moves have CPL. Each measure uses its own matched pairs, shown below.</p><div class="tablebox"><table><thead><tr><th>Measure</th><th>FEN</th><th>Plain board (95% CI)</th><th>Pairs</th><th>Registered condition</th><th>H₀ holds?</th></tr></thead><tbody><tr><td>N1 · blunder rate</td><td>42.2542%</td><td>41.8761% (95% CI 38.9913%–44.7903%)</td><td>9,786</td><td>drop &lt; 5 points</td><td>Yes</td></tr><tr><td>N2 · evaluation ρ</td><td>0.1214</td><td>0.1672 (95% CI 0.1364–0.1970)</td><td>10,059</td><td>&lt; 0.20</td><td>Yes</td></tr><tr><td>N3 · side κ</td><td>0.0802</td><td>0.0886 (95% CI 0.0673–0.1101)</td><td>10,089</td><td>&lt; 0.20</td><td>Yes</td></tr><tr><td>N4 · first answer legal</td><td>21.1861%</td><td>25.5149% (95% CI 24.3152%–26.7526%)</td><td>10,488</td><td>&lt; 25%</td><td>No</td></tr></tbody></table></div><p><b>Registered verdict: mixed.</b> N1–N3 hold; N4 fails because 25.5149% is above 25%. Its interval crosses that threshold, but the unchanged rule uses the point estimate. Plain boards improve legality by 4.3288 percentage points, while the paired blunder reduction is only 0.3781 points. Evaluation and side agreement remain weak.</p><h3>11.12 Claude commercial-model comparison</h3><h3>Claude: stronger but limited frontier competence</h3>
+<p>Haiku 5.5 and Opus 5.5 low-effort each answered 500 positions in three formats (1,500 records each). Their FEN first-answer legality was 88.8% and 93.8%; evaluation ρ was 0.4868 and 0.5769; side κ was 0.2621 and 0.3625. Assisted final FEN blunders were 29.0% and 19.2%, and engine-best moves 17.8% and 26.8%, versus 8.04% for random legal moves (2.21× and 3.33×).</p>
+<p><b>C1, 498 identical legal/scored pairs:</b> Gemma4:31b blunders were 34.5382%. Haiku scored 28.9157%: <b>“no clear difference”</b>, because the confidence intervals overlap despite a 5.6225-point reduction. Opus scored 19.2771%: <b>“frontier model plays clearly better”</b>, with a 15.2610-point reduction and non-overlapping intervals. These matched rates differ from the descriptive full-500 rates above.</p>
+<p><b>C4:</b> both receive the registered label <b>“notation was a major barrier”</b>. Its absolute plain-board ρ ≥ 0.30 branch triggers even though paired ρ falls from FEN for both variants. This formal result does not demonstrate a formatting gain. Sonnet C2/C3 are <b>not run</b>; pilot replies do not replace them.</p>
+<p>Recorded Claude cost, including retries and Sonnet pilots, is $12.2555896 (Haiku $0.8918706; Opus $11.058668; Sonnet pilots $0.305051). Offline scoring adds no API charge. Parameter counts are unknown; Claude used the API’s default sampling settings because temperature could not be set. Public-puzzle contamination, assistance and output caps limit interpretation; Haiku had 41 capped initial replies.</p>
+<p>The separate tool-disabled GPT illustration has only 12 positions (10 legal first moves, 12 legal final moves, six correct sides): <b>illustrative only</b>. The Sol/Luna 20-position-per-model API pilot tests setup and cost; capped replies prevent treating it as a completed frontier benchmark. No mini/nano experiment was run.</p><!-- ============================================================ -->
 <h2 id="discussion">12. Discussion</h2>
-<h3>12.1 Pattern matching, not reasoning</h3>
+<h3>12.1 Weak local chess competence</h3>
 <p>Five independent lines of evidence point the same way:</p>
 <ol>
   <li>The models rarely produce a legal move unaided.</li>
@@ -421,24 +417,15 @@ Explanation: &lt;White / Black / Equal&gt; — &lt;one sentence reason&gt;</pre>
   <li>Their evaluations don't track the position.</li>
   <li>Size doesn't help, outside one developer's models.</li>
 </ol>
-<p>None of these proves an absence of reasoning on its own, and "pattern matching" is a description, not a mechanism. But each is what pattern matching predicts, and each is hard to explain if the models were reasoning about the position. The illegal first answers are especially telling. "e4", "Nf6" and "d5" are among the most common moves in chess text. A system predicting likely text would produce them. A system reasoning about the position in front of it would not. This matches McCoy and colleagues' account: models do well when the expected output is common in their training text and poorly otherwise<sup class="c"><a href="#r9">[9]</a></sup>. It also matches the GSM-Symbolic and Faith-and-Fate findings in other domains<sup class="c"><a href="#r16">[16]</a></sup><sup class="c"><a href="#r17">[17]</a></sup>.</p>
-<p>The world-model studies<sup class="c"><a href="#r18">[18]</a></sup><sup class="c"><a href="#r19">[19]</a></sup> aren't contradicted. They show that a model trained <em>only</em> on games can build a board representation. These results suggest that general chat models don't use one when asked about chess, or don't have a reliable one, at least at the sizes tested. DeepMind's searchless chess model<sup class="c"><a href="#r22">[22]</a></sup> shows the Transformer architecture isn't the limit. What's missing in general chat models is the right training.</p>
+<p>These results establish unreliable chess behaviour under the tested harness, rather than the absence of an internal reasoning process. Familiar but illegal answers such as "e4", "Nf6" and "d5" are compatible with reliance on common chess text, but this is an interpretation rather than an identified mechanism. McCoy and colleagues discuss how output frequency can affect performance<sup class="c"><a href="#r9">[9]</a></sup>; GSM-Symbolic and Faith-and-Fate report related limitations in other domains<sup class="c"><a href="#r16">[16]</a></sup><sup class="c"><a href="#r17">[17]</a></sup>. These comparisons do not establish the cause of this study’s errors.</p>
+<p>The world-model studies<sup class="c"><a href="#r18">[18]</a></sup><sup class="c"><a href="#r19">[19]</a></sup> show that models trained on games can develop board representations. DeepMind’s searchless chess model<sup class="c"><a href="#r22">[22]</a></sup> demonstrates strong chess play with a Transformer. Different training could explain differences in competence, but this project does not isolate training as the cause or determine which representations its tested models use.</p>
 
-<h3>12.2 Is this just a notation test?</h3>
-<p>The most obvious objection is that FEN is hard to read, so the models may be failing at notation rather than chess. The project has four answers to this, plus a direct test.</p>
-<ol>
-  <li><b>Fixing the reading didn't help.</b> The pieces-only fine-tune took board reading from 1–19% to 89–99%. If notation were the bottleneck, evaluations and moves should have improved. They didn't, and legality got worse.</li>
-  <li><b>Choosing from a list needs no notation skill, and is still near chance.</b> On the re-ask, the models pick from a list of legal moves. They still choose the best move only 10.2% of the time, against 8.8% for a random pick.</li>
-  <li><b>Answers with no notation are still below a fixed guess.</b> "Which side is better" is answered with one word, yet models score 30.3% against a 54.2% baseline.</li>
-  <li><b>FEN is a fair format for a language model.</b> It's common on chess websites and forums, so it's very likely in the training data <span class="flag">CHECK find a source or rephrase as reasoning</span>. It's also the standard input in chess-LLM research. Hard for a person to read isn't the same as hard for a text model.</li>
-  <li><b>The direct test.</b> The plain-board experiment gives 21 models the same positions as a board diagram and a plain-English piece list, with no FEN anywhere, against a FEN control in the same run. <span class="flag">PLACEHOLDER: result and verdict</span></li>
-</ol>
-
+<h3>12.2 Is this just a notation test?</h3><p>The direct same-run test gives a mixed answer. Plain boards improve unaided legality from 21.1861% to 25.5149%, but paired blunders change only from 42.2542% to 41.8761%, evaluation ρ from 0.1214 to 0.1672 and side κ from 0.0802 to 0.0886. N1–N3 hold and N4 fails. Formatting matters, while these local models remain unreliable. The fine-tunes also did not reliably improve play, but the legal-move intervention failed its learning prerequisite, so it cannot settle whether accurate rule learning transfers.</p><p>Claude provides stronger measured competence, particularly Opus’s matched move-quality advantage. Neither local failure nor frontier success uniquely establishes an internal reasoning mechanism. C4’s formal label must be read with its absolute-threshold limitation.</p>
 <h3>12.3 Why do the Gemma models scale?</h3>
 <p>The Gemma families are the one place where bigger is clearly better. This project can't say why. Differences in training data (more chess or more structured reasoning data), training method, or tokenisation are all possible. It's a good question for future work, and a reminder that "LLMs" aren't one thing.</p>
 
 <h3>12.4 Why did fine-tuning make legality worse?</h3>
-<p>A plausible explanation, not tested here, is that the fine-tuning shifted the models' outputs towards producing <em>board-like text</em>, such as square names and piece lists, at the expense of following the move-answer format. The failure analysis supports part of this: failed answers were well-formed moves that were illegal, often for the wrong side (1,080 of 3,024 for Gemma 3 4B). Either way, the result supports the main conclusion. Supplying knowledge that a reasoning system could use did not produce better reasoning.</p>
+<p>A plausible explanation, not tested here, is that the fine-tuning shifted the models' outputs towards producing <em>board-like text</em>, such as square names and piece lists, at the expense of following the move-answer format. The failure analysis supports part of this: failed answers were well-formed moves that were illegal, often for the wrong side (1,080 of 3,024 for Gemma 3 4B). The result is limited to this intervention: board-description training did not reliably improve downstream play, and the legal-moves intervention failed its learning prerequisite.</p>
 
 <h3>12.5 What the audit teaches</h3>
 <p>The corrections in section 11.10 aren't just housekeeping. Each naive metric was a reasonable first choice, and each one overstated the models. This fits the wider concern that benchmark numbers for LLMs can mislead without careful controls<sup class="c"><a href="#r20">[20]</a></sup>. The practical lessons are: always report a chance baseline, separate what the model did from what the scaffolding did, and fix pass marks in advance.</p>
@@ -446,13 +433,13 @@ Explanation: &lt;White / Black / Equal&gt; — &lt;one sentence reason&gt;</pre>
 <!-- ============================================================ -->
 <h2 id="limits">13. Limitations</h2>
 <ul>
-  <li><b>Scope.</b> Open-source models from 2B to 70B, run locally, on chess only. No claims are made about commercial models such as GPT-4 or Claude, or about reasoning in general.</li>
+  <li><b>Scope.</b> 22 local models from 2B to 70B, plus two full Claude variants on 500 positions. Claude parameter counts are unknown; Sonnet C2/C3 were not run. These behavioural measures do not establish a reasoning mechanism or generalize to all LLMs.</li>
   <li><b>Tactical positions.</b> Puzzles are tactical by construction. Quiet, strategic positions may behave differently.</li>
-  <li><b>Contamination.</b> Lichess puzzles are public and may be in the training data<sup class="c"><a href="#r20">[20]</a></sup>. If so, the models did badly even on positions they may have seen, which makes the result more striking, not less.</li>
+  <li><b>Contamination.</b> Lichess puzzles are public and may be in the training data<sup class="c"><a href="#r20">[20]</a></sup>. Possible exposure limits generalization, especially for frontier successes; this study cannot rule it out.</li>
   <li><b>Setup position (Issue 21).</b> The benchmark shows the position before the setup move. T1, T2 and the side mark are valid on that position. The theme mark and the difficulty tiers describe the next position, so they're reported but not used as evidence.</li>
   <li><b>Move history not tested.</b> No position had a stored game history, so <code>pgn+fen</code> repeated <code>fen_only</code>.</li>
   <li><b>Reproducibility.</b> Model outputs vary between runs (68.7% same-move agreement).</li>
-  <li><b>First-answer legality</b> is only available for five models. The plain-board run adds it for all 21 tested there.</li>
+  <li><b>First-answer legality:</b> the base 9.3% figure concerns five rerun models, not all 22. Experiment 6 measures it separately for 21 models. Claude uses API default sampling settings (temperature could not be set); output caps and assisted final moves require separate reporting.</li>
   <li><b>Llama 3.3 70B context.</b> Its 512-token context window was shorter than 8.7% of <code>move_only</code> prompts, which were therefore cut off. This affects its <code>move_only</code> and re-asked moves.</li>
   <li><b>DeepSeek-R1 thinking mode</b> was probably on in the April runs and off in the October re-run. The results match within 0.3 points.</li>
   <li><b>T3 is marked by rules</b> (side named, theme words present). It checks whether the right words appear, not whether the reasoning is sound.</li>
@@ -462,7 +449,7 @@ Explanation: &lt;White / Black / Equal&gt; — &lt;one sentence reason&gt;</pre>
 
 <!-- ============================================================ -->
 <h2 id="conclusion">14. Conclusion and future work</h2>
-<p>Across 22 open-source models, 4,000 positions and more than half a million answers, the models evaluated, chose moves and explained positions at or near the level of strategies that use no chess knowledge at all. Their typical errors were the most common moves in chess text, played regardless of the position. Bigger models, step-by-step prompting and teaching them to read the board did not change this, except for the larger Gemma models. A stronger engine left the conclusions unchanged. The evidence is consistent with general-purpose LLMs producing the form of chess analysis without reasoning about the position. A second, practical conclusion is that naive benchmark metrics can make this look otherwise. Every figure needs a baseline, and the system around the model must be kept separate from the model itself.</p>
+<p>The tested local models show weak, unreliable chess competence; the final notation verdict is mixed. Board-focused fine-tuning did not reliably improve play. Frontier Claude variants show stronger but limited competence, with Opus satisfying the registered matched blunder criterion and Haiku showing no clear difference. These results support claims about measured behaviour, not proof of a particular internal reasoning mechanism. Baselines, position-cluster uncertainty, coverage and the distinction between unaided and assisted moves are central to the conclusion.</p>
 <p><b>Future work:</b></p>
 <ul>
   <li>Re-run on the actual puzzle positions, so the theme and difficulty measures become valid evidence.</li>
@@ -470,7 +457,7 @@ Explanation: &lt;White / Black / Equal&gt; — &lt;one sentence reason&gt;</pre>
   <li>Train the legal-moves version longer until it passes its own bar, then test transfer.</li>
   <li>Fine-tune larger models on cloud hardware.</li>
   <li>Investigate why the Gemma families scale when others don't.</li>
-  <li>Compare with commercial models.</li>
+  <li>Extend the commercial comparison with a separately approved controlled Sonnet study; C2/C3 remain not run.</li>
 </ul>
 
 <!-- ============================================================ -->
@@ -517,9 +504,9 @@ Explanation: &lt;White / Black / Equal&gt; — &lt;one sentence reason&gt;</pre>
   <li>§7: confirm the QLoRA settings for the pieces-only run (rank 16, alpha 32 come from the legal-moves config).</li>
   <li>§8.5: add a source on pre-registration (e.g. Nosek et al., 2018, "The preregistration revolution", PNAS; check it first).</li>
   <li>§10.2: add an appendix table citing each model's release page.</li>
-  <li>§12.2: find a source for "FEN is common in web text", or rephrase it as reasoning.</li>
+
   <li>References [7], [23] venue and [25]: written from memory, so confirm them.</li>
-  <li>§11.11 and §12.2: fill in the plain-board results when the run finishes.</li>
+
 </ol>
 </main>
 </div>

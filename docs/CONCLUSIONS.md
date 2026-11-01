@@ -4,7 +4,7 @@
 
 **Snapshot:** 1 November 2026, including scoring of existing Claude responses
 
-**Status:** Base and fine-tuning results analysed; plain-board incomplete; Claude scored, local-reference comparison pending.
+**Status:** Base and fine-tuning results analysed; notation and Claude comparisons complete; OpenAI setup pilot complete, with truncation limits.
 
 ## Main conclusion
 
@@ -13,7 +13,8 @@ evaluation and move selection are unreliable under this benchmark. Board-focused
 fine-tuning improved board-description behaviour without reliably improving
 overall chess performance, and often reduced it. The available Claude results
 show stronger competence on evaluation and first-answer legality, and measurable
-but limited move-selection competence. The matched local comparison is pending.
+but limited move-selection competence. Opus meets the registered matched
+comparison against Gemma4:31b; Haiku does not meet its non-overlap requirement.
 
 These behavioural results are consistent with fragile pattern-based performance.
 They do not identify the models' internal reasoning mechanism, prove that LLMs
@@ -170,42 +171,28 @@ The defensible fine-tuning conclusion is:
 > is a useful negative result about these interventions, not evidence that
 > chess fine-tuning in general cannot work.
 
-## 4. Plain-board formatting: an incomplete experiment
+## 4. Plain-board formatting: completed, registered verdict mixed
 
-The run is paused after codellama:34b. There are **20,991 saved responses** across
-14 models and 500 positions. Thirteen models have 1,500 responses each;
-WizardLM has 1,491. Seven configured models remain unrun, and all CPL values are
-missing.
+The run finished with terminal `EXIT 0`, 21 models, 500 positions and 31,487
+saved answers. WizardLM is missing nine records and DeepSeek-R1:7b four; all
+30,625 legal moves have finite nonnegative CPL. There are 487 positions shared
+across every model/format, with measure-specific paired coverage disclosed.
 
-| Paired measure, current 14-model cohort | FEN | Plain board | Usable pairs |
+| Registered paired measure | FEN | Plain board | Usable pairs |
 |---|---:|---:|---:|
-| First-answer legality | 16.48% | **23.39%** | 6,991 |
-| Evaluation Spearman correlation | 0.0963 | **0.1359** | 6,774 |
-| Side-identification κ | 0.0736 | **0.0786** | 6,740 |
+| N1 blunder rate | 42.2542% | 41.8761% | 9,786 |
+| N2 evaluation correlation | 0.1214 | 0.1672 | 10,059 |
+| N3 side κ | 0.0802 | 0.0886 | 10,089 |
+| N4 first-answer legality | 21.1861% | 25.5149% | 10,488 |
 
-Plain-board first-answer legality has a position-bootstrap 95% interval of
-**22.17–24.67%**. The current N2, N3 and N4 point estimates are below their
-registered thresholds. **N1 cannot be evaluated, and the overall verdict remains
-pending.** The 1,000-resample, seed-42 intervals and registered criteria are
-unchanged.
+N1–N3 hold, N4 does not: **the exact registered verdict is “mixed”.** The board
+legality interval is 24.32–26.75%, crossing 25%; the rule is applied unchanged.
+The 0.3781-point blunder reduction is small, and its intervals overlap. Earlier
+13/14/17-model snapshots remain historical, not final comparisons or evidence
+of a scoring reversal. See the [final summary](../results/plain_board/metrics/plain_board_summary.json)
+and its secondary legal-list and descriptive per-model results.
 
-Providing the legal-move list raises paired first-answer legality from
-**23.38% to 88.83%**. That demonstrates answer-list assistance, not high-quality
-move selection; CPL is still unavailable.
-
-Model responses are heterogeneous. Qwen2.5:32b's paired evaluation correlation
-rises from **0.0836 to 0.3300**, while Gemma3:12b falls from **0.3535 to 0.0844**.
-The pooled result cannot stand in for every model.
-
-### The new snapshot is not a scoring reversal
-
-Recalculating the handoff's original 13-model cohort reproduces its rounded
-numbers: first-answer legality **16.85% → 24.57%**, correlation
-**0.0970 → 0.1381**, and side κ **0.0785 → 0.0858**. Adding CodeLlama, whose
-plain-board first-answer legality is 8%, largely explains the lower 14-model
-pooled plain-board legality. Do not attribute that cohort change to bug fixes.
-
-## 5. Claude: stronger descriptive competence, incomplete move-quality evidence
+## 5. Claude: stronger competence and a completed matched move comparison
 
 Haiku and Opus-low each have **1,500 saved responses**, covering the same 500
 positions in all three formats. Sonnet's 48 pilot responses are excluded from
@@ -239,7 +226,10 @@ and **26.8%**, against an **8.04%** uniform random-legal baseline (2.21× and
 3.33×). These are assisted final-move measures; first-answer legality is
 reported separately above.
 
-**C1 remains pending:** the matched Gemma4:31b reference is unfinished.
+**C1 is complete on 498 matched legal/scored FEN pairs.** Gemma4:31b blunders
+34.5382%, Haiku 28.9157% and Opus 19.2771%. Haiku's 5.6225-point reduction
+has overlapping intervals: **“no clear difference”**. Opus's 15.2610-point
+reduction has non-overlapping intervals: **“frontier model plays clearly better”**.
 **C2/C3 are “not run”:** pilots do not replace the full Sonnet experiments.
 **C4 is complete for both variants: “notation was a major barrier”.** This
 is exactly the registered rule's result, triggered by its absolute plain-board
@@ -254,8 +244,8 @@ set. Parameter counts are unknown and public-puzzle contamination is possible.
 
 The committed [summary](https://github.com/rabrew/chess-llm-bench/blob/1da3d14/results/claude/metrics/claude_summary.json)
 and [CSV](https://github.com/rabrew/chess-llm-bench/blob/1da3d14/results/claude/metrics/claude_comparison.csv)
-include provenance. They remain on the separate branch until experiment 6
-finishes; a final matched local-versus-frontier conclusion awaits C1.
+include provenance. Updated matched outputs are now [available locally](../results/claude/metrics/claude_summary.json)
+after branch integration; the historical links above preserve the earlier report.
 
 ## 6. What can—and cannot—be claimed
 
@@ -275,7 +265,7 @@ Not established:
 
 - That LLMs cannot reason, or that a particular internal mechanism caused failure.
 - That fine-tuning generally cannot improve chess performance.
-- A final local notation verdict, matched Claude move-quality advantage, or thinking benefit.
+- A general frontier-model superiority claim beyond the tested variants, or a thinking benefit.
 - Statistical equivalence between adjacent model ranks.
 - That public-puzzle contamination, harness assistance, output parsing, reference
   limitations, prompt dependence or selective missingness have been eliminated.
@@ -300,8 +290,8 @@ Authoritative existing inputs and methods:
   [plain-board comparison](../scripts/plain_board_compare.py), and
   [post-results correction specification](../specs/analysis-review-corrections.md).
 - [Registered plain-board criteria](../specs/plain-board-prompts.md).
-  Claude criteria and responses remain on `claude-models` in the separate
-  `~/clb-claude` checkout; the branches have not been merged.
+  [Claude criteria](../specs/commercial-models.md) and responses were integrated
+  after the notation run finished.
 
 The recalculation artifacts are temporarily stored in
 `/tmp/chess-postfix-analysis.MgxGMJ/`: `base_summary.json`,
@@ -324,4 +314,9 @@ not the scientific validity of every interpretation.
 The initial CPU-only reanalysis did not modify research inputs. Subsequent
 authorized Claude enrichment added engine scores while preserving original
 responses, with a committed validation record on `claude-models`. No paid
-calls were made. Plain-board remains paused until Ryan requests resumption.
+calls were made during that reanalysis/enrichment. Ryan subsequently authorized
+resumption and the final comparisons above. A separate approved OpenAI setup
+pilot then completed 40 API requests, costing an estimated $0.5612788. Sol had
+17/20 legal first answers and two caps; Luna 2/20 and 18 caps. Missing outputs
+make this unsuitable as a clean model-ability comparison. See
+[the project record](PROJECT_RECORD.md) for current operational history.

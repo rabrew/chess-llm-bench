@@ -127,7 +127,7 @@ Detailed design: [fine-tuning/specs/chess-board-finetuning.md](../fine-tuning/sp
 
 ### Optional (only if time allows)
 
-- [ ] **O-2** Commercial-model comparison ([commercial-models.md](commercial-models.md))
+- [x] **O-2** Claude Haiku/Opus comparison complete on the matched 500-position sample ([commercial-models.md](commercial-models.md)); Sonnet C2/C3 remain not run.
 - [ ] **O-3** Judge-model marking of T3 explanations (Option 2), validated against a hand-marked sample
 
 ## Suggested order
@@ -167,17 +167,27 @@ Do the cheapest high-impact checks (M-1, M-2, T1-3) early, because their results
 
 ## Experiments 6 and 7 completion update (1 November 2026)
 
-- [ ] **E6 collection/scoring:** paused at 14/21 models. Resume only when Ryan
-  says; require terminal `EXIT 0`, coverage audit, CPL and saved metrics.
-- [ ] **E6 registered comparison:** final N1–N4 verdict awaits complete scores.
-- [x] **E7 existing-response scoring:** all 3,048 legal moves scored; original
-  response invariants verified. No new paid requests.
-- [x] **E7 comparison implementation/reports:** spec, tests, code and provenance
-  JSON/CSV committed and reviewed on `claude-models`.
-- [ ] **E7 C1:** matched Gemma4:31b reference is absent. C4 is complete for both
-  variants under the unchanged rule; disclose its absolute-correlation limitation.
-- [ ] **Final reporting/integration:** renderer support is ready; final experiment
-  6 tables, HTML, merge, master update and worktree removal await experiment 6.
-  Keep interim labels until results are complete.
-- **Not run:** C2/C3, deferred by Ryan. Pilots are not full experiments. New paid
-  work or further training requires permission.
+- [x] **E6 collection/scoring:** terminal `EXIT 0`, 21 models, 31,487 answers;
+  all 30,625 legal moves have CPL. Thirteen missing responses remain disclosed.
+- [x] **E6 registered comparison:** N1–N3 hold, N4 fails; verdict **mixed**.
+  Provenance-bearing summary and CSV committed, along with metrics/plots.
+- [x] **E7 existing-response scoring:** all 3,048 legal moves scored, including
+  retained Sonnet pilots; original responses preserved, no new API calls.
+- [x] **E7 comparison:** C1 on 498 matched legal/scored pairs supports Opus's
+  registered clear advantage; Haiku has overlapping intervals and no clear
+  difference. C4 labels both a major barrier via its absolute-rho branch;
+  descriptive paired correlations decline, so disclose the rule's limitation.
+- [x] **E7 branch integration:** merged only after E6 finished; 1,286 post-merge
+  CPU tests passed, with required Ruff and renderer checks clean.
+- [x] **Final publication and cleanup:** findings/new tables and HTML sources
+  updated and independently reviewed; master fast-forwarded/pushed, Claude
+  worktree privately archived and removed. Final source suite 1,308 passed;
+  Ruff and renderer checks clean. Browser rendering remains unverified.
+- **Not run:** Sonnet C2/C3; pilots do not constitute full experiments. Further
+  paid work/training requires explicit approval.
+- **Separate OpenAI pilot:** 40 requests complete, estimated $0.5612788. Sol
+  capped twice; Luna 18 times. It is feasibility/cost evidence, not a clean
+  model ranking. Raw replies, missingness and usage are committed.
+- **Next direction:** GPT-5.4, retain Luna, exclude mini/nano. Prepared daily
+  GPT-5.4 runner has a 200k rolling-token guard but cannot verify free billing;
+  no campaign has started, pending eligible-project/exclusive-pool confirmation.

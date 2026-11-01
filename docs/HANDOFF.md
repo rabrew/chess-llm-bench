@@ -1,4 +1,4 @@
-# Handoff: state of the project on 31 Oct 2026 (late evening)
+# Handoff: current state on 1 November 2026
 
 Written at the end of a long Claude Code session for whoever picks this up next (Codex). Rules for
 agents are in [../AGENTS.md](../AGENTS.md). Read both before doing anything.
@@ -22,32 +22,29 @@ except Gemma; fine-tuning taught board reading but not play. Full detail: `docs/
 - PC: RTX 5080 16 GB, 32 GB RAM, Python 3.14 venv (`venv/` is a symlink).
 - **Main checkout:** `~/Desktop/clb-analysis`, branch `ft-fixes` (= `master` on GitHub; keep master
   fast-forwarded to ft-fixes so Dr Brew sees the latest). Remote `origin` = `rabrew/chess-llm-bench` (public).
-- **Second checkout (git worktree):** `~/clb-claude`, branch `claude-models` (Claude API runner and
-  results). `data` and `venv` there are symlinks to the main checkout.
+- **Claude worktree:** merged into `ft-fixes` and removed after verification.
+  Private backup: `~/.local/share/chess-llm-bench/worktree-backups/clb-claude-20261101T164357Z.tar.gz`.
+  Claude code/results are now in the main checkout; do not use the removed path.
 - Ollama runs on the PC; `run_all.sh` restarts it per model.
 
-## 3. What is running right now
+## 3. Current runtime state
 
-| tmux session | What | State |
-|---|---|---|
-| `plainboard` | Plain-board run using `config/config_plain_board.yaml` | Paused after codellama:34b (14 of 21 models); do not resume without Ryan |
-| `pausewatch` | `~/pause_after_codellama.sh` | Pause recorded at 23:00:09 GMT on 31 Oct 2026 |
+No benchmark, pilot or training job was started by this handover after the
+following completed runs:
 
-**Paused state:** 14 models have finished their collection pass; 7 remain: yi:34b, command-r:35b, gemma4:26b, gemma4:31b,
-mixtral:8x7b, deepseek-r1:7b, deepseek-r1:14b (~2 h each for the 30B+, ~11 h total). The pause
-note is appended to `~/plainboard_pause.log`.
+- Plain-board pipeline: terminal **EXIT 0**, finished **13:42:45 GMT** on
+  1 November. All 21 model passes finished: **31,487 answers**, 13 missing
+  records disclosed, all **30,625 legal moves** have finite nonnegative CPL.
+- OpenAI setup pilot: **40/40 requests complete**, estimated **$0.5612788**.
+  Sol: 17/20 legal first answers, two caps. Luna: 2/20 legal, 18 caps.
+- GPT-5.4 daily campaign: **prepared but not started**. It requires confirmation
+  of the eligible project and exclusive use of the reported shared free pool.
+- GPU power limit remains **250 W**, set with Ryan's approval. Do not raise it
+  automatically. No reboot or 70B loading was performed.
 
-There are 20,991 saved plain-board responses: 13 models have 1,500 each and
-WizardLM has 1,491. All CPL values are still null. Completion of a model's
-collection pass therefore does not imply a complete analysis cohort.
-
-**To resume** (it skips finished tiers and resets stale jobs itself). Note `>>`, not `>`:
-```
-cd ~/Desktop/clb-analysis && tmux new -s plainboard2
-BENCH_CONFIG=config/config_plain_board.yaml SKIP_INSTALL=1 bin/run_all.sh >> ~/plainboard.log 2>&1; echo "EXIT $?" >> ~/plainboard.log
-```
-After all models, `run_all.sh` runs step 7 (`retry_illegal_moves.py` → a separate `_retried.jsonl`),
-then you run `enrich_cpl.py` and `generate_plots.py --save-metrics` (check the log; see section 6).
+The prior pause/resume instructions are historical: Ryan explicitly authorized
+“cap and resume”; execution used append-only `~/plainboard.log`, not truncation.
+The final comparison is committed and the formal verdict is **mixed**.
 
 ## 4. Experiments and their state
 
@@ -58,42 +55,31 @@ then you run `enrich_cpl.py` and `generate_plots.py --save-metrics` (check the l
 | 3 | Pieces-only fine-tune (5 models) | `fine-tuning/specs/chess-board-finetuning.md` | Done |
 | 4 | Pieces + legal-moves fine-tune | `fine-tuning/specs/legal-moves-finetuning.md` | Done; criterion 0 failed (training didn't take) |
 | 5 | Engine-strength check (800 vs 8,000 nodes) | `specs/engine-strength-check.md` | Done: ρ 0.97, ranking holds |
-| 6 | **Plain-board / notation check** | `specs/plain-board-prompts.md` | **Running** (14/21 models) |
+| 6 | **Plain-board / notation check** | `specs/plain-board-prompts.md` | Done: 21 models; registered verdict **mixed** |
 | 7 | **Claude via Batch API** | `specs/commercial-models.md` (branch `claude-models`) | Haiku + Opus done; Sonnet deferred |
 | — | GPT via Codex, 12 positions | `results/codex_illustration/README.md` (branch `claude-models`) | Done; **illustration only** |
 
-### Experiment 6: plain-board (notation) check
-- 500 positions (125/tier, seed 42, drawn per tier by run_all), 21 models (no 70B), formats
-  `fen_only` (control), `board_text` (diagram + piece lists, no FEN), `board_text+legal`.
-- Pre-registered criteria N1–N4 and the decision rule are in the spec; `scripts/plain_board_compare.py
-  --config config/config_plain_board.yaml` computes them and writes `results/plain_board/metrics/`.
-- **Interim (13 models, no CPL yet):** first-answer legal FEN 16.9% → plain 24.6% (CI 23.3–25.9; N4
-  bar is < 25%, so likely to fail → verdict probably **mixed**); T1 ρ 0.10 → 0.14 (N2 holds);
-  side κ 0.08 → 0.09 (N3 holds); N1 blunder rate needs CPL. Wrong-side illegal moves 14% → 8%.
-  qwen2.5:32b ρ 0.08 → 0.33 on plain board; gemma3:12b 0.35 → 0.08.
+### Experiment 6: completed notation check
 
-### Experiment 7: Claude (branch `claude-models`, checkout `~/clb-claude`)
-- Code: `src/claude_batch.py`, `scripts/run_claude_batch.py`, `config/config_claude.yaml`,
-  `tests/test_claude_batch.py` (33 tests). Claude tags are in `API_MODEL_FAMILIES` in `src/utils.py`
-  (size `None`, never guessed). Same 500 positions as the plain-board run (verified identical).
-- Batch API (half price), resumable (`responses.jsonl` = raw replies + resume cache; `batches.json`
-  = open batches), budget guard. Spent **$12.26 of $22**.
-- Variants run: `claude-haiku:5.5`, `claude-opus:5.5-low` (all 3 formats, 1,500 each, 0 failures).
-  Sonnet (`-nothink`, `-think`) only in the 24-reply pilot; **deferred by Ryan** (spec "Pilot result":
-  thinking-off Sonnet still reasons in its reply; nothink cap raised to 3,000; re-send its 24 pilot
-  replies when it runs). C2/C3 not tested yet.
-- **Interim (no CPL yet), FEN prompt:** Opus first-answer legal 93.8%, T1 ρ 0.58 (0.50–0.65), side κ
-  0.36; Haiku 88.8%, 0.49, 0.26. Best local so far: 38% legal, ρ 0.35, κ 0.16. Plain board doesn't
-  help Claude descriptively (Opus ρ 0.58 → 0.53, κ 0.36 → 0.29). **C4 is pending:**
-  CPL is absent and the registered rule has an interpretation limitation: its
-  absolute board-text ρ ≥ 0.30 branch would label this a "major barrier" despite
-  a decline from FEN. Keep the rule unchanged and report that limitation next to
-  the descriptive paired changes; do not claim a completed C4 result.
-- C1 (Claude vs gemma4:31b blunder rate) needs CPL and gemma4:31b's plain-board run.
-- Story change for the write-up: the tested local models show weak and unreliable
-  chess competence; **frontier results provisionally suggest stronger competence**.
-  These measures do not identify an internal reasoning mechanism. Contamination
-  caveat (public puzzles) applies more to frontier models.
+500 positions, 21 models, FEN/plain-board/plain-board+legal. Registered paired
+FEN → board measures: blunders **42.2542% → 41.8761%**, evaluation correlation
+**0.1214 → 0.1672**, side κ **0.0802 → 0.0886**, first-answer legality
+**21.1861% → 25.5149%**. N1–N3 hold, N4 fails; exact verdict **mixed**.
+See `results/plain_board/metrics/plain_board_summary.json`; it records missing
+responses, measure-specific coverage, provenance and terminal completion evidence.
+
+### Experiment 7: completed Haiku/Opus comparison
+
+Haiku and Opus each have 1,500 answers, 500 positions × three formats. Sonnet's
+48 pilot replies remain excluded from completed-variant comparisons; **C2/C3
+are not run**. All 3,048 legal Claude/pilot moves have CPL.
+
+C1 on 498 matched legal/scored FEN pairs: Gemma4:31b blunders 34.5382%, Haiku
+28.9157%, Opus 19.2771%. Opus meets **“frontier model plays clearly better”**;
+Haiku has overlapping intervals and **“no clear difference”**. Both C4 labels
+are “notation was a major barrier” via the absolute-rho rule, despite paired
+correlation declines; report that limitation. Existing ledger spend $12.2555896.
+No new Claude API requests were made during scoring/comparison/hardening.
 
 ### GPT illustration
 - `codex exec` (CLI 0.166.0, Ryan's ChatGPT login, model reported `gpt-6.1-sol`) on 12 seeded
@@ -105,30 +91,35 @@ then you run `enrich_cpl.py` and `generate_plots.py --save-metrics` (check the l
 
 Page sources are in `docs/writeup/` (see its README for the claude.ai links). Ryan's own artifacts
 on claude.ai can't be updated by Codex; edit the HTML in the repo instead.
-- `draft.html`: full paper draft with references [1]–[27]; CHECK flags; §11.11 and §12.2 are
-  placeholders for the plain-board result.
-- `notes.html`, `conclusions.html` (10 conclusions), `notation.html` (experiment 6 mock write-up),
-  `project.html` (whole-project mock write-up with chart), `readiness.html` (checklist),
-  `scoring.html`, `plain-guide.html`.
+- `draft.html`: paper draft with references [1]–[27] and retained reference CHECK
+  flags; §11.11/§12.2 contain final notation results and a Claude section is added.
+- `conclusions.html`: eleven conclusions, including final notation and frontier
+  results. `notation.html` and `project.html` use final E6/E7 values and caveats.
+- Other supporting sources: `notes.html`, `readiness.html`, `scoring.html` and
+  `plain-guide.html`; the final source updates do not constitute submission sign-off.
 - Conclusion 5 in `conclusions.html` (cross-task correlations) is exploratory, not pre-registered.
 
-## 6. Next steps, in order
+## 6. Next steps
 
-1. Confirm the pause happened (`~/plainboard_pause.log`, `tail ~/plainboard.log`), GPU free.
-2. Optional while paused (Ryan was asked, no answer yet): run `scripts/enrich_cpl.py` on the
-   Claude results (from `~/clb-claude`, `--config config/config_claude.yaml --results
-   results/claude/evaluations.jsonl`) and on the partial plain-board results for an early blunder rate.
-   Check `enrich_cpl.py --help` first. Lc0 uses the GPU: never while Ollama has a model loaded.
-3. Resume the plain-board run when Ryan says (command above). Wait for `EXIT` in the log.
-4. Then: `enrich_cpl.py` + `generate_plots.py --save-metrics` (plain-board config), then
-   `plain_board_compare.py`. Report N1–N4 and the verdict exactly as the decision rule says.
-5. Claude: enrich CPL, write `scripts/claude_compare.py` (spec → tests → code) applying C1 and C4
-   exactly as written, reusing `plain_board_compare.py`'s pairing and bootstrap.
-6. After the plain-board run: merge `claude-models` into `ft-fixes`, run all tests + ruff, push,
-   fast-forward `master`. Remove the `~/clb-claude` worktree only after merging.
-7. Update `docs/FINDINGS.md` (new sections for experiments 6 and 7, limitations), the write-up pages,
-   the checklist (`specs/exhibition-readiness.md`), and the README experiments table.
-8. Later, only if Ryan wants: Sonnet thinking on/off (~$10 left); a 12B fine-tune on the PC.
+1. Confirm free-project enrolment and exclusive use of the shared larger-model
+   allowance before running GPT-5.4. User reported 250k/day for listed larger
+   models and 2.5M/day for listed smaller models; eligibility is not verified by
+   the runner. User wants GPT-5.4, retains Luna, excludes mini/nano. Sol/Luna
+   are not on the pasted free list; no further paid Luna expansion is approved.
+2. Use `scripts/openai_daily_benchmark.py` first in offline mode. Its fixed
+   500-position/three-format plan has 1,500 requests and a 200k rolling-token
+   guard. Actual execution requires all three explicit flags and confirmed
+   account conditions; no recurring scheduler has been installed.
+3. Confirm the raw-data publication/backup plan. Final plain-board raw JSONL and
+   original run logs remain local under existing data-release policy; metrics,
+   figures, comparison reports and OpenAI pilot outputs are committed.
+4. Review the preserved original checkout's uncommitted user changes separately
+   on `preserve/local-master-work-20261101`; do not discard or silently publish.
+5. Sonnet C2/C3 or more training remain optional and require a new explicit
+   approval/budget. Unknown Claude submission reservations require manual
+   provider reconciliation before considering a resubmission.
+6. Complete Ryan's own review/backup/setup tasks below. Publication pages are
+   updated; keep future experiments, pilot evidence and registered results distinct.
 
 ## 7. Ryan's own open items
 R-3 review with Dr Brew; R-5; A-1 turn off Tailscale key expiry; A-2 off-PC backup. Emails to AI
@@ -203,3 +194,50 @@ the job runs. Successful collection/scoring is not yet established.
   1,491 and one at 1,496. All 30,625 legal moves have finite nonnegative CPL.
   Saved metrics exist; the final registered comparison/provenance audit and
   branch integration are still outstanding. Earlier running status is obsolete.
+
+
+## Final experiment comparisons and OpenAI preparation (1 November 2026)
+
+This supersedes earlier pending experiment 6/7 and running-pilot notes:
+
+- E6 has terminal `EXIT 0`, 31,487 answers and 30,625 fully scored legal moves;
+  registered final verdict **mixed** (N1–N3 hold, N4 fails). Summary/CSV at
+  `c4541da`, other metrics and twelve plots at `35be11c`.
+- C1 is complete on 498 pairs: Opus meets “frontier model plays clearly better”;
+  Haiku has overlapping intervals and “no clear difference”. C4 retains its
+  absolute-correlation interpretation limitation. C2/C3 are not run.
+- Claude branch merged at `4686a2c` after E6; post-merge suite 1,286 passed,
+  required Ruff/renderer clean. No new Claude calls. A separate paid-submission
+  safety correction is in progress under `specs/claude-submission-safety.md`.
+- Approved OpenAI pilot finished 40 requests, estimated $0.5612788; replies and
+  ledger are committed (`77f67fb`). Sol 17/20 legal, two caps; Luna 2/20 legal,
+  18 caps. Treat as setup/cost testing, not a clean ability ranking.
+- User's latest next-model choice: GPT-5.4, retain Luna, exclude mini/nano.
+  New daily runner `scripts/openai_daily_benchmark.py` is prepared and tested
+  (`5b83402`), default offline, 1,500 requests, 200k rolling-token ceiling.
+  No GPT-5.4 campaign started: project free entitlement and exclusive shared-pool
+  usage confirmation remain pending. Sol/Luna are not in the pasted free list.
+- All current work is consolidated in `docs/PROJECT_RECORD.md`.
+- The original master checkout's uncommitted edits remain unchanged on local
+  `preserve/local-master-work-20261101`. Do not discard or publish them as part
+  of the current completed research work. Master update/worktree cleanup must
+  be recorded after final checks, not assumed complete from this note.
+
+
+## Final verified integration state (1 November 2026)
+
+The current sections above supersede historical appended snapshots. Claude
+submission safety is complete (`ed6c4d4`): durable reservation before paidcreate,
+no SDK retries, exclusive CLI lock, durable replies before ledger removal.
+Independent review approved; **1,308 CPU tests passed**, required Ruff and
+renderer checks clean. No live Claude submissions were used for validation.
+
+`master` has been fast-forwarded and pushed; final publication commits are kept
+synchronized with `ft-fixes`. Original local uncommitted edits remain unchanged
+on `preserve/local-master-work-20261101`. The merged Claude worktree has been
+removed only after a verified private backup at the path in section 2.
+
+Final findings, simple summary, conclusions and four HTML write-up sources are
+updated. Browser rendering was not checked. Raw final plain-board JSONL, retry
+output and original run logs remain local; formal metrics/plots/comparisons and
+OpenAI pilot replies are committed. GPT-5.4 remains prepared, not started.
