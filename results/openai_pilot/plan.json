@@ -1,0 +1,926 @@
+{
+  "schema_version": 1,
+  "config": {
+    "openai": {
+      "models": [
+        "gpt-6.1-sol",
+        "gpt-6-luna"
+      ],
+      "key_file": "~/.config/chess-llm-bench/openai.env",
+      "budget_usd": 2.0,
+      "max_output_tokens": 4000,
+      "timeout_seconds": 120,
+      "prices_per_mtok": {
+        "gpt-6.1-sol": {
+          "input": 2.0,
+          "output": 10.0
+        },
+        "gpt-6-luna": {
+          "input": 0.1,
+          "output": 0.5
+        }
+      }
+    },
+    "benchmark": {
+      "positions_per_tier": 5,
+      "random_seed": 42,
+      "prompt_format": "board_text"
+    },
+    "paths": {
+      "source_results": "results/plain_board/evaluations.jsonl",
+      "output_dir": "results/openai_pilot"
+    }
+  },
+  "source_sha256": "bcec5c767ae6e2e0ff55a34e8ebc2dfb39bf1dd1dc9e7b17a966016b1e3519c0",
+  "code_revision": "525fd9bd0176ff10c429bedb424ed34ce86133aa",
+  "settings": {
+    "reasoning": "API default",
+    "sampling": "API default",
+    "rescue": false
+  },
+  "requests": [
+    {
+      "id": "80596981327ab6ee371ff196ca3ae8173f69280811c380814f1d81898929d4f3",
+      "model": "gpt-6.1-sol",
+      "position": {
+        "position_id": 341110,
+        "fen": "r4rk1/pp1n1ppp/8/3p2B1/3P4/1P3Bq1/P7/R2Q1R1K w - - 0 17",
+        "difficulty": "easy",
+        "stockfish_eval": 94,
+        "stockfish_best_move": null,
+        "theme": "mate",
+        "phase": "middlegame",
+        "source": "lichess_puzzles"
+      },
+      "body": {
+        "model": "gpt-6.1-sol",
+        "input": "You are analysing a chess position.\nCurrent position:\nBoard (White at the bottom, rank 8 at the top):\n8 | r . . . . r k .\n7 | p p . n . p p p\n6 | . . . . . . . .\n5 | . . . p . . B .\n4 | . . . P . . . .\n3 | . P . . . B q .\n2 | P . . . . . . .\n1 | R . . Q . R . K\n    a b c d e f g h\nUpper case = White, lower case = Black. K king, Q queen, R rook, B bishop, N knight, P pawn, . empty.\n\nWhite pieces: King h1, Queen d1, Rooks a1 f1, Bishops f3 g5, Pawns a2 b3 d4\nBlack pieces: King g8, Queen g3, Rooks a8 f8, Knight d7, Pawns d5 a7 b7 f7 g7 h7\nSide to move: White\nCastling still possible: none\nEn passant: none\nAnswer all three questions below.\n\n1. What is the centipawn evaluation of this position from White's perspective?\n   A positive number means White is better. A negative number means Black is better.\n   0 means equal. Give only a number, no explanation.\n\n2. What is the best move for the side to play? Give only the move in SAN notation.\n\n3. Who stands better in this position \u2014 White, Black, or is it equal?\n   Give a one-sentence explanation of the key reason.\n\nRespond using this exact format:\nEval: <integer>\nMove: <SAN move>\nExplanation: <White / Black / Equal> \u2014 <one sentence reason>",
+        "tools": [],
+        "store": false,
+        "max_output_tokens": 4000
+      },
+      "reserved_usd": 0.055655600000000006
+    },
+    {
+      "id": "bdd143805f35f13814e608a102b4d889e4668477788b0181ce6e1a96b5315696",
+      "model": "gpt-6.1-sol",
+      "position": {
+        "position_id": 1306851,
+        "fen": "5rk1/4rpp1/p1p3q1/2P3bp/3P4/1P2P1Q1/P5PP/R1B2RK1 w - - 0 23",
+        "difficulty": "easy",
+        "stockfish_eval": 59,
+        "stockfish_best_move": null,
+        "theme": "advantage",
+        "phase": "middlegame",
+        "source": "lichess_puzzles"
+      },
+      "body": {
+        "model": "gpt-6.1-sol",
+        "input": "You are analysing a chess position.\nCurrent position:\nBoard (White at the bottom, rank 8 at the top):\n8 | . . . . . r k .\n7 | . . . . r p p .\n6 | p . p . . . q .\n5 | . . P . . . b p\n4 | . . . P . . . .\n3 | . P . . P . Q .\n2 | P . . . . . P P\n1 | R . B . . R K .\n    a b c d e f g h\nUpper case = White, lower case = Black. K king, Q queen, R rook, B bishop, N knight, P pawn, . empty.\n\nWhite pieces: King g1, Queen g3, Rooks a1 f1, Bishop c1, Pawns a2 g2 h2 b3 e3 d4 c5\nBlack pieces: King g8, Queen g6, Rooks e7 f8, Bishop g5, Pawns h5 a6 c6 f7 g7\nSide to move: White\nCastling still possible: none\nEn passant: none\nAnswer all three questions below.\n\n1. What is the centipawn evaluation of this position from White's perspective?\n   A positive number means White is better. A negative number means Black is better.\n   0 means equal. Give only a number, no explanation.\n\n2. What is the best move for the side to play? Give only the move in SAN notation.\n\n3. Who stands better in this position \u2014 White, Black, or is it equal?\n   Give a one-sentence explanation of the key reason.\n\nRespond using this exact format:\nEval: <integer>\nMove: <SAN move>\nExplanation: <White / Black / Equal> \u2014 <one sentence reason>",
+        "tools": [],
+        "store": false,
+        "max_output_tokens": 4000
+      },
+      "reserved_usd": 0.055666600000000004
+    },
+    {
+      "id": "8429ac742b4ea7150b89fd016d65adfdeb321a8f3e2c2edd44d98cfeafb1e9f7",
+      "model": "gpt-6.1-sol",
+      "position": {
+        "position_id": 1153021,
+        "fen": "r5k1/ppp2rpp/3bp1q1/P2pn3/1P2Pp2/2PP3P/3NQPP1/R1B2RK1 w - - 4 18",
+        "difficulty": "easy",
+        "stockfish_eval": -7,
+        "stockfish_best_move": null,
+        "theme": "crushing",
+        "phase": "opening",
+        "source": "lichess_puzzles"
+      },
+      "body": {
+        "model": "gpt-6.1-sol",
+        "input": "You are analysing a chess position.\nCurrent position:\nBoard (White at the bottom, rank 8 at the top):\n8 | r . . . . . k .\n7 | p p p . . r p p\n6 | . . . b p . q .\n5 | P . . p n . . .\n4 | . P . . P p . .\n3 | . . P P . . . P\n2 | . . . N Q P P .\n1 | R . B . . R K .\n    a b c d e f g h\nUpper case = White, lower case = Black. K king, Q queen, R rook, B bishop, N knight, P pawn, . empty.\n\nWhite pieces: King g1, Queen e2, Rooks a1 f1, Bishop c1, Knight d2, Pawns f2 g2 c3 d3 h3 b4 e4 a5\nBlack pieces: King g8, Queen g6, Rooks f7 a8, Bishop d6, Knight e5, Pawns f4 d5 e6 a7 b7 c7 g7 h7\nSide to move: White\nCastling still possible: none\nEn passant: none\nAnswer all three questions below.\n\n1. What is the centipawn evaluation of this position from White's perspective?\n   A positive number means White is better. A negative number means Black is better.\n   0 means equal. Give only a number, no explanation.\n\n2. What is the best move for the side to play? Give only the move in SAN notation.\n\n3. Who stands better in this position \u2014 White, Black, or is it equal?\n   Give a one-sentence explanation of the key reason.\n\nRespond using this exact format:\nEval: <integer>\nMove: <SAN move>\nExplanation: <White / Black / Equal> \u2014 <one sentence reason>",
+        "tools": [],
+        "store": false,
+        "max_output_tokens": 4000
+      },
+      "reserved_usd": 0.0557414
+    },
+    {
+      "id": "5ec60015d2f4cadf4eaa400af459a61f9da12bb56e2985ab58f29bae56096198",
+      "model": "gpt-6.1-sol",
+      "position": {
+        "position_id": 500560,
+        "fen": "6k1/1r3p2/p3p1pQ/1ppnP2P/4N3/2P1R3/PP3P1K/3q4 b - - 6 35",
+        "difficulty": "easy",
+        "stockfish_eval": 4,
+        "stockfish_best_move": null,
+        "theme": "endgame",
+        "phase": "middlegame",
+        "source": "lichess_puzzles"
+      },
+      "body": {
+        "model": "gpt-6.1-sol",
+        "input": "You are analysing a chess position.\nCurrent position:\nBoard (White at the bottom, rank 8 at the top):\n8 | . . . . . . k .\n7 | . r . . . p . .\n6 | p . . . p . p Q\n5 | . p p n P . . P\n4 | . . . . N . . .\n3 | . . P . R . . .\n2 | P P . . . P . K\n1 | . . . q . . . .\n    a b c d e f g h\nUpper case = White, lower case = Black. K king, Q queen, R rook, B bishop, N knight, P pawn, . empty.\n\nWhite pieces: King h2, Queen h6, Rook e3, Knight e4, Pawns a2 b2 f2 c3 e5 h5\nBlack pieces: King g8, Queen d1, Rook b7, Knight d5, Pawns b5 c5 a6 e6 g6 f7\nSide to move: Black\nCastling still possible: none\nEn passant: none\nAnswer all three questions below.\n\n1. What is the centipawn evaluation of this position from White's perspective?\n   A positive number means White is better. A negative number means Black is better.\n   0 means equal. Give only a number, no explanation.\n\n2. What is the best move for the side to play? Give only the move in SAN notation.\n\n3. Who stands better in this position \u2014 White, Black, or is it equal?\n   Give a one-sentence explanation of the key reason.\n\nRespond using this exact format:\nEval: <integer>\nMove: <SAN move>\nExplanation: <White / Black / Equal> \u2014 <one sentence reason>",
+        "tools": [],
+        "store": false,
+        "max_output_tokens": 4000
+      },
+      "reserved_usd": 0.055649000000000004
+    },
+    {
+      "id": "5036c705fe64d91ee0cb408b0e28f396232a08c7c8ca5a245c16c2be6eb36c3f",
+      "model": "gpt-6.1-sol",
+      "position": {
+        "position_id": 1534921,
+        "fen": "r1bq1rk1/pp2bppp/3p1n2/n1p1p1B1/4P3/1BNP1N2/PPP2PPP/R2Q1RK1 w - - 0 9",
+        "difficulty": "easy",
+        "stockfish_eval": -1,
+        "stockfish_best_move": null,
+        "theme": "advantage",
+        "phase": "opening",
+        "source": "lichess_puzzles"
+      },
+      "body": {
+        "model": "gpt-6.1-sol",
+        "input": "You are analysing a chess position.\nCurrent position:\nBoard (White at the bottom, rank 8 at the top):\n8 | r . b q . r k .\n7 | p p . . b p p p\n6 | . . . p . n . .\n5 | n . p . p . B .\n4 | . . . . P . . .\n3 | . B N P . N . .\n2 | P P P . . P P P\n1 | R . . Q . R K .\n    a b c d e f g h\nUpper case = White, lower case = Black. K king, Q queen, R rook, B bishop, N knight, P pawn, . empty.\n\nWhite pieces: King g1, Queen d1, Rooks a1 f1, Bishops b3 g5, Knights c3 f3, Pawns a2 b2 c2 f2 g2 h2 d3 e4\nBlack pieces: King g8, Queen d8, Rooks a8 f8, Bishops e7 c8, Knights a5 f6, Pawns c5 e5 d6 a7 b7 f7 g7 h7\nSide to move: White\nCastling still possible: none\nEn passant: none\nAnswer all three questions below.\n\n1. What is the centipawn evaluation of this position from White's perspective?\n   A positive number means White is better. A negative number means Black is better.\n   0 means equal. Give only a number, no explanation.\n\n2. What is the best move for the side to play? Give only the move in SAN notation.\n\n3. Who stands better in this position \u2014 White, Black, or is it equal?\n   Give a one-sentence explanation of the key reason.\n\nRespond using this exact format:\nEval: <integer>\nMove: <SAN move>\nExplanation: <White / Black / Equal> \u2014 <one sentence reason>",
+        "tools": [],
+        "store": false,
+        "max_output_tokens": 4000
+      },
+      "reserved_usd": 0.0557766
+    },
+    {
+      "id": "8fb588d656012046f9b47255575613ba39ed92bab974a47589b18b992bf0e3d7",
+      "model": "gpt-6.1-sol",
+      "position": {
+        "position_id": 2543387,
+        "fen": "8/8/1KQ5/1P6/6p1/2q5/6k1/8 b - - 26 106",
+        "difficulty": "medium",
+        "stockfish_eval": 0,
+        "stockfish_best_move": null,
+        "theme": "advancedPawn",
+        "phase": "endgame",
+        "source": "lichess_puzzles"
+      },
+      "body": {
+        "model": "gpt-6.1-sol",
+        "input": "You are analysing a chess position.\nCurrent position:\nBoard (White at the bottom, rank 8 at the top):\n8 | . . . . . . . .\n7 | . . . . . . . .\n6 | . K Q . . . . .\n5 | . P . . . . . .\n4 | . . . . . . p .\n3 | . . q . . . . .\n2 | . . . . . . k .\n1 | . . . . . . . .\n    a b c d e f g h\nUpper case = White, lower case = Black. K king, Q queen, R rook, B bishop, N knight, P pawn, . empty.\n\nWhite pieces: King b6, Queen c6, Pawn b5\nBlack pieces: King g2, Queen c3, Pawn g4\nSide to move: Black\nCastling still possible: none\nEn passant: none\nAnswer all three questions below.\n\n1. What is the centipawn evaluation of this position from White's perspective?\n   A positive number means White is better. A negative number means Black is better.\n   0 means equal. Give only a number, no explanation.\n\n2. What is the best move for the side to play? Give only the move in SAN notation.\n\n3. Who stands better in this position \u2014 White, Black, or is it equal?\n   Give a one-sentence explanation of the key reason.\n\nRespond using this exact format:\nEval: <integer>\nMove: <SAN move>\nExplanation: <White / Black / Equal> \u2014 <one sentence reason>",
+        "tools": [],
+        "store": false,
+        "max_output_tokens": 4000
+      },
+      "reserved_usd": 0.05549060000000001
+    },
+    {
+      "id": "61cedaa619d431f2f87dc8566f605b5b34d6a10a60776a024fa30626240c1b2d",
+      "model": "gpt-6.1-sol",
+      "position": {
+        "position_id": 2530171,
+        "fen": "rn1qr1k1/5p2/pn1BpPp1/1p5p/2pP1Q1P/5P2/PPP1N3/2KR3R b - - 0 20",
+        "difficulty": "medium",
+        "stockfish_eval": 25,
+        "stockfish_best_move": null,
+        "theme": "advantage",
+        "phase": "middlegame",
+        "source": "lichess_puzzles"
+      },
+      "body": {
+        "model": "gpt-6.1-sol",
+        "input": "You are analysing a chess position.\nCurrent position:\nBoard (White at the bottom, rank 8 at the top):\n8 | r n . q r . k .\n7 | . . . . . p . .\n6 | p n . B p P p .\n5 | . p . . . . . p\n4 | . . p P . Q . P\n3 | . . . . . P . .\n2 | P P P . N . . .\n1 | . . K R . . . R\n    a b c d e f g h\nUpper case = White, lower case = Black. K king, Q queen, R rook, B bishop, N knight, P pawn, . empty.\n\nWhite pieces: King c1, Queen f4, Rooks d1 h1, Bishop d6, Knight e2, Pawns a2 b2 c2 f3 d4 h4 f6\nBlack pieces: King g8, Queen d8, Rooks a8 e8, Knights b6 b8, Pawns c4 b5 h5 a6 e6 g6 f7\nSide to move: Black\nCastling still possible: none\nEn passant: none\nAnswer all three questions below.\n\n1. What is the centipawn evaluation of this position from White's perspective?\n   A positive number means White is better. A negative number means Black is better.\n   0 means equal. Give only a number, no explanation.\n\n2. What is the best move for the side to play? Give only the move in SAN notation.\n\n3. Who stands better in this position \u2014 White, Black, or is it equal?\n   Give a one-sentence explanation of the key reason.\n\nRespond using this exact format:\nEval: <integer>\nMove: <SAN move>\nExplanation: <White / Black / Equal> \u2014 <one sentence reason>",
+        "tools": [],
+        "store": false,
+        "max_output_tokens": 4000
+      },
+      "reserved_usd": 0.0557128
+    },
+    {
+      "id": "b137d0454b430a13816657cb6a21baddcf9434f54767590bf31aa6dbe4cd5f07",
+      "model": "gpt-6.1-sol",
+      "position": {
+        "position_id": 2295831,
+        "fen": "6k1/pp1Q1pp1/4p2p/b1P5/4B3/q5P1/4PP1P/6K1 b - - 3 32",
+        "difficulty": "medium",
+        "stockfish_eval": 1,
+        "stockfish_best_move": null,
+        "theme": "advantage",
+        "phase": "middlegame",
+        "source": "lichess_puzzles"
+      },
+      "body": {
+        "model": "gpt-6.1-sol",
+        "input": "You are analysing a chess position.\nCurrent position:\nBoard (White at the bottom, rank 8 at the top):\n8 | . . . . . . k .\n7 | p p . Q . p p .\n6 | . . . . p . . p\n5 | b . P . . . . .\n4 | . . . . B . . .\n3 | q . . . . . P .\n2 | . . . . P P . P\n1 | . . . . . . K .\n    a b c d e f g h\nUpper case = White, lower case = Black. K king, Q queen, R rook, B bishop, N knight, P pawn, . empty.\n\nWhite pieces: King g1, Queen d7, Bishop e4, Pawns e2 f2 h2 g3 c5\nBlack pieces: King g8, Queen a3, Bishop a5, Pawns e6 h6 a7 b7 f7 g7\nSide to move: Black\nCastling still possible: none\nEn passant: none\nAnswer all three questions below.\n\n1. What is the centipawn evaluation of this position from White's perspective?\n   A positive number means White is better. A negative number means Black is better.\n   0 means equal. Give only a number, no explanation.\n\n2. What is the best move for the side to play? Give only the move in SAN notation.\n\n3. Who stands better in this position \u2014 White, Black, or is it equal?\n   Give a one-sentence explanation of the key reason.\n\nRespond using this exact format:\nEval: <integer>\nMove: <SAN move>\nExplanation: <White / Black / Equal> \u2014 <one sentence reason>",
+        "tools": [],
+        "store": false,
+        "max_output_tokens": 4000
+      },
+      "reserved_usd": 0.0556028
+    },
+    {
+      "id": "431ba8ec5514fe491aeeb99c8f75382a84e15f3cde0f714ad4550629ca2c823f",
+      "model": "gpt-6.1-sol",
+      "position": {
+        "position_id": 3624307,
+        "fen": "r1bq1rk1/1p1n2bR/p3ppp1/3pP3/3P4/2NBP3/PP4PP/R1BQ2K1 b - - 0 14",
+        "difficulty": "medium",
+        "stockfish_eval": 25,
+        "stockfish_best_move": null,
+        "theme": "crushing",
+        "phase": "middlegame",
+        "source": "lichess_puzzles"
+      },
+      "body": {
+        "model": "gpt-6.1-sol",
+        "input": "You are analysing a chess position.\nCurrent position:\nBoard (White at the bottom, rank 8 at the top):\n8 | r . b q . r k .\n7 | . p . n . . b R\n6 | p . . . p p p .\n5 | . . . p P . . .\n4 | . . . P . . . .\n3 | . . N B P . . .\n2 | P P . . . . P P\n1 | R . B Q . . K .\n    a b c d e f g h\nUpper case = White, lower case = Black. K king, Q queen, R rook, B bishop, N knight, P pawn, . empty.\n\nWhite pieces: King g1, Queen d1, Rooks a1 h7, Bishops c1 d3, Knight c3, Pawns a2 b2 g2 h2 e3 d4 e5\nBlack pieces: King g8, Queen d8, Rooks a8 f8, Bishops g7 c8, Knight d7, Pawns d5 a6 e6 f6 g6 b7\nSide to move: Black\nCastling still possible: none\nEn passant: none\nAnswer all three questions below.\n\n1. What is the centipawn evaluation of this position from White's perspective?\n   A positive number means White is better. A negative number means Black is better.\n   0 means equal. Give only a number, no explanation.\n\n2. What is the best move for the side to play? Give only the move in SAN notation.\n\n3. Who stands better in this position \u2014 White, Black, or is it equal?\n   Give a one-sentence explanation of the key reason.\n\nRespond using this exact format:\nEval: <integer>\nMove: <SAN move>\nExplanation: <White / Black / Equal> \u2014 <one sentence reason>",
+        "tools": [],
+        "store": false,
+        "max_output_tokens": 4000
+      },
+      "reserved_usd": 0.0557392
+    },
+    {
+      "id": "155ddb5ef76e2b33c39a848849c2d0bd8b505550c80fdafb769836aab0e5577d",
+      "model": "gpt-6.1-sol",
+      "position": {
+        "position_id": 2276731,
+        "fen": "8/8/8/1P1n4/K4Pp1/3p1kP1/3B4/8 w - - 1 50",
+        "difficulty": "medium",
+        "stockfish_eval": 3,
+        "stockfish_best_move": null,
+        "theme": "crushing",
+        "phase": "endgame",
+        "source": "lichess_puzzles"
+      },
+      "body": {
+        "model": "gpt-6.1-sol",
+        "input": "You are analysing a chess position.\nCurrent position:\nBoard (White at the bottom, rank 8 at the top):\n8 | . . . . . . . .\n7 | . . . . . . . .\n6 | . . . . . . . .\n5 | . P . n . . . .\n4 | K . . . . P p .\n3 | . . . p . k P .\n2 | . . . B . . . .\n1 | . . . . . . . .\n    a b c d e f g h\nUpper case = White, lower case = Black. K king, Q queen, R rook, B bishop, N knight, P pawn, . empty.\n\nWhite pieces: King a4, Bishop d2, Pawns g3 f4 b5\nBlack pieces: King f3, Knight d5, Pawns d3 g4\nSide to move: White\nCastling still possible: none\nEn passant: none\nAnswer all three questions below.\n\n1. What is the centipawn evaluation of this position from White's perspective?\n   A positive number means White is better. A negative number means Black is better.\n   0 means equal. Give only a number, no explanation.\n\n2. What is the best move for the side to play? Give only the move in SAN notation.\n\n3. Who stands better in this position \u2014 White, Black, or is it equal?\n   Give a one-sentence explanation of the key reason.\n\nRespond using this exact format:\nEval: <integer>\nMove: <SAN move>\nExplanation: <White / Black / Equal> \u2014 <one sentence reason>",
+        "tools": [],
+        "store": false,
+        "max_output_tokens": 4000
+      },
+      "reserved_usd": 0.055519200000000005
+    },
+    {
+      "id": "51aa323c6dcdfe9d27c62623f76b812f867ef2870846beee44827016fc8e2bad",
+      "model": "gpt-6.1-sol",
+      "position": {
+        "position_id": 5058363,
+        "fen": "8/6k1/3Kp3/3p4/3Pr3/2P2R2/8/8 b - - 2 78",
+        "difficulty": "hard",
+        "stockfish_eval": 24,
+        "stockfish_best_move": null,
+        "theme": "crushing",
+        "phase": "endgame",
+        "source": "lichess_puzzles"
+      },
+      "body": {
+        "model": "gpt-6.1-sol",
+        "input": "You are analysing a chess position.\nCurrent position:\nBoard (White at the bottom, rank 8 at the top):\n8 | . . . . . . . .\n7 | . . . . . . k .\n6 | . . . K p . . .\n5 | . . . p . . . .\n4 | . . . P r . . .\n3 | . . P . . R . .\n2 | . . . . . . . .\n1 | . . . . . . . .\n    a b c d e f g h\nUpper case = White, lower case = Black. K king, Q queen, R rook, B bishop, N knight, P pawn, . empty.\n\nWhite pieces: King d6, Rook f3, Pawns c3 d4\nBlack pieces: King g7, Rook e4, Pawns d5 e6\nSide to move: Black\nCastling still possible: none\nEn passant: none\nAnswer all three questions below.\n\n1. What is the centipawn evaluation of this position from White's perspective?\n   A positive number means White is better. A negative number means Black is better.\n   0 means equal. Give only a number, no explanation.\n\n2. What is the best move for the side to play? Give only the move in SAN notation.\n\n3. Who stands better in this position \u2014 White, Black, or is it equal?\n   Give a one-sentence explanation of the key reason.\n\nRespond using this exact format:\nEval: <integer>\nMove: <SAN move>\nExplanation: <White / Black / Equal> \u2014 <one sentence reason>",
+        "tools": [],
+        "store": false,
+        "max_output_tokens": 4000
+      },
+      "reserved_usd": 0.055503800000000006
+    },
+    {
+      "id": "db1481d849bf8ec29fe209da9fd50bad0d5af88b891cf40625d3a6ca418d64f0",
+      "model": "gpt-6.1-sol",
+      "position": {
+        "position_id": 5117450,
+        "fen": "6rk/pR3Qbp/1np1P1p1/8/2qP4/6PP/P2P2B1/7K b - - 0 27",
+        "difficulty": "hard",
+        "stockfish_eval": -21,
+        "stockfish_best_move": null,
+        "theme": "advancedPawn",
+        "phase": "middlegame",
+        "source": "lichess_puzzles"
+      },
+      "body": {
+        "model": "gpt-6.1-sol",
+        "input": "You are analysing a chess position.\nCurrent position:\nBoard (White at the bottom, rank 8 at the top):\n8 | . . . . . . r k\n7 | p R . . . Q b p\n6 | . n p . P . p .\n5 | . . . . . . . .\n4 | . . q P . . . .\n3 | . . . . . . P P\n2 | P . . P . . B .\n1 | . . . . . . . K\n    a b c d e f g h\nUpper case = White, lower case = Black. K king, Q queen, R rook, B bishop, N knight, P pawn, . empty.\n\nWhite pieces: King h1, Queen f7, Rook b7, Bishop g2, Pawns a2 d2 g3 h3 d4 e6\nBlack pieces: King h8, Queen c4, Rook g8, Bishop g7, Knight b6, Pawns c6 g6 a7 h7\nSide to move: Black\nCastling still possible: none\nEn passant: none\nAnswer all three questions below.\n\n1. What is the centipawn evaluation of this position from White's perspective?\n   A positive number means White is better. A negative number means Black is better.\n   0 means equal. Give only a number, no explanation.\n\n2. What is the best move for the side to play? Give only the move in SAN notation.\n\n3. Who stands better in this position \u2014 White, Black, or is it equal?\n   Give a one-sentence explanation of the key reason.\n\nRespond using this exact format:\nEval: <integer>\nMove: <SAN move>\nExplanation: <White / Black / Equal> \u2014 <one sentence reason>",
+        "tools": [],
+        "store": false,
+        "max_output_tokens": 4000
+      },
+      "reserved_usd": 0.05566000000000001
+    },
+    {
+      "id": "0761038a7ba5d6e67de14c885a30bdc33f07cbad996f8ca64a35f1eb8adc50be",
+      "model": "gpt-6.1-sol",
+      "position": {
+        "position_id": 5326745,
+        "fen": "8/1p1k1p2/p3p1p1/2K1P1P1/1P6/P7/3N4/3b4 b - - 8 35",
+        "difficulty": "hard",
+        "stockfish_eval": 10,
+        "stockfish_best_move": null,
+        "theme": "crushing",
+        "phase": "endgame",
+        "source": "lichess_puzzles"
+      },
+      "body": {
+        "model": "gpt-6.1-sol",
+        "input": "You are analysing a chess position.\nCurrent position:\nBoard (White at the bottom, rank 8 at the top):\n8 | . . . . . . . .\n7 | . p . k . p . .\n6 | p . . . p . p .\n5 | . . K . P . P .\n4 | . P . . . . . .\n3 | P . . . . . . .\n2 | . . . N . . . .\n1 | . . . b . . . .\n    a b c d e f g h\nUpper case = White, lower case = Black. K king, Q queen, R rook, B bishop, N knight, P pawn, . empty.\n\nWhite pieces: King c5, Knight d2, Pawns a3 b4 e5 g5\nBlack pieces: King d7, Bishop d1, Pawns a6 e6 g6 b7 f7\nSide to move: Black\nCastling still possible: none\nEn passant: none\nAnswer all three questions below.\n\n1. What is the centipawn evaluation of this position from White's perspective?\n   A positive number means White is better. A negative number means Black is better.\n   0 means equal. Give only a number, no explanation.\n\n2. What is the best move for the side to play? Give only the move in SAN notation.\n\n3. Who stands better in this position \u2014 White, Black, or is it equal?\n   Give a one-sentence explanation of the key reason.\n\nRespond using this exact format:\nEval: <integer>\nMove: <SAN move>\nExplanation: <White / Black / Equal> \u2014 <one sentence reason>",
+        "tools": [],
+        "store": false,
+        "max_output_tokens": 4000
+      },
+      "reserved_usd": 0.05554560000000001
+    },
+    {
+      "id": "d0c759f51499c7bcd6cd91ecddc4407c4c77e4906a8e70526006cd85e71517e7",
+      "model": "gpt-6.1-sol",
+      "position": {
+        "position_id": 4912678,
+        "fen": "6k1/1p4p1/1Pq4p/2Ppn3/1B2p2P/2P1P1P1/5Q2/6K1 w - - 1 36",
+        "difficulty": "hard",
+        "stockfish_eval": -2,
+        "stockfish_best_move": null,
+        "theme": "crushing",
+        "phase": "middlegame",
+        "source": "lichess_puzzles"
+      },
+      "body": {
+        "model": "gpt-6.1-sol",
+        "input": "You are analysing a chess position.\nCurrent position:\nBoard (White at the bottom, rank 8 at the top):\n8 | . . . . . . k .\n7 | . p . . . . p .\n6 | . P q . . . . p\n5 | . . P p n . . .\n4 | . B . . p . . P\n3 | . . P . P . P .\n2 | . . . . . Q . .\n1 | . . . . . . K .\n    a b c d e f g h\nUpper case = White, lower case = Black. K king, Q queen, R rook, B bishop, N knight, P pawn, . empty.\n\nWhite pieces: King g1, Queen f2, Bishop b4, Pawns c3 e3 g3 h4 c5 b6\nBlack pieces: King g8, Queen c6, Knight e5, Pawns e4 d5 h6 b7 g7\nSide to move: White\nCastling still possible: none\nEn passant: none\nAnswer all three questions below.\n\n1. What is the centipawn evaluation of this position from White's perspective?\n   A positive number means White is better. A negative number means Black is better.\n   0 means equal. Give only a number, no explanation.\n\n2. What is the best move for the side to play? Give only the move in SAN notation.\n\n3. Who stands better in this position \u2014 White, Black, or is it equal?\n   Give a one-sentence explanation of the key reason.\n\nRespond using this exact format:\nEval: <integer>\nMove: <SAN move>\nExplanation: <White / Black / Equal> \u2014 <one sentence reason>",
+        "tools": [],
+        "store": false,
+        "max_output_tokens": 4000
+      },
+      "reserved_usd": 0.0556028
+    },
+    {
+      "id": "563260139e4f2c2dcfa62931b47272c2e0da533f127f3efd8a950c3befd33fc8",
+      "model": "gpt-6.1-sol",
+      "position": {
+        "position_id": 4239030,
+        "fen": "8/p4p1p/4pP1k/8/3p4/1P2b1qP/P3Q3/5R1K w - - 4 42",
+        "difficulty": "hard",
+        "stockfish_eval": 15,
+        "stockfish_best_move": null,
+        "theme": "crushing",
+        "phase": "middlegame",
+        "source": "lichess_puzzles"
+      },
+      "body": {
+        "model": "gpt-6.1-sol",
+        "input": "You are analysing a chess position.\nCurrent position:\nBoard (White at the bottom, rank 8 at the top):\n8 | . . . . . . . .\n7 | p . . . . p . p\n6 | . . . . p P . k\n5 | . . . . . . . .\n4 | . . . p . . . .\n3 | . P . . b . q P\n2 | P . . . Q . . .\n1 | . . . . . R . K\n    a b c d e f g h\nUpper case = White, lower case = Black. K king, Q queen, R rook, B bishop, N knight, P pawn, . empty.\n\nWhite pieces: King h1, Queen e2, Rook f1, Pawns a2 b3 h3 f6\nBlack pieces: King h6, Queen g3, Bishop e3, Pawns d4 e6 a7 f7 h7\nSide to move: White\nCastling still possible: none\nEn passant: none\nAnswer all three questions below.\n\n1. What is the centipawn evaluation of this position from White's perspective?\n   A positive number means White is better. A negative number means Black is better.\n   0 means equal. Give only a number, no explanation.\n\n2. What is the best move for the side to play? Give only the move in SAN notation.\n\n3. Who stands better in this position \u2014 White, Black, or is it equal?\n   Give a one-sentence explanation of the key reason.\n\nRespond using this exact format:\nEval: <integer>\nMove: <SAN move>\nExplanation: <White / Black / Equal> \u2014 <one sentence reason>",
+        "tools": [],
+        "store": false,
+        "max_output_tokens": 4000
+      },
+      "reserved_usd": 0.0555852
+    },
+    {
+      "id": "ee405b856c4a206ec97681af2def44dd4a663072af74a1bb1ba1c4d03f01354f",
+      "model": "gpt-6.1-sol",
+      "position": {
+        "position_id": 5668362,
+        "fen": "8/8/p2p4/1ppP1kp1/2P4p/PP1K2PP/8/8 w - - 0 33",
+        "difficulty": "extreme",
+        "stockfish_eval": -36,
+        "stockfish_best_move": null,
+        "theme": "crushing",
+        "phase": "endgame",
+        "source": "lichess_puzzles"
+      },
+      "body": {
+        "model": "gpt-6.1-sol",
+        "input": "You are analysing a chess position.\nCurrent position:\nBoard (White at the bottom, rank 8 at the top):\n8 | . . . . . . . .\n7 | . . . . . . . .\n6 | p . . p . . . .\n5 | . p p P . k p .\n4 | . . P . . . . p\n3 | P P . K . . P P\n2 | . . . . . . . .\n1 | . . . . . . . .\n    a b c d e f g h\nUpper case = White, lower case = Black. K king, Q queen, R rook, B bishop, N knight, P pawn, . empty.\n\nWhite pieces: King d3, Pawns a3 b3 g3 h3 c4 d5\nBlack pieces: King f5, Pawns h4 b5 c5 g5 a6 d6\nSide to move: White\nCastling still possible: none\nEn passant: none\nAnswer all three questions below.\n\n1. What is the centipawn evaluation of this position from White's perspective?\n   A positive number means White is better. A negative number means Black is better.\n   0 means equal. Give only a number, no explanation.\n\n2. What is the best move for the side to play? Give only the move in SAN notation.\n\n3. Who stands better in this position \u2014 White, Black, or is it equal?\n   Give a one-sentence explanation of the key reason.\n\nRespond using this exact format:\nEval: <integer>\nMove: <SAN move>\nExplanation: <White / Black / Equal> \u2014 <one sentence reason>",
+        "tools": [],
+        "store": false,
+        "max_output_tokens": 4000
+      },
+      "reserved_usd": 0.055517000000000004
+    },
+    {
+      "id": "3464b753b0535f9432c055ba4a60ed2effa4422f3ef215e83105ae8b7fff9fdf",
+      "model": "gpt-6.1-sol",
+      "position": {
+        "position_id": 5584774,
+        "fen": "4r1k1/6p1/1R3p1p/3P1P2/p5r1/2P5/2R1p2P/4K3 w - - 0 43",
+        "difficulty": "extreme",
+        "stockfish_eval": -48,
+        "stockfish_best_move": null,
+        "theme": "crushing",
+        "phase": "endgame",
+        "source": "lichess_puzzles"
+      },
+      "body": {
+        "model": "gpt-6.1-sol",
+        "input": "You are analysing a chess position.\nCurrent position:\nBoard (White at the bottom, rank 8 at the top):\n8 | . . . . r . k .\n7 | . . . . . . p .\n6 | . R . . . p . p\n5 | . . . P . P . .\n4 | p . . . . . r .\n3 | . . P . . . . .\n2 | . . R . p . . P\n1 | . . . . K . . .\n    a b c d e f g h\nUpper case = White, lower case = Black. K king, Q queen, R rook, B bishop, N knight, P pawn, . empty.\n\nWhite pieces: King e1, Rooks c2 b6, Pawns h2 c3 d5 f5\nBlack pieces: King g8, Rooks g4 e8, Pawns e2 a4 f6 h6 g7\nSide to move: White\nCastling still possible: none\nEn passant: none\nAnswer all three questions below.\n\n1. What is the centipawn evaluation of this position from White's perspective?\n   A positive number means White is better. A negative number means Black is better.\n   0 means equal. Give only a number, no explanation.\n\n2. What is the best move for the side to play? Give only the move in SAN notation.\n\n3. Who stands better in this position \u2014 White, Black, or is it equal?\n   Give a one-sentence explanation of the key reason.\n\nRespond using this exact format:\nEval: <integer>\nMove: <SAN move>\nExplanation: <White / Black / Equal> \u2014 <one sentence reason>",
+        "tools": [],
+        "store": false,
+        "max_output_tokens": 4000
+      },
+      "reserved_usd": 0.055554400000000004
+    },
+    {
+      "id": "91c7ec0b74929174f7a478faf60b94647b9cf1ffe953fbf8654e01d1c357c812",
+      "model": "gpt-6.1-sol",
+      "position": {
+        "position_id": 5467775,
+        "fen": "r1bq1rk1/ppp2ppp/3p1b2/3n4/2nPN3/3QB3/PP2NPPP/RB3RK1 b - - 3 13",
+        "difficulty": "extreme",
+        "stockfish_eval": -8,
+        "stockfish_best_move": null,
+        "theme": "advantage",
+        "phase": "opening",
+        "source": "lichess_puzzles"
+      },
+      "body": {
+        "model": "gpt-6.1-sol",
+        "input": "You are analysing a chess position.\nCurrent position:\nBoard (White at the bottom, rank 8 at the top):\n8 | r . b q . r k .\n7 | p p p . . p p p\n6 | . . . p . b . .\n5 | . . . n . . . .\n4 | . . n P N . . .\n3 | . . . Q B . . .\n2 | P P . . N P P P\n1 | R B . . . R K .\n    a b c d e f g h\nUpper case = White, lower case = Black. K king, Q queen, R rook, B bishop, N knight, P pawn, . empty.\n\nWhite pieces: King g1, Queen d3, Rooks a1 f1, Bishops b1 e3, Knights e2 e4, Pawns a2 b2 f2 g2 h2 d4\nBlack pieces: King g8, Queen d8, Rooks a8 f8, Bishops f6 c8, Knights c4 d5, Pawns d6 a7 b7 c7 f7 g7 h7\nSide to move: Black\nCastling still possible: none\nEn passant: none\nAnswer all three questions below.\n\n1. What is the centipawn evaluation of this position from White's perspective?\n   A positive number means White is better. A negative number means Black is better.\n   0 means equal. Give only a number, no explanation.\n\n2. What is the best move for the side to play? Give only the move in SAN notation.\n\n3. Who stands better in this position \u2014 White, Black, or is it equal?\n   Give a one-sentence explanation of the key reason.\n\nRespond using this exact format:\nEval: <integer>\nMove: <SAN move>\nExplanation: <White / Black / Equal> \u2014 <one sentence reason>",
+        "tools": [],
+        "store": false,
+        "max_output_tokens": 4000
+      },
+      "reserved_usd": 0.0557568
+    },
+    {
+      "id": "726d2b444e8aef33bd63cbe8c93f644cf9182ca1e3d2b02fc0887f66e09b9855",
+      "model": "gpt-6.1-sol",
+      "position": {
+        "position_id": 5467468,
+        "fen": "1r4k1/6p1/pb1p2p1/1p1Pp1q1/8/P2P4/1PP1QP2/1R3RK1 w - - 2 25",
+        "difficulty": "extreme",
+        "stockfish_eval": -74,
+        "stockfish_best_move": null,
+        "theme": "crushing",
+        "phase": "middlegame",
+        "source": "lichess_puzzles"
+      },
+      "body": {
+        "model": "gpt-6.1-sol",
+        "input": "You are analysing a chess position.\nCurrent position:\nBoard (White at the bottom, rank 8 at the top):\n8 | . r . . . . k .\n7 | . . . . . . p .\n6 | p b . p . . p .\n5 | . p . P p . q .\n4 | . . . . . . . .\n3 | P . . P . . . .\n2 | . P P . Q P . .\n1 | . R . . . R K .\n    a b c d e f g h\nUpper case = White, lower case = Black. K king, Q queen, R rook, B bishop, N knight, P pawn, . empty.\n\nWhite pieces: King g1, Queen e2, Rooks b1 f1, Pawns b2 c2 f2 a3 d3 d5\nBlack pieces: King g8, Queen g5, Rook b8, Bishop b6, Pawns b5 e5 a6 d6 g6 g7\nSide to move: White\nCastling still possible: none\nEn passant: none\nAnswer all three questions below.\n\n1. What is the centipawn evaluation of this position from White's perspective?\n   A positive number means White is better. A negative number means Black is better.\n   0 means equal. Give only a number, no explanation.\n\n2. What is the best move for the side to play? Give only the move in SAN notation.\n\n3. Who stands better in this position \u2014 White, Black, or is it equal?\n   Give a one-sentence explanation of the key reason.\n\nRespond using this exact format:\nEval: <integer>\nMove: <SAN move>\nExplanation: <White / Black / Equal> \u2014 <one sentence reason>",
+        "tools": [],
+        "store": false,
+        "max_output_tokens": 4000
+      },
+      "reserved_usd": 0.055633600000000005
+    },
+    {
+      "id": "e8305151deb7c78fbf4c916d1026d1fe586f2f8f6aa3c952c429b236d6399864",
+      "model": "gpt-6.1-sol",
+      "position": {
+        "position_id": 5485032,
+        "fen": "4Q3/5ppk/pb4qp/3P4/1Pp3b1/P7/1B3PPP/4R1K1 w - - 1 29",
+        "difficulty": "extreme",
+        "stockfish_eval": 109,
+        "stockfish_best_move": null,
+        "theme": "crushing",
+        "phase": "middlegame",
+        "source": "lichess_puzzles"
+      },
+      "body": {
+        "model": "gpt-6.1-sol",
+        "input": "You are analysing a chess position.\nCurrent position:\nBoard (White at the bottom, rank 8 at the top):\n8 | . . . . Q . . .\n7 | . . . . . p p k\n6 | p b . . . . q p\n5 | . . . P . . . .\n4 | . P p . . . b .\n3 | P . . . . . . .\n2 | . B . . . P P P\n1 | . . . . R . K .\n    a b c d e f g h\nUpper case = White, lower case = Black. K king, Q queen, R rook, B bishop, N knight, P pawn, . empty.\n\nWhite pieces: King g1, Queen e8, Rook e1, Bishop b2, Pawns f2 g2 h2 a3 b4 d5\nBlack pieces: King h7, Queen g6, Bishops g4 b6, Pawns c4 a6 h6 f7 g7\nSide to move: White\nCastling still possible: none\nEn passant: none\nAnswer all three questions below.\n\n1. What is the centipawn evaluation of this position from White's perspective?\n   A positive number means White is better. A negative number means Black is better.\n   0 means equal. Give only a number, no explanation.\n\n2. What is the best move for the side to play? Give only the move in SAN notation.\n\n3. Who stands better in this position \u2014 White, Black, or is it equal?\n   Give a one-sentence explanation of the key reason.\n\nRespond using this exact format:\nEval: <integer>\nMove: <SAN move>\nExplanation: <White / Black / Equal> \u2014 <one sentence reason>",
+        "tools": [],
+        "store": false,
+        "max_output_tokens": 4000
+      },
+      "reserved_usd": 0.055631400000000004
+    },
+    {
+      "id": "3079b75d868b5abad546c5b574c6d692771dbe2063b2fb101311de77a3a4cfbe",
+      "model": "gpt-6-luna",
+      "position": {
+        "position_id": 341110,
+        "fen": "r4rk1/pp1n1ppp/8/3p2B1/3P4/1P3Bq1/P7/R2Q1R1K w - - 0 17",
+        "difficulty": "easy",
+        "stockfish_eval": 94,
+        "stockfish_best_move": null,
+        "theme": "mate",
+        "phase": "middlegame",
+        "source": "lichess_puzzles"
+      },
+      "body": {
+        "model": "gpt-6-luna",
+        "input": "You are analysing a chess position.\nCurrent position:\nBoard (White at the bottom, rank 8 at the top):\n8 | r . . . . r k .\n7 | p p . n . p p p\n6 | . . . . . . . .\n5 | . . . p . . B .\n4 | . . . P . . . .\n3 | . P . . . B q .\n2 | P . . . . . . .\n1 | R . . Q . R . K\n    a b c d e f g h\nUpper case = White, lower case = Black. K king, Q queen, R rook, B bishop, N knight, P pawn, . empty.\n\nWhite pieces: King h1, Queen d1, Rooks a1 f1, Bishops f3 g5, Pawns a2 b3 d4\nBlack pieces: King g8, Queen g3, Rooks a8 f8, Knight d7, Pawns d5 a7 b7 f7 g7 h7\nSide to move: White\nCastling still possible: none\nEn passant: none\nAnswer all three questions below.\n\n1. What is the centipawn evaluation of this position from White's perspective?\n   A positive number means White is better. A negative number means Black is better.\n   0 means equal. Give only a number, no explanation.\n\n2. What is the best move for the side to play? Give only the move in SAN notation.\n\n3. Who stands better in this position \u2014 White, Black, or is it equal?\n   Give a one-sentence explanation of the key reason.\n\nRespond using this exact format:\nEval: <integer>\nMove: <SAN move>\nExplanation: <White / Black / Equal> \u2014 <one sentence reason>",
+        "tools": [],
+        "store": false,
+        "max_output_tokens": 4000
+      },
+      "reserved_usd": 0.0027827800000000003
+    },
+    {
+      "id": "b5558cc01e00eda2e655b4e88582c1dc86aeb753656aa754faef216f5ebc3102",
+      "model": "gpt-6-luna",
+      "position": {
+        "position_id": 1306851,
+        "fen": "5rk1/4rpp1/p1p3q1/2P3bp/3P4/1P2P1Q1/P5PP/R1B2RK1 w - - 0 23",
+        "difficulty": "easy",
+        "stockfish_eval": 59,
+        "stockfish_best_move": null,
+        "theme": "advantage",
+        "phase": "middlegame",
+        "source": "lichess_puzzles"
+      },
+      "body": {
+        "model": "gpt-6-luna",
+        "input": "You are analysing a chess position.\nCurrent position:\nBoard (White at the bottom, rank 8 at the top):\n8 | . . . . . r k .\n7 | . . . . r p p .\n6 | p . p . . . q .\n5 | . . P . . . b p\n4 | . . . P . . . .\n3 | . P . . P . Q .\n2 | P . . . . . P P\n1 | R . B . . R K .\n    a b c d e f g h\nUpper case = White, lower case = Black. K king, Q queen, R rook, B bishop, N knight, P pawn, . empty.\n\nWhite pieces: King g1, Queen g3, Rooks a1 f1, Bishop c1, Pawns a2 g2 h2 b3 e3 d4 c5\nBlack pieces: King g8, Queen g6, Rooks e7 f8, Bishop g5, Pawns h5 a6 c6 f7 g7\nSide to move: White\nCastling still possible: none\nEn passant: none\nAnswer all three questions below.\n\n1. What is the centipawn evaluation of this position from White's perspective?\n   A positive number means White is better. A negative number means Black is better.\n   0 means equal. Give only a number, no explanation.\n\n2. What is the best move for the side to play? Give only the move in SAN notation.\n\n3. Who stands better in this position \u2014 White, Black, or is it equal?\n   Give a one-sentence explanation of the key reason.\n\nRespond using this exact format:\nEval: <integer>\nMove: <SAN move>\nExplanation: <White / Black / Equal> \u2014 <one sentence reason>",
+        "tools": [],
+        "store": false,
+        "max_output_tokens": 4000
+      },
+      "reserved_usd": 0.0027833300000000005
+    },
+    {
+      "id": "eaebff838321ba1ef491b82ffaf45ac52a0b1951d2114c0975905a1055e040ef",
+      "model": "gpt-6-luna",
+      "position": {
+        "position_id": 1153021,
+        "fen": "r5k1/ppp2rpp/3bp1q1/P2pn3/1P2Pp2/2PP3P/3NQPP1/R1B2RK1 w - - 4 18",
+        "difficulty": "easy",
+        "stockfish_eval": -7,
+        "stockfish_best_move": null,
+        "theme": "crushing",
+        "phase": "opening",
+        "source": "lichess_puzzles"
+      },
+      "body": {
+        "model": "gpt-6-luna",
+        "input": "You are analysing a chess position.\nCurrent position:\nBoard (White at the bottom, rank 8 at the top):\n8 | r . . . . . k .\n7 | p p p . . r p p\n6 | . . . b p . q .\n5 | P . . p n . . .\n4 | . P . . P p . .\n3 | . . P P . . . P\n2 | . . . N Q P P .\n1 | R . B . . R K .\n    a b c d e f g h\nUpper case = White, lower case = Black. K king, Q queen, R rook, B bishop, N knight, P pawn, . empty.\n\nWhite pieces: King g1, Queen e2, Rooks a1 f1, Bishop c1, Knight d2, Pawns f2 g2 c3 d3 h3 b4 e4 a5\nBlack pieces: King g8, Queen g6, Rooks f7 a8, Bishop d6, Knight e5, Pawns f4 d5 e6 a7 b7 c7 g7 h7\nSide to move: White\nCastling still possible: none\nEn passant: none\nAnswer all three questions below.\n\n1. What is the centipawn evaluation of this position from White's perspective?\n   A positive number means White is better. A negative number means Black is better.\n   0 means equal. Give only a number, no explanation.\n\n2. What is the best move for the side to play? Give only the move in SAN notation.\n\n3. Who stands better in this position \u2014 White, Black, or is it equal?\n   Give a one-sentence explanation of the key reason.\n\nRespond using this exact format:\nEval: <integer>\nMove: <SAN move>\nExplanation: <White / Black / Equal> \u2014 <one sentence reason>",
+        "tools": [],
+        "store": false,
+        "max_output_tokens": 4000
+      },
+      "reserved_usd": 0.00278707
+    },
+    {
+      "id": "c865c9788cdcfad30be0444335251a62a62a176dea073824fa5a543eafd07e98",
+      "model": "gpt-6-luna",
+      "position": {
+        "position_id": 500560,
+        "fen": "6k1/1r3p2/p3p1pQ/1ppnP2P/4N3/2P1R3/PP3P1K/3q4 b - - 6 35",
+        "difficulty": "easy",
+        "stockfish_eval": 4,
+        "stockfish_best_move": null,
+        "theme": "endgame",
+        "phase": "middlegame",
+        "source": "lichess_puzzles"
+      },
+      "body": {
+        "model": "gpt-6-luna",
+        "input": "You are analysing a chess position.\nCurrent position:\nBoard (White at the bottom, rank 8 at the top):\n8 | . . . . . . k .\n7 | . r . . . p . .\n6 | p . . . p . p Q\n5 | . p p n P . . P\n4 | . . . . N . . .\n3 | . . P . R . . .\n2 | P P . . . P . K\n1 | . . . q . . . .\n    a b c d e f g h\nUpper case = White, lower case = Black. K king, Q queen, R rook, B bishop, N knight, P pawn, . empty.\n\nWhite pieces: King h2, Queen h6, Rook e3, Knight e4, Pawns a2 b2 f2 c3 e5 h5\nBlack pieces: King g8, Queen d1, Rook b7, Knight d5, Pawns b5 c5 a6 e6 g6 f7\nSide to move: Black\nCastling still possible: none\nEn passant: none\nAnswer all three questions below.\n\n1. What is the centipawn evaluation of this position from White's perspective?\n   A positive number means White is better. A negative number means Black is better.\n   0 means equal. Give only a number, no explanation.\n\n2. What is the best move for the side to play? Give only the move in SAN notation.\n\n3. Who stands better in this position \u2014 White, Black, or is it equal?\n   Give a one-sentence explanation of the key reason.\n\nRespond using this exact format:\nEval: <integer>\nMove: <SAN move>\nExplanation: <White / Black / Equal> \u2014 <one sentence reason>",
+        "tools": [],
+        "store": false,
+        "max_output_tokens": 4000
+      },
+      "reserved_usd": 0.00278245
+    },
+    {
+      "id": "d82ff018b2628c735003916cca79bb923c28c305a0a45cff6e1dcb9b11725815",
+      "model": "gpt-6-luna",
+      "position": {
+        "position_id": 1534921,
+        "fen": "r1bq1rk1/pp2bppp/3p1n2/n1p1p1B1/4P3/1BNP1N2/PPP2PPP/R2Q1RK1 w - - 0 9",
+        "difficulty": "easy",
+        "stockfish_eval": -1,
+        "stockfish_best_move": null,
+        "theme": "advantage",
+        "phase": "opening",
+        "source": "lichess_puzzles"
+      },
+      "body": {
+        "model": "gpt-6-luna",
+        "input": "You are analysing a chess position.\nCurrent position:\nBoard (White at the bottom, rank 8 at the top):\n8 | r . b q . r k .\n7 | p p . . b p p p\n6 | . . . p . n . .\n5 | n . p . p . B .\n4 | . . . . P . . .\n3 | . B N P . N . .\n2 | P P P . . P P P\n1 | R . . Q . R K .\n    a b c d e f g h\nUpper case = White, lower case = Black. K king, Q queen, R rook, B bishop, N knight, P pawn, . empty.\n\nWhite pieces: King g1, Queen d1, Rooks a1 f1, Bishops b3 g5, Knights c3 f3, Pawns a2 b2 c2 f2 g2 h2 d3 e4\nBlack pieces: King g8, Queen d8, Rooks a8 f8, Bishops e7 c8, Knights a5 f6, Pawns c5 e5 d6 a7 b7 f7 g7 h7\nSide to move: White\nCastling still possible: none\nEn passant: none\nAnswer all three questions below.\n\n1. What is the centipawn evaluation of this position from White's perspective?\n   A positive number means White is better. A negative number means Black is better.\n   0 means equal. Give only a number, no explanation.\n\n2. What is the best move for the side to play? Give only the move in SAN notation.\n\n3. Who stands better in this position \u2014 White, Black, or is it equal?\n   Give a one-sentence explanation of the key reason.\n\nRespond using this exact format:\nEval: <integer>\nMove: <SAN move>\nExplanation: <White / Black / Equal> \u2014 <one sentence reason>",
+        "tools": [],
+        "store": false,
+        "max_output_tokens": 4000
+      },
+      "reserved_usd": 0.0027888300000000004
+    },
+    {
+      "id": "b24eb203fd368f20cbb5150bf9619dc8114305bbaa80ce1976c5b650400b9086",
+      "model": "gpt-6-luna",
+      "position": {
+        "position_id": 2543387,
+        "fen": "8/8/1KQ5/1P6/6p1/2q5/6k1/8 b - - 26 106",
+        "difficulty": "medium",
+        "stockfish_eval": 0,
+        "stockfish_best_move": null,
+        "theme": "advancedPawn",
+        "phase": "endgame",
+        "source": "lichess_puzzles"
+      },
+      "body": {
+        "model": "gpt-6-luna",
+        "input": "You are analysing a chess position.\nCurrent position:\nBoard (White at the bottom, rank 8 at the top):\n8 | . . . . . . . .\n7 | . . . . . . . .\n6 | . K Q . . . . .\n5 | . P . . . . . .\n4 | . . . . . . p .\n3 | . . q . . . . .\n2 | . . . . . . k .\n1 | . . . . . . . .\n    a b c d e f g h\nUpper case = White, lower case = Black. K king, Q queen, R rook, B bishop, N knight, P pawn, . empty.\n\nWhite pieces: King b6, Queen c6, Pawn b5\nBlack pieces: King g2, Queen c3, Pawn g4\nSide to move: Black\nCastling still possible: none\nEn passant: none\nAnswer all three questions below.\n\n1. What is the centipawn evaluation of this position from White's perspective?\n   A positive number means White is better. A negative number means Black is better.\n   0 means equal. Give only a number, no explanation.\n\n2. What is the best move for the side to play? Give only the move in SAN notation.\n\n3. Who stands better in this position \u2014 White, Black, or is it equal?\n   Give a one-sentence explanation of the key reason.\n\nRespond using this exact format:\nEval: <integer>\nMove: <SAN move>\nExplanation: <White / Black / Equal> \u2014 <one sentence reason>",
+        "tools": [],
+        "store": false,
+        "max_output_tokens": 4000
+      },
+      "reserved_usd": 0.0027745300000000003
+    },
+    {
+      "id": "de8349553ba5b2db154ee185580cc6020abd8db73f81f38db062dc63ba4f29e4",
+      "model": "gpt-6-luna",
+      "position": {
+        "position_id": 2530171,
+        "fen": "rn1qr1k1/5p2/pn1BpPp1/1p5p/2pP1Q1P/5P2/PPP1N3/2KR3R b - - 0 20",
+        "difficulty": "medium",
+        "stockfish_eval": 25,
+        "stockfish_best_move": null,
+        "theme": "advantage",
+        "phase": "middlegame",
+        "source": "lichess_puzzles"
+      },
+      "body": {
+        "model": "gpt-6-luna",
+        "input": "You are analysing a chess position.\nCurrent position:\nBoard (White at the bottom, rank 8 at the top):\n8 | r n . q r . k .\n7 | . . . . . p . .\n6 | p n . B p P p .\n5 | . p . . . . . p\n4 | . . p P . Q . P\n3 | . . . . . P . .\n2 | P P P . N . . .\n1 | . . K R . . . R\n    a b c d e f g h\nUpper case = White, lower case = Black. K king, Q queen, R rook, B bishop, N knight, P pawn, . empty.\n\nWhite pieces: King c1, Queen f4, Rooks d1 h1, Bishop d6, Knight e2, Pawns a2 b2 c2 f3 d4 h4 f6\nBlack pieces: King g8, Queen d8, Rooks a8 e8, Knights b6 b8, Pawns c4 b5 h5 a6 e6 g6 f7\nSide to move: Black\nCastling still possible: none\nEn passant: none\nAnswer all three questions below.\n\n1. What is the centipawn evaluation of this position from White's perspective?\n   A positive number means White is better. A negative number means Black is better.\n   0 means equal. Give only a number, no explanation.\n\n2. What is the best move for the side to play? Give only the move in SAN notation.\n\n3. Who stands better in this position \u2014 White, Black, or is it equal?\n   Give a one-sentence explanation of the key reason.\n\nRespond using this exact format:\nEval: <integer>\nMove: <SAN move>\nExplanation: <White / Black / Equal> \u2014 <one sentence reason>",
+        "tools": [],
+        "store": false,
+        "max_output_tokens": 4000
+      },
+      "reserved_usd": 0.0027856400000000003
+    },
+    {
+      "id": "0868043a89e89bdf9d60bc6398f4a9f42dc15394c8f1eaeaffa9e1ac29d1b369",
+      "model": "gpt-6-luna",
+      "position": {
+        "position_id": 2295831,
+        "fen": "6k1/pp1Q1pp1/4p2p/b1P5/4B3/q5P1/4PP1P/6K1 b - - 3 32",
+        "difficulty": "medium",
+        "stockfish_eval": 1,
+        "stockfish_best_move": null,
+        "theme": "advantage",
+        "phase": "middlegame",
+        "source": "lichess_puzzles"
+      },
+      "body": {
+        "model": "gpt-6-luna",
+        "input": "You are analysing a chess position.\nCurrent position:\nBoard (White at the bottom, rank 8 at the top):\n8 | . . . . . . k .\n7 | p p . Q . p p .\n6 | . . . . p . . p\n5 | b . P . . . . .\n4 | . . . . B . . .\n3 | q . . . . . P .\n2 | . . . . P P . P\n1 | . . . . . . K .\n    a b c d e f g h\nUpper case = White, lower case = Black. K king, Q queen, R rook, B bishop, N knight, P pawn, . empty.\n\nWhite pieces: King g1, Queen d7, Bishop e4, Pawns e2 f2 h2 g3 c5\nBlack pieces: King g8, Queen a3, Bishop a5, Pawns e6 h6 a7 b7 f7 g7\nSide to move: Black\nCastling still possible: none\nEn passant: none\nAnswer all three questions below.\n\n1. What is the centipawn evaluation of this position from White's perspective?\n   A positive number means White is better. A negative number means Black is better.\n   0 means equal. Give only a number, no explanation.\n\n2. What is the best move for the side to play? Give only the move in SAN notation.\n\n3. Who stands better in this position \u2014 White, Black, or is it equal?\n   Give a one-sentence explanation of the key reason.\n\nRespond using this exact format:\nEval: <integer>\nMove: <SAN move>\nExplanation: <White / Black / Equal> \u2014 <one sentence reason>",
+        "tools": [],
+        "store": false,
+        "max_output_tokens": 4000
+      },
+      "reserved_usd": 0.0027801400000000004
+    },
+    {
+      "id": "c4f144f8722e19a16041bf78d96271a3d589b1a78756be0b55d07b5d81ff1454",
+      "model": "gpt-6-luna",
+      "position": {
+        "position_id": 3624307,
+        "fen": "r1bq1rk1/1p1n2bR/p3ppp1/3pP3/3P4/2NBP3/PP4PP/R1BQ2K1 b - - 0 14",
+        "difficulty": "medium",
+        "stockfish_eval": 25,
+        "stockfish_best_move": null,
+        "theme": "crushing",
+        "phase": "middlegame",
+        "source": "lichess_puzzles"
+      },
+      "body": {
+        "model": "gpt-6-luna",
+        "input": "You are analysing a chess position.\nCurrent position:\nBoard (White at the bottom, rank 8 at the top):\n8 | r . b q . r k .\n7 | . p . n . . b R\n6 | p . . . p p p .\n5 | . . . p P . . .\n4 | . . . P . . . .\n3 | . . N B P . . .\n2 | P P . . . . P P\n1 | R . B Q . . K .\n    a b c d e f g h\nUpper case = White, lower case = Black. K king, Q queen, R rook, B bishop, N knight, P pawn, . empty.\n\nWhite pieces: King g1, Queen d1, Rooks a1 h7, Bishops c1 d3, Knight c3, Pawns a2 b2 g2 h2 e3 d4 e5\nBlack pieces: King g8, Queen d8, Rooks a8 f8, Bishops g7 c8, Knight d7, Pawns d5 a6 e6 f6 g6 b7\nSide to move: Black\nCastling still possible: none\nEn passant: none\nAnswer all three questions below.\n\n1. What is the centipawn evaluation of this position from White's perspective?\n   A positive number means White is better. A negative number means Black is better.\n   0 means equal. Give only a number, no explanation.\n\n2. What is the best move for the side to play? Give only the move in SAN notation.\n\n3. Who stands better in this position \u2014 White, Black, or is it equal?\n   Give a one-sentence explanation of the key reason.\n\nRespond using this exact format:\nEval: <integer>\nMove: <SAN move>\nExplanation: <White / Black / Equal> \u2014 <one sentence reason>",
+        "tools": [],
+        "store": false,
+        "max_output_tokens": 4000
+      },
+      "reserved_usd": 0.0027869600000000002
+    },
+    {
+      "id": "50d52b4828efe25237b8886d1c86ef3ee429f7d0952f9729f34b7354c8644f25",
+      "model": "gpt-6-luna",
+      "position": {
+        "position_id": 2276731,
+        "fen": "8/8/8/1P1n4/K4Pp1/3p1kP1/3B4/8 w - - 1 50",
+        "difficulty": "medium",
+        "stockfish_eval": 3,
+        "stockfish_best_move": null,
+        "theme": "crushing",
+        "phase": "endgame",
+        "source": "lichess_puzzles"
+      },
+      "body": {
+        "model": "gpt-6-luna",
+        "input": "You are analysing a chess position.\nCurrent position:\nBoard (White at the bottom, rank 8 at the top):\n8 | . . . . . . . .\n7 | . . . . . . . .\n6 | . . . . . . . .\n5 | . P . n . . . .\n4 | K . . . . P p .\n3 | . . . p . k P .\n2 | . . . B . . . .\n1 | . . . . . . . .\n    a b c d e f g h\nUpper case = White, lower case = Black. K king, Q queen, R rook, B bishop, N knight, P pawn, . empty.\n\nWhite pieces: King a4, Bishop d2, Pawns g3 f4 b5\nBlack pieces: King f3, Knight d5, Pawns d3 g4\nSide to move: White\nCastling still possible: none\nEn passant: none\nAnswer all three questions below.\n\n1. What is the centipawn evaluation of this position from White's perspective?\n   A positive number means White is better. A negative number means Black is better.\n   0 means equal. Give only a number, no explanation.\n\n2. What is the best move for the side to play? Give only the move in SAN notation.\n\n3. Who stands better in this position \u2014 White, Black, or is it equal?\n   Give a one-sentence explanation of the key reason.\n\nRespond using this exact format:\nEval: <integer>\nMove: <SAN move>\nExplanation: <White / Black / Equal> \u2014 <one sentence reason>",
+        "tools": [],
+        "store": false,
+        "max_output_tokens": 4000
+      },
+      "reserved_usd": 0.00277596
+    },
+    {
+      "id": "8e17351c7f8aec705ed89cbc2d3d61b5df799dd8d8600b1f92f6a50e7e568ffb",
+      "model": "gpt-6-luna",
+      "position": {
+        "position_id": 5058363,
+        "fen": "8/6k1/3Kp3/3p4/3Pr3/2P2R2/8/8 b - - 2 78",
+        "difficulty": "hard",
+        "stockfish_eval": 24,
+        "stockfish_best_move": null,
+        "theme": "crushing",
+        "phase": "endgame",
+        "source": "lichess_puzzles"
+      },
+      "body": {
+        "model": "gpt-6-luna",
+        "input": "You are analysing a chess position.\nCurrent position:\nBoard (White at the bottom, rank 8 at the top):\n8 | . . . . . . . .\n7 | . . . . . . k .\n6 | . . . K p . . .\n5 | . . . p . . . .\n4 | . . . P r . . .\n3 | . . P . . R . .\n2 | . . . . . . . .\n1 | . . . . . . . .\n    a b c d e f g h\nUpper case = White, lower case = Black. K king, Q queen, R rook, B bishop, N knight, P pawn, . empty.\n\nWhite pieces: King d6, Rook f3, Pawns c3 d4\nBlack pieces: King g7, Rook e4, Pawns d5 e6\nSide to move: Black\nCastling still possible: none\nEn passant: none\nAnswer all three questions below.\n\n1. What is the centipawn evaluation of this position from White's perspective?\n   A positive number means White is better. A negative number means Black is better.\n   0 means equal. Give only a number, no explanation.\n\n2. What is the best move for the side to play? Give only the move in SAN notation.\n\n3. Who stands better in this position \u2014 White, Black, or is it equal?\n   Give a one-sentence explanation of the key reason.\n\nRespond using this exact format:\nEval: <integer>\nMove: <SAN move>\nExplanation: <White / Black / Equal> \u2014 <one sentence reason>",
+        "tools": [],
+        "store": false,
+        "max_output_tokens": 4000
+      },
+      "reserved_usd": 0.0027751900000000003
+    },
+    {
+      "id": "099dcc467abeb366b088fd74efd9bed01ec594c7c3c39e66fa3dfe9d1ef34510",
+      "model": "gpt-6-luna",
+      "position": {
+        "position_id": 5117450,
+        "fen": "6rk/pR3Qbp/1np1P1p1/8/2qP4/6PP/P2P2B1/7K b - - 0 27",
+        "difficulty": "hard",
+        "stockfish_eval": -21,
+        "stockfish_best_move": null,
+        "theme": "advancedPawn",
+        "phase": "middlegame",
+        "source": "lichess_puzzles"
+      },
+      "body": {
+        "model": "gpt-6-luna",
+        "input": "You are analysing a chess position.\nCurrent position:\nBoard (White at the bottom, rank 8 at the top):\n8 | . . . . . . r k\n7 | p R . . . Q b p\n6 | . n p . P . p .\n5 | . . . . . . . .\n4 | . . q P . . . .\n3 | . . . . . . P P\n2 | P . . P . . B .\n1 | . . . . . . . K\n    a b c d e f g h\nUpper case = White, lower case = Black. K king, Q queen, R rook, B bishop, N knight, P pawn, . empty.\n\nWhite pieces: King h1, Queen f7, Rook b7, Bishop g2, Pawns a2 d2 g3 h3 d4 e6\nBlack pieces: King h8, Queen c4, Rook g8, Bishop g7, Knight b6, Pawns c6 g6 a7 h7\nSide to move: Black\nCastling still possible: none\nEn passant: none\nAnswer all three questions below.\n\n1. What is the centipawn evaluation of this position from White's perspective?\n   A positive number means White is better. A negative number means Black is better.\n   0 means equal. Give only a number, no explanation.\n\n2. What is the best move for the side to play? Give only the move in SAN notation.\n\n3. Who stands better in this position \u2014 White, Black, or is it equal?\n   Give a one-sentence explanation of the key reason.\n\nRespond using this exact format:\nEval: <integer>\nMove: <SAN move>\nExplanation: <White / Black / Equal> \u2014 <one sentence reason>",
+        "tools": [],
+        "store": false,
+        "max_output_tokens": 4000
+      },
+      "reserved_usd": 0.002783
+    },
+    {
+      "id": "50e9a3d2271e98fbb679cb3bc3b76442ccdc99f76a2554ccc4f873f224588bd5",
+      "model": "gpt-6-luna",
+      "position": {
+        "position_id": 5326745,
+        "fen": "8/1p1k1p2/p3p1p1/2K1P1P1/1P6/P7/3N4/3b4 b - - 8 35",
+        "difficulty": "hard",
+        "stockfish_eval": 10,
+        "stockfish_best_move": null,
+        "theme": "crushing",
+        "phase": "endgame",
+        "source": "lichess_puzzles"
+      },
+      "body": {
+        "model": "gpt-6-luna",
+        "input": "You are analysing a chess position.\nCurrent position:\nBoard (White at the bottom, rank 8 at the top):\n8 | . . . . . . . .\n7 | . p . k . p . .\n6 | p . . . p . p .\n5 | . . K . P . P .\n4 | . P . . . . . .\n3 | P . . . . . . .\n2 | . . . N . . . .\n1 | . . . b . . . .\n    a b c d e f g h\nUpper case = White, lower case = Black. K king, Q queen, R rook, B bishop, N knight, P pawn, . empty.\n\nWhite pieces: King c5, Knight d2, Pawns a3 b4 e5 g5\nBlack pieces: King d7, Bishop d1, Pawns a6 e6 g6 b7 f7\nSide to move: Black\nCastling still possible: none\nEn passant: none\nAnswer all three questions below.\n\n1. What is the centipawn evaluation of this position from White's perspective?\n   A positive number means White is better. A negative number means Black is better.\n   0 means equal. Give only a number, no explanation.\n\n2. What is the best move for the side to play? Give only the move in SAN notation.\n\n3. Who stands better in this position \u2014 White, Black, or is it equal?\n   Give a one-sentence explanation of the key reason.\n\nRespond using this exact format:\nEval: <integer>\nMove: <SAN move>\nExplanation: <White / Black / Equal> \u2014 <one sentence reason>",
+        "tools": [],
+        "store": false,
+        "max_output_tokens": 4000
+      },
+      "reserved_usd": 0.00277728
+    },
+    {
+      "id": "d6c2d48ab957e31315d886133fa16da7a685f6610b4b5c204ea18df9992ed5a4",
+      "model": "gpt-6-luna",
+      "position": {
+        "position_id": 4912678,
+        "fen": "6k1/1p4p1/1Pq4p/2Ppn3/1B2p2P/2P1P1P1/5Q2/6K1 w - - 1 36",
+        "difficulty": "hard",
+        "stockfish_eval": -2,
+        "stockfish_best_move": null,
+        "theme": "crushing",
+        "phase": "middlegame",
+        "source": "lichess_puzzles"
+      },
+      "body": {
+        "model": "gpt-6-luna",
+        "input": "You are analysing a chess position.\nCurrent position:\nBoard (White at the bottom, rank 8 at the top):\n8 | . . . . . . k .\n7 | . p . . . . p .\n6 | . P q . . . . p\n5 | . . P p n . . .\n4 | . B . . p . . P\n3 | . . P . P . P .\n2 | . . . . . Q . .\n1 | . . . . . . K .\n    a b c d e f g h\nUpper case = White, lower case = Black. K king, Q queen, R rook, B bishop, N knight, P pawn, . empty.\n\nWhite pieces: King g1, Queen f2, Bishop b4, Pawns c3 e3 g3 h4 c5 b6\nBlack pieces: King g8, Queen c6, Knight e5, Pawns e4 d5 h6 b7 g7\nSide to move: White\nCastling still possible: none\nEn passant: none\nAnswer all three questions below.\n\n1. What is the centipawn evaluation of this position from White's perspective?\n   A positive number means White is better. A negative number means Black is better.\n   0 means equal. Give only a number, no explanation.\n\n2. What is the best move for the side to play? Give only the move in SAN notation.\n\n3. Who stands better in this position \u2014 White, Black, or is it equal?\n   Give a one-sentence explanation of the key reason.\n\nRespond using this exact format:\nEval: <integer>\nMove: <SAN move>\nExplanation: <White / Black / Equal> \u2014 <one sentence reason>",
+        "tools": [],
+        "store": false,
+        "max_output_tokens": 4000
+      },
+      "reserved_usd": 0.0027801400000000004
+    },
+    {
+      "id": "3fbd0a420b6e17769f75eb98a2ae6cc27e13f6c8245caa03099dd0aa2a06b6d3",
+      "model": "gpt-6-luna",
+      "position": {
+        "position_id": 4239030,
+        "fen": "8/p4p1p/4pP1k/8/3p4/1P2b1qP/P3Q3/5R1K w - - 4 42",
+        "difficulty": "hard",
+        "stockfish_eval": 15,
+        "stockfish_best_move": null,
+        "theme": "crushing",
+        "phase": "middlegame",
+        "source": "lichess_puzzles"
+      },
+      "body": {
+        "model": "gpt-6-luna",
+        "input": "You are analysing a chess position.\nCurrent position:\nBoard (White at the bottom, rank 8 at the top):\n8 | . . . . . . . .\n7 | p . . . . p . p\n6 | . . . . p P . k\n5 | . . . . . . . .\n4 | . . . p . . . .\n3 | . P . . b . q P\n2 | P . . . Q . . .\n1 | . . . . . R . K\n    a b c d e f g h\nUpper case = White, lower case = Black. K king, Q queen, R rook, B bishop, N knight, P pawn, . empty.\n\nWhite pieces: King h1, Queen e2, Rook f1, Pawns a2 b3 h3 f6\nBlack pieces: King h6, Queen g3, Bishop e3, Pawns d4 e6 a7 f7 h7\nSide to move: White\nCastling still possible: none\nEn passant: none\nAnswer all three questions below.\n\n1. What is the centipawn evaluation of this position from White's perspective?\n   A positive number means White is better. A negative number means Black is better.\n   0 means equal. Give only a number, no explanation.\n\n2. What is the best move for the side to play? Give only the move in SAN notation.\n\n3. Who stands better in this position \u2014 White, Black, or is it equal?\n   Give a one-sentence explanation of the key reason.\n\nRespond using this exact format:\nEval: <integer>\nMove: <SAN move>\nExplanation: <White / Black / Equal> \u2014 <one sentence reason>",
+        "tools": [],
+        "store": false,
+        "max_output_tokens": 4000
+      },
+      "reserved_usd": 0.0027792600000000004
+    },
+    {
+      "id": "bce410e4313f16e962395f516251ae0649619bb4502e83089d9dd938ad9c3e66",
+      "model": "gpt-6-luna",
+      "position": {
+        "position_id": 5668362,
+        "fen": "8/8/p2p4/1ppP1kp1/2P4p/PP1K2PP/8/8 w - - 0 33",
+        "difficulty": "extreme",
+        "stockfish_eval": -36,
+        "stockfish_best_move": null,
+        "theme": "crushing",
+        "phase": "endgame",
+        "source": "lichess_puzzles"
+      },
+      "body": {
+        "model": "gpt-6-luna",
+        "input": "You are analysing a chess position.\nCurrent position:\nBoard (White at the bottom, rank 8 at the top):\n8 | . . . . . . . .\n7 | . . . . . . . .\n6 | p . . p . . . .\n5 | . p p P . k p .\n4 | . . P . . . . p\n3 | P P . K . . P P\n2 | . . . . . . . .\n1 | . . . . . . . .\n    a b c d e f g h\nUpper case = White, lower case = Black. K king, Q queen, R rook, B bishop, N knight, P pawn, . empty.\n\nWhite pieces: King d3, Pawns a3 b3 g3 h3 c4 d5\nBlack pieces: King f5, Pawns h4 b5 c5 g5 a6 d6\nSide to move: White\nCastling still possible: none\nEn passant: none\nAnswer all three questions below.\n\n1. What is the centipawn evaluation of this position from White's perspective?\n   A positive number means White is better. A negative number means Black is better.\n   0 means equal. Give only a number, no explanation.\n\n2. What is the best move for the side to play? Give only the move in SAN notation.\n\n3. Who stands better in this position \u2014 White, Black, or is it equal?\n   Give a one-sentence explanation of the key reason.\n\nRespond using this exact format:\nEval: <integer>\nMove: <SAN move>\nExplanation: <White / Black / Equal> \u2014 <one sentence reason>",
+        "tools": [],
+        "store": false,
+        "max_output_tokens": 4000
+      },
+      "reserved_usd": 0.0027758500000000003
+    },
+    {
+      "id": "9d3e669992210cd94ae3594c6f91a42a4978a012ff108bcbfca66c4eee253622",
+      "model": "gpt-6-luna",
+      "position": {
+        "position_id": 5584774,
+        "fen": "4r1k1/6p1/1R3p1p/3P1P2/p5r1/2P5/2R1p2P/4K3 w - - 0 43",
+        "difficulty": "extreme",
+        "stockfish_eval": -48,
+        "stockfish_best_move": null,
+        "theme": "crushing",
+        "phase": "endgame",
+        "source": "lichess_puzzles"
+      },
+      "body": {
+        "model": "gpt-6-luna",
+        "input": "You are analysing a chess position.\nCurrent position:\nBoard (White at the bottom, rank 8 at the top):\n8 | . . . . r . k .\n7 | . . . . . . p .\n6 | . R . . . p . p\n5 | . . . P . P . .\n4 | p . . . . . r .\n3 | . . P . . . . .\n2 | . . R . p . . P\n1 | . . . . K . . .\n    a b c d e f g h\nUpper case = White, lower case = Black. K king, Q queen, R rook, B bishop, N knight, P pawn, . empty.\n\nWhite pieces: King e1, Rooks c2 b6, Pawns h2 c3 d5 f5\nBlack pieces: King g8, Rooks g4 e8, Pawns e2 a4 f6 h6 g7\nSide to move: White\nCastling still possible: none\nEn passant: none\nAnswer all three questions below.\n\n1. What is the centipawn evaluation of this position from White's perspective?\n   A positive number means White is better. A negative number means Black is better.\n   0 means equal. Give only a number, no explanation.\n\n2. What is the best move for the side to play? Give only the move in SAN notation.\n\n3. Who stands better in this position \u2014 White, Black, or is it equal?\n   Give a one-sentence explanation of the key reason.\n\nRespond using this exact format:\nEval: <integer>\nMove: <SAN move>\nExplanation: <White / Black / Equal> \u2014 <one sentence reason>",
+        "tools": [],
+        "store": false,
+        "max_output_tokens": 4000
+      },
+      "reserved_usd": 0.00277772
+    },
+    {
+      "id": "aa4aef6b67ee45800d3bf303f01260f122b924d2c20d2380987d471ecca0f304",
+      "model": "gpt-6-luna",
+      "position": {
+        "position_id": 5467775,
+        "fen": "r1bq1rk1/ppp2ppp/3p1b2/3n4/2nPN3/3QB3/PP2NPPP/RB3RK1 b - - 3 13",
+        "difficulty": "extreme",
+        "stockfish_eval": -8,
+        "stockfish_best_move": null,
+        "theme": "advantage",
+        "phase": "opening",
+        "source": "lichess_puzzles"
+      },
+      "body": {
+        "model": "gpt-6-luna",
+        "input": "You are analysing a chess position.\nCurrent position:\nBoard (White at the bottom, rank 8 at the top):\n8 | r . b q . r k .\n7 | p p p . . p p p\n6 | . . . p . b . .\n5 | . . . n . . . .\n4 | . . n P N . . .\n3 | . . . Q B . . .\n2 | P P . . N P P P\n1 | R B . . . R K .\n    a b c d e f g h\nUpper case = White, lower case = Black. K king, Q queen, R rook, B bishop, N knight, P pawn, . empty.\n\nWhite pieces: King g1, Queen d3, Rooks a1 f1, Bishops b1 e3, Knights e2 e4, Pawns a2 b2 f2 g2 h2 d4\nBlack pieces: King g8, Queen d8, Rooks a8 f8, Bishops f6 c8, Knights c4 d5, Pawns d6 a7 b7 c7 f7 g7 h7\nSide to move: Black\nCastling still possible: none\nEn passant: none\nAnswer all three questions below.\n\n1. What is the centipawn evaluation of this position from White's perspective?\n   A positive number means White is better. A negative number means Black is better.\n   0 means equal. Give only a number, no explanation.\n\n2. What is the best move for the side to play? Give only the move in SAN notation.\n\n3. Who stands better in this position \u2014 White, Black, or is it equal?\n   Give a one-sentence explanation of the key reason.\n\nRespond using this exact format:\nEval: <integer>\nMove: <SAN move>\nExplanation: <White / Black / Equal> \u2014 <one sentence reason>",
+        "tools": [],
+        "store": false,
+        "max_output_tokens": 4000
+      },
+      "reserved_usd": 0.00278784
+    },
+    {
+      "id": "9ba3c91116784fb30edd9a433c4c60a0c634008eb48043e78a26635afa8c34f5",
+      "model": "gpt-6-luna",
+      "position": {
+        "position_id": 5467468,
+        "fen": "1r4k1/6p1/pb1p2p1/1p1Pp1q1/8/P2P4/1PP1QP2/1R3RK1 w - - 2 25",
+        "difficulty": "extreme",
+        "stockfish_eval": -74,
+        "stockfish_best_move": null,
+        "theme": "crushing",
+        "phase": "middlegame",
+        "source": "lichess_puzzles"
+      },
+      "body": {
+        "model": "gpt-6-luna",
+        "input": "You are analysing a chess position.\nCurrent position:\nBoard (White at the bottom, rank 8 at the top):\n8 | . r . . . . k .\n7 | . . . . . . p .\n6 | p b . p . . p .\n5 | . p . P p . q .\n4 | . . . . . . . .\n3 | P . . P . . . .\n2 | . P P . Q P . .\n1 | . R . . . R K .\n    a b c d e f g h\nUpper case = White, lower case = Black. K king, Q queen, R rook, B bishop, N knight, P pawn, . empty.\n\nWhite pieces: King g1, Queen e2, Rooks b1 f1, Pawns b2 c2 f2 a3 d3 d5\nBlack pieces: King g8, Queen g5, Rook b8, Bishop b6, Pawns b5 e5 a6 d6 g6 g7\nSide to move: White\nCastling still possible: none\nEn passant: none\nAnswer all three questions below.\n\n1. What is the centipawn evaluation of this position from White's perspective?\n   A positive number means White is better. A negative number means Black is better.\n   0 means equal. Give only a number, no explanation.\n\n2. What is the best move for the side to play? Give only the move in SAN notation.\n\n3. Who stands better in this position \u2014 White, Black, or is it equal?\n   Give a one-sentence explanation of the key reason.\n\nRespond using this exact format:\nEval: <integer>\nMove: <SAN move>\nExplanation: <White / Black / Equal> \u2014 <one sentence reason>",
+        "tools": [],
+        "store": false,
+        "max_output_tokens": 4000
+      },
+      "reserved_usd": 0.0027816800000000004
+    },
+    {
+      "id": "18ee5be8a4132ec6e56e2fa420de0624e7098ff83aa1869ab496473d3b598a8a",
+      "model": "gpt-6-luna",
+      "position": {
+        "position_id": 5485032,
+        "fen": "4Q3/5ppk/pb4qp/3P4/1Pp3b1/P7/1B3PPP/4R1K1 w - - 1 29",
+        "difficulty": "extreme",
+        "stockfish_eval": 109,
+        "stockfish_best_move": null,
+        "theme": "crushing",
+        "phase": "middlegame",
+        "source": "lichess_puzzles"
+      },
+      "body": {
+        "model": "gpt-6-luna",
+        "input": "You are analysing a chess position.\nCurrent position:\nBoard (White at the bottom, rank 8 at the top):\n8 | . . . . Q . . .\n7 | . . . . . p p k\n6 | p b . . . . q p\n5 | . . . P . . . .\n4 | . P p . . . b .\n3 | P . . . . . . .\n2 | . B . . . P P P\n1 | . . . . R . K .\n    a b c d e f g h\nUpper case = White, lower case = Black. K king, Q queen, R rook, B bishop, N knight, P pawn, . empty.\n\nWhite pieces: King g1, Queen e8, Rook e1, Bishop b2, Pawns f2 g2 h2 a3 b4 d5\nBlack pieces: King h7, Queen g6, Bishops g4 b6, Pawns c4 a6 h6 f7 g7\nSide to move: White\nCastling still possible: none\nEn passant: none\nAnswer all three questions below.\n\n1. What is the centipawn evaluation of this position from White's perspective?\n   A positive number means White is better. A negative number means Black is better.\n   0 means equal. Give only a number, no explanation.\n\n2. What is the best move for the side to play? Give only the move in SAN notation.\n\n3. Who stands better in this position \u2014 White, Black, or is it equal?\n   Give a one-sentence explanation of the key reason.\n\nRespond using this exact format:\nEval: <integer>\nMove: <SAN move>\nExplanation: <White / Black / Equal> \u2014 <one sentence reason>",
+        "tools": [],
+        "store": false,
+        "max_output_tokens": 4000
+      },
+      "reserved_usd": 0.00278157
+    }
+  ],
+  "max_reserved_usd": 1.16817162,
+  "implementation_sha256": "121d5179a9a5c66b0d6091d140a6465316ecc45a22ebc411f2a72e05ee0a680a",
+  "plan_hash": "47a9faf72c6649150cc10100fe015aef186652cbf681b38c9ce40c937d8044c3"
+}

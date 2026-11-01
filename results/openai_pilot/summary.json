@@ -1,0 +1,29 @@
+{
+  "scope": "setup/cost pilot only; no population or superiority verdict",
+  "plan_hash": "47a9faf72c6649150cc10100fe015aef186652cbf681b38c9ce40c937d8044c3",
+  "requested": 40,
+  "completed": 40,
+  "capped": 20,
+  "refused": 0,
+  "missing_move": 20,
+  "missing_eval": 20,
+  "missing_explanation": 20,
+  "finite_evaluation_pairs": 20,
+  "first_answer_legal": 0.475,
+  "cpl_status": "pending separate engine scoring",
+  "best_move_superiority": "not tested",
+  "input_tokens": 14906,
+  "output_tokens": 129665,
+  "reasoning_tokens": 128782,
+  "cost_usd": 0.5612788,
+  "variants": {
+    "gpt-6.1-sol": {
+      "completed": 20,
+      "cost_usd": 0.521006
+    },
+    "gpt-6-luna": {
+      "completed": 20,
+      "cost_usd": 0.0402728
+    }
+  }
+}
