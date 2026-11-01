@@ -13,6 +13,10 @@ future paid Claude run, without changing collected answers or C1–C4.
 - Existing batch ledger, requests, injected/fake batch client and CLI.
 - Preserve legacy valid ledgers and already-open batches. Do not rewrite
   research responses, costs or metrics during development.
+- Hold an exclusive process file lock across execution preflight, credential
+  loading, collection and submission. A concurrent invocation must stop before
+  credential/API access; atomic file replacement alone does not serialize two
+  processes' reservation updates. Read-only status/dry-run remain nonmutating.
 - Persist a submission reservation with round/request identities **before**
   calling `batches.create`. Flush/fsync before sending. Only after acceptance
   may the ledger atomically replace the reservation with the returned batch ID.
@@ -22,6 +26,9 @@ future paid Claude run, without changing collected answers or C1–C4.
   Even errors known to be uncharged can wait for an operator's review.
 - Existing open-batch collection remains resumable. A reservation is not a
   provider batch ID and must never be polled as one. Reject malformed state.
+- Fsync saved raw responses (and the directory when first created) before
+  durably removing a completed batch ID. Losing unflushed replies after the
+  ledger removal must not create a paid resubmission path.
 - Disable SDK automatic retries explicitly at construction. Use a small factory
   if needed so this is meaningfully testable with a fake SDK and no credentials.
 - Keep error messages safe: do not print API exceptions, headers or key values.
@@ -37,6 +44,8 @@ reservation observed by fake create, successful acceptance/collection, failed
 create, accepted-then-failed persistence, restart blocking duplicate creation,
 reservation rejection before provider polling, legacy/open-ledger compatibility,
 invalid ledger state, and explicit zero SDK retries with a fake SDK constructor.
+Also cover concurrent lock rejection before credentials/transport and durable
+response persistence ordering before batch removal.
 Only one author edits the Claude runner/module/tests. Independently review the
 diff; full CPU tests, required Ruff and renderer checks must pass before commit.
 
