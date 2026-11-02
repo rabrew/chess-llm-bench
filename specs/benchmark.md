@@ -1,4 +1,5 @@
 # Spec: Chess LLM Benchmark — Overview
+> Audit update (2026-11-02): This is a design document. [Audited findings](../docs/FINDINGS.md) supersede historical score/provenance claims. Exact T2 quality requires recorded endpoints; historical pooled legality is not single-shot evidence.
 
 This is the **short overview** of the benchmark. For the full specification (parameters, edge cases, scoring details, hypothesis tests), see [benchmark-detailed.md](benchmark-detailed.md).
 
@@ -9,7 +10,7 @@ Benchmark **22 open-source local LLMs** (2B–70B parameters, 12 architecture fa
 ## Inputs / Outputs
 
 **Inputs:**
-- `data/{easy,medium,hard,extreme}.json` — 1,000 Lichess puzzle positions per tier (4,000 total). Each carries a precomputed Stockfish-17 evaluation at depth 22. The full Lichess puzzle CSV (~5.8M positions) is sampled down to 1,000 per tier in `dataset_builder.py`.
+- `data/{easy,medium,hard,extreme}.json` — 1,000 Lichess puzzle positions per tier (4,000 total). Each carries a precomputed reference evaluation whose historical engine provenance remains unverified. The full Lichess puzzle CSV (~5.8M positions) is sampled down to 1,000 per tier in `dataset_builder.py`.
 - `config/config.yaml` — models, prompt formats, paths, thresholds, engine settings
 - Ollama instance with all 22 models pulled and running
 
@@ -22,7 +23,7 @@ Benchmark **22 open-source local LLMs** (2B–70B parameters, 12 architecture fa
 ## Steps / Logic
 
 1. **Build dataset** (`scripts/build_dataset.py`) — sample 1,000 puzzles per difficulty tier from the full Lichess CSV, validate, assign stable hash-based IDs.
-2. **Stockfish ground truth** (`scripts/precompute_stockfish.py`) — depth-22 Stockfish-17 evaluations stored alongside each position. Used as T1 truth.
+2. **Stockfish ground truth** (`scripts/precompute_stockfish.py`) — engine-labelled evaluations at the configured search budget (currently depth 15 for Stockfish) stored alongside each position. Used as T1 truth.
 3. **Lc0 ground truth** (`scripts/enrich_cpl.py`) — Lc0 @ 800 nodes computes best-move and CPL post-hoc. Used as T2 truth. Runs after the LLM jobs complete.
 4. **Pull models** (`scripts/pull_models.py`) — ensure all 22 models in `config.models` are available locally via Ollama.
 5. **Generate jobs** (`scripts/generate_jobs.py`) — populate the SQLite job queue with one row per (position × model × prompt format). 4,000 × 22 × 6 = 528,000 jobs.
@@ -33,7 +34,7 @@ Benchmark **22 open-source local LLMs** (2B–70B parameters, 12 architecture fa
 
 | Task | Question | Truth |
 |---|---|---|
-| **T1 — Eval** | What is the centipawn evaluation of this position? | Stockfish-17 @ depth 22 |
+| **T1 — Eval** | What is the centipawn evaluation of this position? | Recorded reference engine (historical provenance unverified) |
 | **T2 — Move** | What is the best move? | Lc0 @ 800 nodes (post-hoc enrichment) |
 | **T3 — Explanation** | Who stands better, and why? | Rule-based scorer comparing model output against the Lichess theme tag |
 

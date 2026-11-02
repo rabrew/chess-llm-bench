@@ -793,3 +793,68 @@ Not triaged into the register. Recorded so they are not rediscovered later.
 | F | `docs/RESEARCH.md` is badly stale: "5.8M positions across 19 models" (actual: 4,000 × 22), and its central anti-contamination argument to judges is *"the correction loop is your best defense"* — infrastructure that produced no data. This is the document framing the YSTE submission. | `docs/RESEARCH.md` |
 | G | All `bin/*.sh` hardcode `/home/rabrew/Desktop/chess-llm-bench`; `specs/dashboard.md` references a different absolute path (`/mnt/shared/...`). Violates the "no hardcoded paths" rule in `CLAUDE.md`. | `bin/*.sh` |
 | H | `test_parse_response_formats.py` defines `test_gemma3_12b` twice in one class — the second silently shadows the first. Its "All 19 models" section also predates the 22-model set and omits gemma4, codellama, yi, command-r, mixtral. | `tests/test_parse_response_formats.py:1231, 1293` |
+
+## Implementation clarification (2026-11-02)
+
+Goal: repair aggregation and expose auditable diagnostics without altering raw
+research artifacts. Inputs are existing records and optional explicitly supplied
+collection provenance. Outputs may be written to a caller-selected temporary
+directory; tests use synthetic frames and temporary paths only.
+
+Logic: validate model metadata; retain model identity in family tables; compute
+class priors, Cohen kappa, balanced accuracy, side-to-move splits and Spearman
+correlation; propagate corrected metrics into hypotheses; report per-model CPL
+buckets and seeded bootstrap intervals. Confidence intervals resample positions
+as clusters within each model, because repeated prompt responses are dependent.
+Old metric columns remain available in memory for consumers but CSV exports
+mark superseded fields with `_legacy`. Empty correction outputs remove stale
+files only inside the requested output directory.
+
+Scientific edge cases supersede contradictory prescriptions above: constant
+predictor kappa is zero unless expected agreement is one (then undefined).
+Threshold accuracy need not be monotonic. Rank correlation does not depend on
+outlier magnitudes. The last stored illegal move is evidence of a pre-rescue
+record, not a verified deployment boundary. Historical legal/null records stay
+unknown without explicit collection metadata; timestamp bins are labelled
+inferred and never presented as genuine single-shot cohorts. Provenance must
+separate current analysis config/git SHA from unknown historical engine versions.
+No invented provenance or automatic raw-data rewrite is permitted.
+
+Dependencies: existing numpy/pandas plus scipy for Spearman; bootstrap seed 42,
+500 replicates by default, with replicates/seed recorded in outputs. Tests cover
+missing values, invalid model tags, same-size family collisions, degenerate
+classes, uncertain regimes, reproducibility and stale-output cleanup.
+
+### Endpoint evidence and safe analysis entry point
+
+Historical `t2_cpl` and separately sourced `t1_stockfish_eval` do not uniquely
+identify the T2 engine endpoints. No inverse reconstruction is valid without
+recorded before/after values. Exact corrected quality metrics require
+`t2_reference_eval_before`, `t2_reference_eval_after`, and either
+`t2_reference_white_to_move` or valid FEN. Missing endpoints produce unavailable
+values; raw CPL remains explicitly historical/legacy. Prompt applicability
+excludes unsolicited T1/T3 fragments and includes null failed answers in the
+move-request denominator. An explicit-output CPU script generates audit tables
+and strict JSON with unknown historical provenance; source/config fingerprints
+identify the analysis inputs without claiming they identify collection settings.
+
+### Missing hypothesis evidence (review correction)
+
+A missing corrected metric is unavailable evidence, not a failed hypothesis.
+H2 reports null support and insufficient_data unless all four difficulty means
+are observed for its primary metric. H4 records per-family, per-metric counts
+at the compared smallest/largest eligible sizes; missing required measurements
+produce null comparisons and null family/overall support with insufficient_data.
+A testable negative comparison remains false. A family without two eligible
+sizes supplies no comparison and cannot establish support by an empty all().
+
+### Explicit best-move-zero scoring convention
+
+Version `lc0_endpoints_v1_best_move_zero` assigns zero quality loss to a legal
+stored move matching the reference best move without inventing an after-score.
+Accept this only with a true convention flag, true legality, matching nonempty
+moves, Lc0Engine reference identity, positive node budget, and White-centipawn
+units. Its status is `best_move_zero_convention`, distinct from measured endpoint
+pairs. Include these rows in quality denominators and publish measured-endpoint,
+convention-zero and unclassified quality counts separately. Historical rows
+without this explicit provenance remain unavailable.

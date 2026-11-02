@@ -1,4 +1,5 @@
 # How Well Do Local LLMs Understand Chess? A Three-Task Benchmark Against Stockfish
+> Audit update (2026-11-02): This is a design document. [Audited findings](../docs/FINDINGS.md) supersede historical score/provenance claims. Exact T2 quality requires recorded endpoints; historical pooled legality is not single-shot evidence.
 ### Technical Specification v4
 
 ---
@@ -7,7 +8,7 @@
 
 ### 1.1 Research Question
 
-How accurately do locally run open-source LLMs evaluate chess positions, identify best moves, and explain positional advantages — compared to Stockfish 17 as ground truth — and does this vary systematically across model families and parameter scales?
+How accurately do locally run open-source LLMs evaluate chess positions, identify best moves, and explain positional advantages — compared to a recorded reference engine with explicit provenance — and does this vary systematically across model families and parameter scales?
 
 ### 1.2 Tasks
 
@@ -127,7 +128,7 @@ Each dataset file is a **JSON array**:
 | `stockfish_eval` | integer | Stockfish centipawn evaluation (pre-computed) |
 | `stockfish_best_move` | string | Stockfish best move in SAN (pre-computed) |
 
-> **Note:** `stockfish_eval` and `stockfish_best_move` are pre-computed at dataset creation time at depth 22. This avoids repeated Stockfish calls during benchmarking and ensures consistent ground truth across all runs.
+> **Note:** `stockfish_eval` and `stockfish_best_move` are pre-computed during preprocessing; historical engine/budget attribution remains unverified. This avoids repeated Stockfish calls during benchmarking and ensures consistent ground truth across all runs.
 
 ### 2.4 Difficulty Tiers
 

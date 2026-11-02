@@ -5,7 +5,7 @@ A local web dashboard that displays live benchmark metrics for the chess LLM ben
 
 ## Inputs / Outputs
 - **Inputs:**
-  - `/mnt/shared/chess-llm-bench/jobs/jobs.db` — SQLite job queue (status, per-model progress)
+  - `${CHESS_BENCH_ROOT}/jobs/jobs.db` — SQLite job queue (status, per-model progress)
   - `results/evaluations.jsonl` — completed evaluation results
   - `results/metrics/by_model.csv` — precomputed per-model aggregates
   - `results/metrics/by_difficulty.csv` — per-model × difficulty aggregates
