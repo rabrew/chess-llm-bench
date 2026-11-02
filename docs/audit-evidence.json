@@ -1,0 +1,87 @@
+{
+  "source": "read-only primary-record audit, 2026-11-02",
+  "total_jobs": 526662,
+  "positions_tested": 4000,
+  "models_tested": 22,
+  "overall_metrics": {
+    "t1_mean_error": 800.7174020429405,
+    "t1_mean_error_excl_mate": 142.74338595158784,
+    "t1_relative_error": 1.3811007805318436,
+    "t1_direction_accuracy_t50": 0.46135231609712496,
+    "t1_direction_accuracy_by_threshold": {
+      "t0": 0.4447806220559956,
+      "t50": 0.46135231609712496,
+      "t100": 0.6160342019065093,
+      "t200": 0.7894724461772783
+    },
+    "t2_mean_cpl_raw": 4735.026161953833,
+    "t2_mean_cpl_clamped": null,
+    "t2_mean_wp_loss": null,
+    "t3_mean_score": 0.4088870605140566,
+    "t3_mean_score_v2": 0.5195204765105338
+  },
+  "provenance": {
+    "generated_at": "2026-11-02T12:09:21.138334+00:00",
+    "analysis_git_sha": "7ccf31d4ca0cdef1bf324487d35f10e1fa61cb99",
+    "collection": {
+      "status": "unverified",
+      "t1_truth_engine": "unknown",
+      "t2_truth_engine": "unknown"
+    },
+    "legacy_field_note": "stockfish_* field names do not establish engine provenance",
+    "regime_note": "No historical rollout timestamp inferred from last illegal move",
+    "analysis_config_snapshot": {
+      "models": [
+        "llama3.2:3b",
+        "gemma3:4b",
+        "qwen2.5:7b",
+        "mistral:7b",
+        "wizardlm2:7b",
+        "llama3.1:8b",
+        "gemma3:12b",
+        "qwen2.5:14b",
+        "phi4:14b",
+        "solar:10.7b",
+        "gemma4:e4b",
+        "qwen2.5:32b",
+        "codellama:34b",
+        "yi:34b",
+        "command-r:35b",
+        "gemma4:26b",
+        "gemma4:31b",
+        "llama3.3:70b",
+        "deepseek-r1:7b",
+        "deepseek-r1:14b",
+        "gemma4:e2b",
+        "mixtral:8x7b"
+      ],
+      "benchmark": {
+        "max_positions_per_tier": 1000,
+        "random_seed": 42,
+        "prompt_formats": [
+          "fen_only",
+          "pgn+fen",
+          "cot",
+          "eval_only",
+          "move_only",
+          "explanation_only"
+        ]
+      },
+      "evaluation": {
+        "cpl_threshold": 50,
+        "centipawn_eval_range": {
+          "min": -2000,
+          "max": 2000
+        }
+      },
+      "source_sha256": "fa405b772495d769a327b7c4c7fb2bd0cc06dd5aa10e7a9e6713f23c192332bc"
+    }
+  },
+  "regime_counts": {
+    "not_applicable": 175584,
+    "pre_rescue_evidence": 7361,
+    "unknown": 343717
+  },
+  "historical_endpoint_records": 0,
+  "reference_provenance_status": "unverified; legacy field names and current config do not prove historical engine"
+}

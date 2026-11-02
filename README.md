@@ -2,7 +2,7 @@
 
 **Research question:** How accurately do locally-run open-source LLMs evaluate chess positions and select legal, high-quality moves — and does performance scale with model size?
 
-Benchmarks 22 local models via Ollama on **4,000 stratified Lichess puzzle positions** (1,000 per difficulty tier × 4 tiers). Each position is probed with 6 prompt formats per model, giving **~526k total evaluations**. Ground truth: Stockfish 17 @ depth 22 for evaluation truth, and Lc0 (GPU-accelerated) for move-quality / centipawn-loss truth.
+Benchmarks 22 local models via Ollama on **4,000 stratified Lichess puzzle positions** (1,000 per difficulty tier × 4 tiers). Each position is probed with 6 prompt formats per model, giving **~526k total evaluations**. Historical reference-engine provenance remains unverified. See the audited findings before citing scores; exact historical T2 endpoint metrics are unavailable.
 
 For the headline findings see [docs/FINDINGS.md](docs/FINDINGS.md). For a non-technical summary see [docs/SIMPLE_SUMMARY.md](docs/SIMPLE_SUMMARY.md).
 
@@ -17,6 +17,9 @@ bash bin/run_pipeline.sh
 
 For step-by-step instructions see [docs/RUNBOOK.md](docs/RUNBOOK.md).
 For a description of every script see [docs/SCRIPTS.md](docs/SCRIPTS.md).
+
+For CPU development checks, CI, and the persistent Codex agent workflow see
+[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
 
 ---
 
@@ -66,7 +69,7 @@ Each position is evaluated on three tasks:
 ## Hardware
 
 - GPU: RTX 5080 (Lc0 ONNX batch inference for CPL ground truth)
-- CPU: Stockfish-17 @ depth 22 for T1 ground truth (precomputed once into the dataset)
+- CPU: Stockfish preprocessing is supported; current configured depth is 15, which does not establish historical provenance.
 - Models split across main SSD and shared NTFS partition via symlinks
 
 ---
@@ -79,7 +82,7 @@ Each position is evaluated on three tasks:
 - Position IDs are derived from a SHA-256 hash of each FEN, so dataset rebuilds with different `max_positions_per_tier` values produce stable IDs.
 - Ground-truth Stockfish evaluations are precomputed once and stored alongside the position files; LLM scoring is therefore deterministic given the same model + prompt + Stockfish-eval triple.
 - Engine versions and depths are pinned in `config/config.yaml` (Stockfish depth, Lc0 nodes).
-- Python dependencies are pinned in `requirements.txt`.
+- Python dependencies in `requirements.txt` use lower bounds; they are not a reproducible lock file.
 
 ---
 
@@ -87,4 +90,6 @@ Each position is evaluated on three tasks:
 
 Stripe Young Scientist Award 2027. Full research framing: [docs/RESEARCH.md](docs/RESEARCH.md).
 Detailed benchmark specification: [specs/benchmark-detailed.md](specs/benchmark-detailed.md).
+Repair status: [docs/EXPERIMENT_REPAIRS.md](docs/EXPERIMENT_REPAIRS.md).
+
 Full audit findings + methodology: [docs/FINDINGS.md](docs/FINDINGS.md), [specs/artefact-fixes.md](specs/artefact-fixes.md).

@@ -47,22 +47,13 @@ python scripts/build_dataset.py --output-dir data/
 ```
 
 **`precompute_stockfish.py`**
-Pre-computes Stockfish evaluations (best move + centipawn score) for every position in the dataset. Uses `ProcessPoolExecutor` for parallelism. Required before scoring T3 (move quality).
+Pre-computes Stockfish evaluations (best move + centipawn score) for every position in the dataset. Uses `ProcessPoolExecutor` for parallelism. An optional reference preprocessing path for T1; T3 scores explanations.
 ```
 python scripts/precompute_stockfish.py --depth 20 --workers 8
 ```
 
-**`precompute_lc0.py`**
-Pre-computes Lc0 neural-net evaluations using the engine wrapper. GPU-accelerated via CUDA. Slower than the batch variants below but simpler.
-
-**`precompute_lc0_batch.py`**
-Faster Lc0 evaluation using ONNX Runtime directly (no UCI subprocess). Encodes positions to Lc0's 112-plane format and runs GPU inference in batches.
-
 **`precompute_lc0_batch_v2.py`**
-Optimised version of `precompute_lc0_batch.py` with pre-encoding for extra throughput. Prefer this over v1 for large position sets.
-
-**`precompute_lc0_fast.py`**
-Lc0 via UCI in `valuehead` mode with 1 node — trades accuracy for speed. Useful for quick sanity checks or large datasets where approximate evals are fine.
+Direct ONNX value evaluation with explicit reference provenance. This is the available Lc0 batch preprocessing script; older script variants documented here are absent. Runtime inference is a GPU operation and was not used for repair validation.
 
 ### Post-run tools
 
@@ -77,7 +68,7 @@ python scripts/retry_illegal_moves.py --dry-run
 Re-scores every record in `evaluations.jsonl` through the current evaluator logic. Useful after changing scoring rules to verify old results are still consistent — or to spot regressions.
 
 **`generate_plots.py`**
-Reads `evaluations.jsonl`, aggregates metrics (by model, difficulty, phase, source, family), and writes charts to `results/plots/` and summary CSVs to `results/metrics/`.
+Reads audited diagnostic exports and renders direction, endpoint-quality availability and aligned heatmaps. Old chart filenames are retired historical artifacts. Use a new output directory; a chart directory is not evidence that all files in it are current.
 ```
 python scripts/generate_plots.py
 ```
@@ -104,7 +95,7 @@ python scripts/pull_models.py --model phi4:14b
 | Module | Role |
 |---|---|
 | `llm_client.py` | Ollama HTTP client, prompt builders (`build_prompt`, `build_move_prompt`), response parser |
-| `evaluator.py` | Scoring functions for T1 (position understanding), T2 (legal move), T3 (move quality) |
+| `evaluator.py` | Scoring functions for T1 (position understanding), T2 (legal move), T3 (explanation side/theme matching) |
 | `worker.py` | Single-worker loop: dequeues a job, calls LLM, scores, writes result |
 | `job_queue.py` | SQLite-backed job queue (enqueue, dequeue, mark done/failed) |
 | `job_generator.py` | Generates job records from positions × models × formats |
@@ -116,3 +107,8 @@ python scripts/pull_models.py --model phi4:14b
 | `data_loader.py` | Loads dataset files from `data/` |
 | `feedback_loop.py` | (Experimental) Logic for iterative prompt improvement based on failure patterns |
 | `utils.py` | Config loading, logging setup, directory helpers |
+
+## Audited postprocessing
+`scripts/generate_audit_metrics.py` requires an explicit output directory, hashes the input, records provenance uncertainty and generates corrected exports without model/engine calls. Run `--help` for current arguments. New charts use direction_diagnostics.csv and cpl_quality.csv. Legacy plots in results/plots are not refreshed or endorsed.
+
+Shell helpers derive the repository root from their own location or CHESS_BENCH_ROOT. Model storage uses OLLAMA_MODELS or config.ollama.models_dir. qwen2.5:72b is postponed and is not one of the 22 evaluated models.
