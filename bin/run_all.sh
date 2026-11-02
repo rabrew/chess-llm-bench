@@ -3,7 +3,8 @@ set -eo pipefail
 # Exit on error is intentional for setup steps (venv, dataset build).
 # Worker runs use explicit retry loops and '|| true' to survive Ollama crashes.
 
-cd /home/rabrew/Desktop/chess-llm-bench
+REPO="${CHESS_BENCH_ROOT:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)}"
+cd -- "$REPO" || exit 1
 
 # Colors
 GREEN='\033[0;32m'
@@ -138,7 +139,7 @@ restart_ollama_for_model() {
     # Start Ollama in background, log to file
     OLLAMA_NUM_PARALLEL=$num_parallel \
     OLLAMA_MAX_LOADED_MODELS=1 \
-    OLLAMA_MODELS=/mnt/shared/ollama_models \
+    OLLAMA_MODELS="${OLLAMA_MODELS:-$(python3 -c 'import yaml; print(yaml.safe_load(open("config/config.yaml"))["ollama"]["models_dir"])')}" \
         ollama serve >> /tmp/ollama_serve.log 2>&1 &
     OLLAMA_BG_PID=$!
 
@@ -223,17 +224,19 @@ PYEOF
             python scripts/run_workers.py --workers "$WORKERS" --model "$model" || true
 
             # If no pending jobs remain but tier still not done, nothing left to process — move on
-            PENDING=$(python3 -c "
+            PENDING=$(python3 - "$model" <<'PY_PENDING'
+
 import sqlite3, sys
 try:
     conn = sqlite3.connect('jobs/db/jobs.db', timeout=3)
     cur  = conn.cursor()
-    cur.execute(\"SELECT COUNT(*) FROM jobs WHERE model=? AND status IN ('pending','in_progress')\", ('$model',))
+    cur.execute("SELECT COUNT(*) FROM jobs WHERE model=? AND status IN ('pending','in_progress')", (sys.argv[1],))
     print(cur.fetchone()[0])
     conn.close()
 except Exception:
     print(0)
-" 2>/dev/null || echo 0)
+PY_PENDING
+)
             if [ "$PENDING" -eq 0 ]; then
                 print_info "No pending jobs remain for $model/$tier (failures exhausted queue) — skipping"
                 mkdir -p "$(dirname "$SKIPPED_TIERS")"

@@ -25,6 +25,22 @@ class JobQueue:
         self._conn: sqlite3.Connection | None = None
         self._init_db()
 
+    @classmethod
+    def readonly_snapshot(cls, db_path: str):
+        """Copy an existing queue into memory without initializing the source."""
+        snapshot = cls(":memory:")
+        source = None
+        try:
+            source = sqlite3.connect(Path(db_path).resolve().as_uri() + "?mode=ro", uri=True)
+            source.backup(snapshot._connect())
+        except sqlite3.Error:
+            snapshot.close()
+            raise
+        finally:
+            if source is not None:
+                source.close()
+        return snapshot
+
     def _connect(self) -> sqlite3.Connection:
         """Return the per-process connection, creating it if needed.
 

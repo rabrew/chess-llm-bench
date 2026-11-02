@@ -1,0 +1,13 @@
+# CPU-only dependencies for the complete unit suite; excludes training/GPU extras.
+python-chess>=1.10.0
+requests>=2.31.0
+pyyaml>=6.0.1
+numpy>=1.24.0
+pandas>=2.0.0
+filelock>=3.12.0
+flask>=3.0.0
+pytest>=7.4.0
+scipy>=1.11.0
+matplotlib>=3.7.0
+seaborn>=0.12.0
+ruff==0.14.0

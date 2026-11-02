@@ -3,6 +3,7 @@
 import hashlib
 import logging
 import os
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -149,47 +150,27 @@ def parse_model_info(model_tag: str) -> dict[str, Any]:
     Returns:
         Dictionary with family, size_str, and size_b (billions)
     """
-    # Strip fine-tuning suffix before parsing
-    model_tag = model_tag.removesuffix("-board-ft")
-
-    # Map model prefixes to family names
-    family_map = {
-        "qwen": "qwen",
-        "llama": "llama",
-        "mistral": "mistral",
-        "phi": "phi",
-        "gemma": "gemma",
-    }
-
-    parts = model_tag.split(":")
-    model_name = parts[0]
-    size_str = parts[1] if len(parts) > 1 else ""
-
-    # Determine family
-    family = "unknown"
-    for prefix, fam in family_map.items():
-        if model_name.lower().startswith(prefix):
-            family = fam
-            break
-
-    # Parse size (e.g., "7b" -> 7, "14b" -> 14)
-    size_b = 0
-    if size_str:
-        size_clean = size_str.lower().replace("b", "")
-        try:
-            size_b = int(size_clean)
-        except ValueError:
-            try:
-                size_b = float(size_clean)
-            except ValueError:
-                pass
-
+    model_tag = model_tag.removesuffix("-board-ft").removesuffix("-legal-ft")
+    model_name, separator, size_str = model_tag.partition(":")
+    prefixes = ("codellama", "command-r", "deepseek", "wizardlm", "mixtral",
+                "mistral", "qwen", "llama", "phi", "gemma", "solar", "yi")
+    family = next((prefix for prefix in prefixes if model_name.lower().startswith(prefix)), None)
+    match = re.fullmatch(r"(e)?(?:(\d+)x)?(\d+(?:\.\d+)?)b", size_str.lower())
+    if family is None or not separator or match is None:
+        raise ValueError(f"Unrecognised model family or parameter size: {model_tag!r}")
+    effective, experts, parameters = match.groups()
+    total = float(parameters) * (int(experts) if experts else 1)
+    if total <= 0:
+        raise ValueError(f"Model parameter size must be positive: {model_tag!r}")
+    is_moe = experts is not None or model_tag == "gemma4:26b"
     return {
-        "family": family,
-        "size_str": size_str,
-        "size_b": size_b,
-        "full_tag": model_tag,
+        "family": family, "size_str": size_str, "size_b": total,
+        "full_tag": model_tag, "is_moe": is_moe,
+        "effective_parameters": effective is not None,
+        "active_size_b": 12.9 if model_tag == "mixtral:8x7b" else None,
+        "scaling_eligible": not is_moe and effective is None,
     }
+
 
 
 def clamp(value: int | float, min_val: int | float, max_val: int | float) -> int | float:

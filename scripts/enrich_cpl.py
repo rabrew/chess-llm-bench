@@ -167,14 +167,32 @@ def enrich_records(records: list[dict], engine: Any) -> list[dict]:
 
         r["t2_best_move"] = pre.get("best_move")
 
+        r.update(
+            t2_reference_eval_before=pre["eval"],
+            t2_reference_engine=type(engine).__name__,
+            t2_reference_budget={"nodes": getattr(engine, "nodes", None)},
+            t2_reference_units="centipawns_white",
+            t2_scoring_version="lc0_endpoints_v1_best_move_zero",
+        )
+        eval_after = None
         if move == pre.get("best_move"):
             r["t2_cpl"] = 0
+            r["t2_best_move_zero_convention"] = True
         else:
             eval_after = post_move_results.get((fen, move))
             if eval_after is not None:
                 r["t2_cpl"] = compute_cpl(fen, pre["eval"], eval_after)
             # else leave t2_cpl as None (engine failed)
 
+        if eval_after is not None:
+            r.update(
+                t2_reference_eval_before=pre["eval"],
+                t2_reference_eval_after=eval_after,
+                t2_reference_engine=type(engine).__name__,
+                t2_reference_budget={"nodes": getattr(engine, "nodes", None)},
+                t2_reference_units="centipawns_white",
+                t2_scoring_version="lc0_endpoints_v1_best_move_zero",
+            )
         enriched.append(r)
 
     return enriched

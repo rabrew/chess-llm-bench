@@ -202,7 +202,8 @@ def verify_board_description(fen: str, model_text: str) -> dict[str, Any]:
             'missing_pieces': [str],
             'extra_pieces': [str],
             'wrong_squares': [str],
-            'accuracy': float,
+            'accuracy': float,  # Legacy piece recall.
+            'precision': float, 'recall': float, 'f1': float,
         }
     """
     ground_truth = _ground_truth_pieces(fen)
@@ -251,7 +252,10 @@ def verify_board_description(fen: str, model_text: str) -> dict[str, Any]:
                 wrong.append(f"{key} mentioned on {sq}, not in ground truth")
                 errors.append(f"Extra {key} on {sq}")
 
-    accuracy = correct_pieces / total_pieces if total_pieces > 0 else 0.0
+    recall = correct_pieces / total_pieces if total_pieces > 0 else 0.0
+    predicted_pieces = sum(len(squares) for squares in model_pieces.values())
+    precision = correct_pieces / predicted_pieces if predicted_pieces else 0.0
+    f1 = 2 * precision * recall / (precision + recall) if precision + recall else 0.0
 
     return {
         "correct": len(errors) == 0,
@@ -259,7 +263,10 @@ def verify_board_description(fen: str, model_text: str) -> dict[str, Any]:
         "missing_pieces": missing,
         "extra_pieces": extra,
         "wrong_squares": wrong,
-        "accuracy": accuracy,
+        "accuracy": recall,  # Legacy field: piece recall, not exact-board accuracy.
+        "precision": precision,
+        "recall": recall,
+        "f1": f1,
     }
 
 

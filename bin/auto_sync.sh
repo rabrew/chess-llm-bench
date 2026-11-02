@@ -2,8 +2,8 @@
 # Auto-commit and push any code changes every 30 minutes.
 # Data files, logs, and results are excluded via .gitignore.
 
-REPO="/home/rabrew/Desktop/chess-llm-bench"
-cd "$REPO" || exit 1
+REPO="${CHESS_BENCH_ROOT:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)}"
+cd -- "$REPO" || exit 1
 
 # Only proceed if there are staged/unstaged changes to tracked files
 if git diff --quiet && git diff --cached --quiet; then

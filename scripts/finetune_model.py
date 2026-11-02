@@ -20,7 +20,6 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from transformers import TrainerCallback
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
@@ -101,14 +100,15 @@ def split_held_out(records: list[dict], seed: int = 42, n: int = 200) -> tuple[l
     return shuffled[n:], shuffled[:n]
 
 
-def evaluate_held_out(model: Any, tokenizer: Any, held_out: list[dict]) -> float:
+def evaluate_held_out(model: Any, tokenizer: Any, held_out: list[dict], output_path: Path | None = None) -> float:
     """Run verify_board_description on held-out samples after each epoch.
 
-    Returns mean accuracy over the sample set.
+    Returns mean piece F1; optionally persists dedicated T0 responses and exactness.
     """
     import torch
 
     total_acc = 0.0
+    observations = []
     for rec in held_out:
         fen = rec["input"].replace("FEN: ", "").strip()
         prompt = format_alpaca_prompt(rec["instruction"], rec["input"])
@@ -127,13 +127,25 @@ def evaluate_held_out(model: Any, tokenizer: Any, held_out: list[dict]) -> float
             clean_up_tokenization_spaces=False,
         )
         result = verify_board_description(fen, generated)
-        total_acc += result["accuracy"]
+        total_acc += result["f1"]
+        observations.append({
+            "fen": fen, "prompt_format": "board_description",
+            "t0_response": generated, "t0_f1": result["f1"],
+            "t0_precision": result["precision"], "t0_recall": result["recall"],
+            "t0_exact": result["correct"],
+        })
 
+    if output_path is not None:
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        # Exclusive creation keeps a resumed run from replacing prior evidence.
+        with output_path.open("x") as handle:
+            for observation in observations:
+                handle.write(json.dumps(observation) + "\n")
     return total_acc / len(held_out) if held_out else 0.0
 
 
-class EpochAccuracyCallback(TrainerCallback):
-    """TRL TrainerCallback that logs board accuracy after each epoch."""
+class EpochAccuracyCallback:
+    """Callback mixin that records board F1 and exactness after each epoch."""
 
     def __init__(self, model: Any, tokenizer: Any, held_out: list[dict], logger: Any):
         self.model = model
@@ -142,17 +154,17 @@ class EpochAccuracyCallback(TrainerCallback):
         self.logger = logger
 
     def on_epoch_end(self, args: Any, state: Any, control: Any, **kwargs: Any) -> None:
-        acc = evaluate_held_out(self.model, self.tokenizer, self.held_out)
-        self.logger.info(f"[Epoch {state.epoch:.1f}] Held-out board accuracy: {acc:.3f}")
+        from uuid import uuid4
+        output_path = Path(args.output_dir) / "held_out" / f"epoch-{state.epoch:.2f}-{uuid4().hex}.jsonl"
+        acc = evaluate_held_out(self.model, self.tokenizer, self.held_out, output_path)
+        self.logger.info(f"[Epoch {state.epoch:.1f}] Held-out board F1: {acc:.3f}")
 
 
 def _cleanup_dirs(checkpoint_dir: Path, gguf_dir: Path, logger: Any) -> None:
-    """Remove partial checkpoint and GGUF dirs after a failed run."""
-    import shutil
-    for d in [checkpoint_dir, gguf_dir, Path(str(gguf_dir) + "_gguf")]:
-        if d.exists():
-            shutil.rmtree(d)
-            logger.warning(f"Cleaned up partial directory: {d}")
+    """Preserve all artifacts after failure, including resumable checkpoints."""
+    for folder in (checkpoint_dir, gguf_dir, Path(str(gguf_dir) + "_gguf")):
+        if folder.exists():
+            logger.warning(f"Preserved artifacts after failure: {folder}")
 
 
 def run_finetuning(
@@ -210,9 +222,16 @@ def run_finetuning(
         logger.info(f"[dry-run] First record input: {records[0]['input']}")
         return
 
+    if checkpoint_dir.exists() and any(checkpoint_dir.iterdir()) and not resume:
+        raise FileExistsError(f"Checkpoint directory already contains saved work: {checkpoint_dir}; use --resume")
+    if any(folder.exists() and any(folder.iterdir())
+           for folder in (gguf_dir, Path(str(gguf_dir) + "_gguf"))):
+        raise FileExistsError(f"GGUF output already contains saved work: {gguf_dir}; choose a new output root")
+
     # --- Imports deferred so dry-run works without GPU deps installed ---
     try:
         from unsloth import FastLanguageModel
+        from transformers import TrainerCallback
         from trl import SFTTrainer, SFTConfig
         from datasets import Dataset
     except ImportError as e:
@@ -254,7 +273,10 @@ def run_finetuning(
     hf_dataset = Dataset.from_list([format_record(r) for r in train_records])
 
     # --- Accuracy callback ---
-    accuracy_cb = EpochAccuracyCallback(model, tokenizer, held_out, logger)
+    callback_type = type(
+        "EpochBoardAccuracyCallback", (EpochAccuracyCallback, TrainerCallback), {}
+    )
+    accuracy_cb = callback_type(model, tokenizer, held_out, logger)
 
     # --- Train + Export GGUF (clean up partial artifacts on failure) ---
     checkpoint_dir.mkdir(parents=True, exist_ok=True)

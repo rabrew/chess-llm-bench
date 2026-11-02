@@ -13,6 +13,9 @@ import pandas as pd
 
 from .evaluator import THEME_SYNONYMS, _camel_to_words
 from .result_writer import load_results
+from .utils import parse_model_info
+from .metric_audit import (direction_baselines, direction_diagnostics, regime_split,
+                           cpl_diagnostics, analysis_provenance, publication_columns, json_safe, MOVE_FORMATS)
 
 logger = logging.getLogger("chess_llm_bench")
 
@@ -106,6 +109,54 @@ def compute_wp_loss(
     return max(0.0, (wp_before - wp_after) * 1000.0)
 
 
+def _verified_best_move_zero(record: dict[str, Any]) -> bool:
+    """Validate the versioned reference-best-move scoring convention."""
+    budget = record.get("t2_reference_budget")
+    nodes = budget.get("nodes") if isinstance(budget, dict) else None
+    move = record.get("t2_move")
+    return (
+        record.get("t2_legal") is True
+        and record.get("t2_best_move_zero_convention") is True
+        and record.get("t2_scoring_version") == "lc0_endpoints_v1_best_move_zero"
+        and record.get("t2_reference_engine") == "Lc0Engine"
+        and isinstance(nodes, int) and not isinstance(nodes, bool) and nodes > 0
+        and record.get("t2_reference_units") == "centipawns_white"
+        and isinstance(move, str) and bool(move)
+        and move == record.get("t2_best_move")
+    )
+
+
+def derive_endpoint_metrics(record: dict[str, Any]) -> dict[str, Any]:
+    """Score recorded endpoint pairs or an explicitly versioned best-move zero.
+
+    Historical t2_cpl may already have been clamped or use a different reference
+    from T1. It cannot identify either original endpoint.
+    """
+    empty = {"t2_cpl_clamped": None, "t2_wp_loss": None, "t2_endpoint_status": "unavailable"}
+    if _verified_best_move_zero(record):
+        return {"t2_cpl_clamped": 0.0, "t2_wp_loss": 0.0,
+                "t2_endpoint_status": "best_move_zero_convention"}
+    before = record.get("t2_reference_eval_before")
+    after = record.get("t2_reference_eval_after")
+    if before is None or after is None or pd.isna(before) or pd.isna(after):
+        return empty
+    turn = record.get("t2_reference_white_to_move")
+    if not isinstance(turn, (bool, np.bool_)):
+        fen = record.get("fen")
+        turn = _white_to_move_from_fen(fen) if isinstance(fen, str) else None
+    if turn is None:
+        return empty
+    try:
+        before, after = float(before), float(after)
+    except (TypeError, ValueError):
+        return {**empty, "t2_endpoint_status": "invalid"}
+    if not math.isfinite(before) or not math.isfinite(after):
+        return {**empty, "t2_endpoint_status": "invalid"}
+    return {"t2_cpl_clamped": compute_clamped_cpl(before, after, bool(turn)),
+            "t2_wp_loss": compute_wp_loss(before, after, bool(turn)),
+            "t2_endpoint_status": "recorded"}
+
+
 def rescore_t3_theme(theme: str | None, explanation: str | None) -> int | None:
     """Recompute the T3 theme-correctness component using the new matcher.
 
@@ -158,6 +209,7 @@ def load_results_df(
     if not results:
         return pd.DataFrame()
     df = pd.DataFrame(results)
+    _mask_prompt_applicability(df)
 
     # ----- T1 derived columns ---------------------------------------------
     if "t1_model_eval" in df.columns and "t1_stockfish_eval" in df.columns:
@@ -180,43 +232,14 @@ def load_results_df(
                 mate_truth, np.nan, df["t1_absolute_error"]
             )
 
-    # ----- T2 derived columns: clamped CPL + win-probability loss ---------
-    # Reconstruct eval_after from (t1_stockfish_eval, t2_cpl, fen):
-    #   cpl = max(0, sf - eval_after)  if white_to_move else
-    #         max(0, eval_after - sf)
-    # so eval_after = sf - cpl  if white_to_move else  sf + cpl.
-    if "t2_cpl" in df.columns and "t1_stockfish_eval" in df.columns:
-        fen_lookup = _build_fen_lookup(data_dir)
-        if "fen" in df.columns:
-            fens = df["fen"]
-        elif "position_id" in df.columns:
-            fens = df["position_id"].map(fen_lookup)
-        else:
-            fens = pd.Series([None] * len(df))
-
-        white_to_move = fens.map(
-            lambda f: _white_to_move_from_fen(f) if isinstance(f, str) else None
-        )
-
-        def _derive(row_sf, row_cpl, row_wtm):
-            if pd.isna(row_sf) or pd.isna(row_cpl) or row_wtm is None:
-                return (np.nan, np.nan)
-            sf = float(row_sf)
-            cpl = float(row_cpl)
-            ea = sf - cpl if row_wtm else sf + cpl
-            return (
-                compute_clamped_cpl(sf, ea, bool(row_wtm)),
-                compute_wp_loss(sf, ea, bool(row_wtm)),
-            )
-
-        derived = [
-            _derive(sf, cpl, wtm)
-            for sf, cpl, wtm in zip(
-                df["t1_stockfish_eval"], df["t2_cpl"], white_to_move
-            )
-        ]
-        df["t2_cpl_clamped"] = [d[0] for d in derived]
-        df["t2_wp_loss"] = [d[1] for d in derived]
+    # Historical CPL and a separately computed T1 score do not identify the
+    # original reference-engine endpoints. Only use recorded matched endpoints.
+    if "t2_cpl" in df or "t2_reference_eval_before" in df:
+        endpoint_rows = [derive_endpoint_metrics(record) for record in results]
+        for column in ("t2_cpl_clamped", "t2_wp_loss", "t2_endpoint_status"):
+            df[column] = [record[column] for record in endpoint_rows]
+        for column in ("t2_cpl_clamped", "t2_wp_loss"):
+            df[column] = pd.to_numeric(df[column], errors="coerce")
 
     # ----- T3 rescored theme-correctness with the new matcher -------------
     if "theme" in df.columns and "t3_explanation" in df.columns:
@@ -241,6 +264,9 @@ def load_results_df(
         attempted = df["t2_move"].notna()
         df["t2_legal_attempted"] = np.where(attempted, df["t2_legal"], np.nan)
 
+    if "t2_legal" in df and "prompt_format" in df:
+        df["t2_legal_move_prompt"] = pd.to_numeric(df.t2_legal, errors="coerce").where(df.prompt_format.isin(MOVE_FORMATS))
+
     # ----- T1 direction accuracy at multiple thresholds -----
     # The headline `t1_direction_correct` field uses ±50 cp, which empirically
     # is the worst-case threshold for this dataset (forces the call right at
@@ -253,6 +279,25 @@ def load_results_df(
             )
 
     return df
+
+
+def _mask_prompt_applicability(frame: pd.DataFrame) -> None:
+    """Ignore unsolicited task fragments in prompts that do not request a task."""
+    if "prompt_format" not in frame:
+        return
+    requested = {
+        "t1_": ("cot", "fen_only", "pgn+fen", "eval_only"),
+        "t3_": ("cot", "fen_only", "pgn+fen", "explanation_only"),
+    }
+    for prefix, formats in requested.items():
+        not_requested = ~frame.prompt_format.isin(formats)
+        for column in frame:
+            if column.startswith(prefix) and column != "t1_stockfish_eval":
+                frame[column] = frame[column].astype(object)
+                frame.loc[not_requested, column] = np.nan
+    for column in ("t1_model_eval", "t1_absolute_error", "t1_stockfish_eval"):
+        if column in frame:
+            frame[column] = pd.to_numeric(frame[column], errors="coerce")
 
 
 def _compute_direction_correct(
@@ -347,6 +392,7 @@ def aggregate_by_model(df: pd.DataFrame) -> pd.DataFrame:
         "t2_cpl_clamped": ["mean", "median"],
         "t2_wp_loss": ["mean", "median"],
         "t2_legal_attempted": "mean",
+        "t2_legal_move_prompt": "mean",
         "t3_p2_theme_correct_v2": "mean",
         "t3_score_v2": "mean",
     }
@@ -391,6 +437,7 @@ def aggregate_by_difficulty(df: pd.DataFrame) -> pd.DataFrame:
         "t2_cpl_clamped",
         "t2_wp_loss",
         "t2_legal_attempted",
+        "t2_legal_move_prompt",
         "t3_score_v2",
     ):
         if col in df.columns:
@@ -410,12 +457,16 @@ def aggregate_by_phase(df: pd.DataFrame) -> pd.DataFrame:
     if df.empty:
         return pd.DataFrame()
 
-    return df.groupby(["model", "phase"]).agg({
+    spec = {
         "t1_absolute_error": "mean",
         "t2_cpl": "mean",
         "t3_score": "mean",
         "job_id": "count",
-    }).reset_index()
+    }
+    for column in ("t1_abs_error_excl_mate", "t2_cpl_clamped", "t2_wp_loss", "t2_legal_move_prompt", "t3_score_v2"):
+        if column in df:
+            spec[column] = "mean"
+    return df.groupby(["model", "phase"]).agg(spec).reset_index()
 
 
 def aggregate_by_source(df: pd.DataFrame) -> pd.DataFrame:
@@ -430,13 +481,17 @@ def aggregate_by_source(df: pd.DataFrame) -> pd.DataFrame:
     if df.empty:
         return pd.DataFrame()
 
-    return df.groupby(["model", "source"]).agg({
+    spec = {
         "t1_absolute_error": "mean",
         "t2_cpl": "mean",
         "t2_legal": "mean",
         "t3_score": "mean",
         "job_id": "count",
-    }).reset_index()
+    }
+    for column in ("t1_abs_error_excl_mate", "t2_cpl_clamped", "t2_wp_loss", "t2_legal_move_prompt", "t3_score_v2"):
+        if column in df:
+            spec[column] = "mean"
+    return df.groupby(["model", "source"]).agg(spec).reset_index()
 
 
 def aggregate_by_model_family(df: pd.DataFrame) -> pd.DataFrame:
@@ -451,13 +506,21 @@ def aggregate_by_model_family(df: pd.DataFrame) -> pd.DataFrame:
     if df.empty:
         return pd.DataFrame()
 
-    return df.groupby(["model_family", "model_size_b"]).agg({
-        "t1_absolute_error": "mean",
-        "t2_cpl": "mean",
-        "t2_legal": "mean",
-        "t3_score": "mean",
-        "job_id": "count",
-    }).reset_index()
+    enriched = df.copy()
+    metadata = {tag: parse_model_info(tag) for tag in enriched.model.unique()}
+    enriched["model_family"] = enriched.model.map(lambda tag: metadata[tag]["family"])
+    enriched["model_size_b"] = enriched.model.map(lambda tag: metadata[tag]["size_b"])
+    spec = {column: "mean" for column in (
+        "t1_absolute_error", "t2_cpl", "t2_legal", "t3_score",
+        "t1_abs_error_excl_mate", "t2_cpl_clamped", "t2_wp_loss",
+        "t2_legal_attempted", "t2_legal_move_prompt", "t3_score_v2") if column in enriched}
+    spec["job_id"] = "count"
+    aggregated = enriched.groupby(["model", "model_family", "model_size_b"]).agg(spec).reset_index()
+    if len(aggregated) != enriched.model.nunique():
+        raise ValueError("Family aggregation lost model identity")
+    aggregated["scaling_eligible"] = aggregated.model.map(lambda tag: metadata[tag]["scaling_eligible"])
+    return aggregated
+
 
 
 def calculate_hallucination_rate(df: pd.DataFrame) -> pd.DataFrame:
@@ -472,14 +535,19 @@ def calculate_hallucination_rate(df: pd.DataFrame) -> pd.DataFrame:
     if df.empty:
         return pd.DataFrame()
 
-    # Hallucination = not legal move
-    df = df.copy()
-    df["hallucination"] = ~df["t2_legal"].fillna(False)
-
-    return df.groupby(["model", "difficulty"]).agg({
-        "hallucination": "mean",
-        "job_id": "count",
+    failures = df.copy()
+    if "t2_legal_move_prompt" in failures:
+        failures["move_prompt_failure_rate"] = 1 - failures.t2_legal_move_prompt
+        return failures.groupby(["model", "difficulty"]).agg(
+            move_prompt_failure_rate=("move_prompt_failure_rate", "mean"),
+            move_prompt_n=("move_prompt_failure_rate", "count")).reset_index()
+    # Backwards compatibility for hand-built legacy frames. Never interpret
+    # this unfiltered denominator as model hallucination in exported reports.
+    failures["hallucination"] = ~failures["t2_legal"].fillna(False)
+    return failures.groupby(["model", "difficulty"]).agg({
+        "hallucination": "mean", "job_id": "count",
     }).reset_index().rename(columns={"hallucination": "hallucination_rate"})
+
 
 
 def calculate_learning_deltas(df: pd.DataFrame) -> pd.DataFrame:
@@ -627,92 +695,72 @@ def compute_hypothesis_tests(df: pd.DataFrame) -> dict[str, Any]:
     # leakage on easy puzzles (which are mostly mate-in-N tactics). Reported
     # under three metrics with t2_cpl_clamped as the primary.
     def _h2_metric(column: str) -> dict[str, Any]:
-        if column not in df.columns:
-            return {"supported": False, "values": {}, "expect": "increasing", "missing": True}
-        data = df.groupby("difficulty")[column].mean()
-        values_dict = {d: (None if d not in data.index else float(data.loc[d]))
-                       for d in difficulty_order}
-        ordered = [values_dict[d] for d in difficulty_order]
-        return {
-            "supported": _trend_supported(ordered, "increasing"),
-            "values": values_dict,
-            "expect": "increasing",
-        }
+        if column not in df:
+            return dict(supported=None, values={}, expect="increasing", missing=True,
+                        available_n=0, publication_status="insufficient_data")
+        numeric = pd.to_numeric(df[column], errors="coerce").replace([np.inf, -np.inf], np.nan)
+        means = numeric.groupby(df.difficulty).mean()
+        values = {difficulty: None if pd.isna(means.get(difficulty)) else float(means[difficulty])
+                  for difficulty in difficulty_order}
+        complete = all(value is not None for value in values.values())
+        return dict(supported=_trend_supported(list(values.values()), "increasing") if complete else None,
+                    available_n=int(numeric.notna().sum()), values=values, expect="increasing",
+                    publication_status="available" if complete else "insufficient_data")
 
-    h2_metrics = {
-        "absolute_cpl": _h2_metric("t2_cpl"),
-    }
-    if "t2_cpl_clamped" in df.columns:
-        h2_metrics["clamped_cpl"] = _h2_metric("t2_cpl_clamped")
-    if "t2_wp_loss" in df.columns:
-        h2_metrics["wp_loss"] = _h2_metric("t2_wp_loss")
+    h2_metrics = {"absolute_cpl": _h2_metric("t2_cpl"),
+                  "clamped_cpl": _h2_metric("t2_cpl_clamped"),
+                  "wp_loss": _h2_metric("t2_wp_loss")}
+    primary_h2 = h2_metrics["clamped_cpl"]
+    results["H2"] = dict(description="T2 CPL increases with difficulty",
+                         primary_metric="clamped_cpl", primary_supported=primary_h2["supported"],
+                         metrics=h2_metrics, supported=primary_h2["supported"],
+                         publication_status=primary_h2["publication_status"], values=primary_h2["values"])
 
-    primary_h2 = "clamped_cpl" if "clamped_cpl" in h2_metrics else "absolute_cpl"
-    results["H2"] = {
-        "description": "T2 CPL increases with difficulty",
-        "primary_metric": primary_h2,
-        "primary_supported": h2_metrics[primary_h2]["supported"],
-        "metrics": h2_metrics,
-        # Backwards-compat surface
-        "supported": h2_metrics[primary_h2]["supported"],
-        "values": h2_metrics[primary_h2]["values"],
-    }
-
-    # H3: T3 score decreases with difficulty
-    h3_data = df.groupby("difficulty")["t3_score"].mean()
-    h3_values = [h3_data.get(d) for d in difficulty_order if d in h3_data]
-    h3_decreasing = len(h3_values) >= 2 and all(
-        h3_values[i] >= h3_values[i + 1]
-        for i in range(len(h3_values) - 1)
-        if h3_values[i] is not None and h3_values[i + 1] is not None
-    )
-    results["H3"] = {
-        "description": "T3 score decreases with difficulty",
-        "supported": h3_decreasing,
-        "values": {d: h3_data.get(d) for d in difficulty_order},
-    }
-
-    # H4: Larger models perform better (within family)
+    # Corrected metrics are primary; legacy values remain explicitly identified.
+    h3_column = "t3_score_v2" if "t3_score_v2" in df else "t3_score"
+    h3_metrics = {column: _h1_metric(column, "decreasing")
+                  for column in ("t3_score", "t3_score_v2") if column in df}
+    results["H3"] = dict(description="T3 score decreases with difficulty",
+                         primary_metric=h3_column, metrics=h3_metrics,
+                         supported=h3_metrics[h3_column]["supported"],
+                         values=h3_metrics[h3_column]["values"])
+    h4_columns = ["t1_abs_error_excl_mate", "t2_cpl_clamped", "t3_score_v2"]
+    # Metadata is re-parsed instead of trusting legacy stored family/size values.
+    scaling = df.copy()
+    metadata = {tag: parse_model_info(tag) for tag in scaling.model.unique()}
+    scaling = scaling.loc[scaling.model.map(lambda tag: metadata[tag]["scaling_eligible"])]
+    scaling["model_family"] = scaling.model.map(lambda tag: metadata[tag]["family"])
+    scaling["model_size_b"] = scaling.model.map(lambda tag: metadata[tag]["size_b"])
+    for column in h4_columns:
+        scaling[column] = pd.to_numeric(scaling[column], errors="coerce").replace([np.inf, -np.inf], np.nan) if column in scaling else np.nan
     h4_results = {}
-    for family in df["model_family"].dropna().unique():
-        family_df = df[df["model_family"] == family]
-        if len(family_df["model_size_b"].dropna().unique()) < 2:
+    for family, family_frame in scaling.groupby("model_family"):
+        by_size = family_frame.groupby("model_size_b")[h4_columns].mean()
+        if len(by_size) < 2:
             continue
-
-        size_metrics = family_df.groupby("model_size_b").agg({
-            "t1_absolute_error": "mean",
-            "t2_cpl": "mean",
-            "t3_score": "mean",
-        })
-
-        # Check if larger size has lower error, lower CPL, higher T3
-        sizes = sorted(size_metrics.index)
-        if len(sizes) >= 2:
-            smaller, larger = sizes[0], sizes[-1]
-            better_t1 = (
-                size_metrics.loc[larger, "t1_absolute_error"]
-                < size_metrics.loc[smaller, "t1_absolute_error"]
-            )
-            better_t2 = (
-                size_metrics.loc[larger, "t2_cpl"]
-                < size_metrics.loc[smaller, "t2_cpl"]
-            )
-            better_t3 = (
-                size_metrics.loc[larger, "t3_score"]
-                > size_metrics.loc[smaller, "t3_score"]
-            )
-            h4_results[family] = {
-                "better_t1": better_t1,
-                "better_t2": better_t2,
-                "better_t3": better_t3,
-                "all_better": better_t1 and better_t2 and better_t3,
-            }
-
-    results["H4"] = {
-        "description": "Larger models perform better within family",
-        "supported": all(r.get("all_better", False) for r in h4_results.values()),
-        "by_family": h4_results,
-    }
+        smaller, larger = min(by_size.index), max(by_size.index)
+        counts = family_frame.groupby("model_size_b")[h4_columns].count()
+        available = {column: {"smaller": int(counts.loc[smaller, column]),
+                              "larger": int(counts.loc[larger, column])} for column in h4_columns}
+        comparisons = {}
+        for column in h4_columns:
+            if not all(available[column].values()):
+                comparisons[column] = None
+            elif column == "t3_score_v2":
+                comparisons[column] = bool(by_size.loc[larger, column] > by_size.loc[smaller, column])
+            else:
+                comparisons[column] = bool(by_size.loc[larger, column] < by_size.loc[smaller, column])
+        complete = all(value is not None for value in comparisons.values())
+        h4_results[family] = dict(metrics=comparisons, available_n=available,
+                                  all_better=all(comparisons.values()) if complete else None,
+                                  publication_status="available" if complete else "insufficient_data")
+    complete_h4 = bool(h4_results) and all(row["publication_status"] == "available" for row in h4_results.values())
+    results["H4"] = dict(description="Larger dense models perform better within family",
+                         primary_metric="t2_cpl_clamped", metrics=h4_columns,
+                         supported=all(row["all_better"] for row in h4_results.values()) if complete_h4 else None,
+                         publication_status="available" if complete_h4 else "insufficient_data",
+                         by_family=h4_results,
+                         excluded_models=[tag for tag, metadata_row in metadata.items() if not metadata_row["scaling_eligible"]])
 
     # H5: Better T3 than T2 on openings, worse on endgames (relative performance).
     #
@@ -723,7 +771,7 @@ def compute_hypothesis_tests(df: pd.DataFrame) -> dict[str, Any]:
     #   gap(opening) > gap(middlegame) > gap(endgame)
     # i.e. the T3-vs-T2 advantage shrinks (or reverses) toward the endgame.
     phase_order = ["opening", "middlegame", "endgame"]
-    t2_col = (
+    t2_col = "t2_legal_move_prompt" if "t2_legal_move_prompt" in df else (
         "t2_legal_attempted" if "t2_legal_attempted" in df.columns else "t2_legal"
     )
     t3_col = "t3_score_v2" if "t3_score_v2" in df.columns else "t3_score"
@@ -750,7 +798,8 @@ def compute_hypothesis_tests(df: pd.DataFrame) -> dict[str, Any]:
         and ordered_gaps[1] > ordered_gaps[2]
     )
     results["H5"] = {
-        "description": "T3 advantage over T2 is largest in openings, smallest in endgames",
+        "description": "Exploratory material-phase contrast; historical legality procedure is uncertain",
+        "publication_status": "descriptive_only",
         "supported": h5_supported,
         "phase_values": phase_values,
         "gap_order": ordered_gaps,
@@ -790,7 +839,8 @@ def generate_summary(df: pd.DataFrame) -> dict[str, Any]:
                 df["t1_relative_error"].mean()
                 if "t1_relative_error" in df.columns else None
             ),
-            "t1_direction_accuracy_t50": df["t1_direction_correct"].mean(),
+            "t1_direction_accuracy_t50": (df["t1_direction_correct_t50"].mean()
+                if "t1_direction_correct_t50" in df else None),
             "t1_direction_accuracy_by_threshold": {
                 f"t{thresh}": (
                     df[f"t1_direction_correct_t{thresh}"].mean()
@@ -799,11 +849,6 @@ def generate_summary(df: pd.DataFrame) -> dict[str, Any]:
                 )
                 for thresh in DIRECTION_THRESHOLDS_CP
             },
-            "t2_legal_rate_buggy_includes_no_move_prompts": df["t2_legal"].mean(),
-            "t2_legal_rate": (
-                df["t2_legal_attempted"].mean()
-                if "t2_legal_attempted" in df.columns else None
-            ),
             "t2_mean_cpl_raw": df["t2_cpl"].mean(),
             "t2_mean_cpl_clamped": (
                 df["t2_cpl_clamped"].mean()
@@ -820,19 +865,28 @@ def generate_summary(df: pd.DataFrame) -> dict[str, Any]:
             ),
         },
 
-        "by_model": aggregate_by_model(df).to_dict(orient="records"),
-        "by_difficulty": aggregate_by_difficulty(df).to_dict(orient="records"),
-        "by_phase": aggregate_by_phase(df).to_dict(orient="records"),
-        "by_source": aggregate_by_source(df).to_dict(orient="records"),
+        "by_model": publication_columns(aggregate_by_model(df)).to_dict(orient="records"),
+        "by_difficulty": publication_columns(aggregate_by_difficulty(df)).to_dict(orient="records"),
+        "by_phase": publication_columns(aggregate_by_phase(df)).to_dict(orient="records"),
+        "by_source": publication_columns(aggregate_by_source(df)).to_dict(orient="records"),
         "hypothesis_tests": compute_hypothesis_tests(df),
     }
 
+    summary["quality_status"] = {"primary_metric": "blunder_rate",
+        "quality_records": int(df["t2_cpl_clamped"].notna().sum()) if "t2_cpl_clamped" in df else 0,
+        "endpoint_records": int(df["t2_endpoint_status"].eq("recorded").sum()) if "t2_endpoint_status" in df else 0,
+        "convention_zero_records": int(df["t2_endpoint_status"].eq("best_move_zero_convention").sum()) if "t2_endpoint_status" in df else 0,
+        "historical_note": "Historical CPL does not identify original reference endpoints; corrected quality requires recorded endpoints or a verified explicit best-move-zero convention"}
+    summary["legality_by_regime"] = regime_split(df).to_dict(orient="records")
+    summary["provenance"] = analysis_provenance()
     return summary
 
 
 def save_metrics(
     df: pd.DataFrame,
     output_dir: str = "results/metrics",
+    *, collection_provenance: dict[str, Any] | None = None,
+    config_snapshot: dict[str, Any] | None = None,
 ) -> None:
     """Save all metric aggregations to files.
 
@@ -845,28 +899,38 @@ def save_metrics(
 
     if df.empty:
         logger.warning("No results to save metrics for")
+        for filename in ("by_model.csv", "by_difficulty.csv", "by_phase.csv", "by_source.csv",
+                         "by_model_family.csv", "hallucination_rate.csv", "direction_baselines.csv",
+                         "direction_diagnostics.csv", "regime_split.csv", "cpl_quality.csv",
+                         "cpl_buckets.csv", "learning_deltas.csv"):
+            (output_path / filename).unlink(missing_ok=True)
+        (output_path / "summary.json").write_text(json.dumps({"total_jobs": 0, "error": "No results available"}))
         return
 
-    # Save aggregations as CSV
-    aggregate_by_model(df).to_csv(output_path / "by_model.csv", index=False)
-    aggregate_by_difficulty(df).to_csv(output_path / "by_difficulty.csv", index=False)
-    aggregate_by_phase(df).to_csv(output_path / "by_phase.csv", index=False)
-    aggregate_by_source(df).to_csv(output_path / "by_source.csv", index=False)
-    aggregate_by_model_family(df).to_csv(
-        output_path / "by_model_family.csv", index=False
-    )
-    calculate_hallucination_rate(df).to_csv(
-        output_path / "hallucination_rate.csv", index=False
-    )
-
-    # Save learning deltas if available
+    tables = {
+        "by_model.csv": aggregate_by_model(df),
+        "by_difficulty.csv": aggregate_by_difficulty(df),
+        "by_phase.csv": aggregate_by_phase(df),
+        "by_source.csv": aggregate_by_source(df),
+        "by_model_family.csv": aggregate_by_model_family(df),
+        "hallucination_rate.csv": calculate_hallucination_rate(df),
+        "direction_baselines.csv": direction_baselines(df),
+        "direction_diagnostics.csv": direction_diagnostics(df),
+        "regime_split.csv": regime_split(df),
+    }
+    quality, buckets = cpl_diagnostics(df)
+    tables.update({"cpl_quality.csv": quality, "cpl_buckets.csv": buckets})
+    for filename, table in tables.items():
+        publication_columns(table).to_csv(output_path / filename, index=False)
     learning_df = calculate_learning_deltas(df)
-    if not learning_df.empty:
+    if learning_df.empty:
+        (output_path / "learning_deltas.csv").unlink(missing_ok=True)
+    else:
         learning_df.to_csv(output_path / "learning_deltas.csv", index=False)
-
-    # Save summary as JSON
     summary = generate_summary(df)
-    with open(output_path / "summary.json", "w") as f:
-        json.dump(summary, f, indent=2, default=str)
+    summary["provenance"] = analysis_provenance(collection_provenance)
+    summary["provenance"]["analysis_config_snapshot"] = config_snapshot or {}
+    with open(output_path / "summary.json", "w") as stream:
+        json.dump(json_safe(summary), stream, indent=2, allow_nan=False)
 
     logger.info(f"Saved metrics to {output_path}")

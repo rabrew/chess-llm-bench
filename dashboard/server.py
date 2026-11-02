@@ -2,12 +2,16 @@
 import json
 import math
 import sqlite3
+import logging
+import sys
 from collections import defaultdict
 from pathlib import Path
 
 from flask import Flask, jsonify, send_from_directory
 
 BASE_DIR = Path(__file__).parent.parent
+sys.path.insert(0, str(BASE_DIR))
+from src.metrics import derive_endpoint_metrics, rescore_t3_theme, MATE_SCORE_THRESHOLD_CP
 DB_PATH = str(BASE_DIR / "jobs" / "db" / "jobs.db")
 EVALUATIONS_PATH = str(BASE_DIR / "results" / "evaluations.jsonl")
 
@@ -88,7 +92,8 @@ def _compute_metrics():
                     continue
                 try:
                     r = json.loads(line)
-                except json.JSONDecodeError:
+                except json.JSONDecodeError as error:
+                    logging.getLogger(__name__).warning("Skipping malformed result JSON: %s", error)
                     continue
                 model = r.get("model")
                 diff  = r.get("difficulty", "unknown")
@@ -106,19 +111,20 @@ def _compute_metrics():
                         v = float(_direction(me) == _direction(sf))
                         a["t1_direction_correct"].append(v)
                     ae = r.get("t1_absolute_error")
-                    if ae is not None:
+                    if ae is not None and sf is not None and abs(sf) < MATE_SCORE_THRESHOLD_CP:
                         a["t1_absolute_error"].append(float(ae))
                 # Only score t2_legal on formats that actually request a move
                 if fmt not in ("eval_only", "explanation_only"):
                     v = r.get("t2_legal")
                     if v is not None:
                         a["t2_legal"].append(float(v))
-                v = r.get("t2_cpl")
-                if v is not None:
+                v = derive_endpoint_metrics(r)["t2_cpl_clamped"]
+                if v is not None and r.get("t2_legal") is True and fmt not in ("eval_only", "explanation_only"):
                     a["t2_cpl"].append(float(v))
-                v = r.get("t3_score")
-                if v is not None:
-                    a["t3_score"].append(float(v))
+                theme_score = rescore_t3_theme(r.get("theme"), r.get("t3_explanation"))
+                side_score = r.get("t3_p1_side_correct")
+                if theme_score is not None and side_score is not None and fmt not in ("eval_only", "move_only"):
+                    a["t3_score"].append(float(theme_score + side_score))
     except FileNotFoundError:
         pass
 
@@ -149,6 +155,12 @@ def _compute_metrics():
             "t2_cpl_mean":               _null(_mean(all_cpl)),
             "t3_score_mean":             _null(_mean(all_t3)),
             "t1_mae_mean":               _null(_mean(all_mae)),
+            "metric_definitions": {
+                "t2_cpl_mean": "recorded endpoint-clamped loss; unavailable without endpoints",
+                "t2_legal_mean": "stored move-request completions; mixed historical assistance, not single-shot",
+                "t3_score_mean": "v2 theme matcher plus side correctness",
+                "t1_mae_mean": "excludes absolute reference scores >= 9000",
+            },
         })
 
         for diff in DIFFICULTIES:

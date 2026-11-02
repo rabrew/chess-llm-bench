@@ -4,7 +4,7 @@ import hashlib
 import json
 import logging
 import random
-from concurrent.futures import ProcessPoolExecutor, as_completed
+from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 from typing import Any, Iterator
 import multiprocessing as mp
@@ -168,7 +168,6 @@ class LichessPuzzleFetcher:
             logger.error(f"Puzzle CSV not found: {self.csv_path}")
             return {}
 
-        rng = random.Random(seed)
         puzzles_by_tier: dict[str, list[dict[str, Any]]] = {
             tier: [] for tier in DIFFICULTY_TIERS
         }
@@ -223,16 +222,8 @@ class LichessPuzzleFetcher:
         valid_count = 0
         invalid_count = 0
         with ProcessPoolExecutor(max_workers=n_workers) as executor:
-            futures = {executor.submit(_validate_puzzle_row, row): row for row in rows_to_validate}
-            pbar = tqdm(
-                as_completed(futures),
-                total=len(futures),
-                desc="  Validating",
-                unit="pos",
-                bar_format='{desc}: {percentage:3.0f}%|{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}]'
-            )
-            for future in pbar:
-                puzzle = future.result()
+            validated = executor.map(_validate_puzzle_row, rows_to_validate, chunksize=128)
+            for puzzle in tqdm(validated, total=len(rows_to_validate), desc="  Validating", unit="pos"):
                 if puzzle:
                     tier = puzzle["difficulty"]
                     if unlimited or len(puzzles_by_tier[tier]) < count_per_tier:
@@ -421,6 +412,11 @@ def build_dataset(
         "extreme": [],
     }
 
+    design = dataset_config.get("design", "lichess_puzzles")
+    if design not in {"lichess_puzzles", "mixed"}:
+        raise ValueError(f"Unknown dataset design: {design}")
+    puzzle_quota = max_per_tier if design == "lichess_puzzles" else max_per_tier // 3
+
     # 1. Lichess puzzles
     lichess_source = dataset_config.get("lichess_source", "local")
     csv_path = dataset_config.get("lichess_csv_path")
@@ -429,7 +425,7 @@ def build_dataset(
 
     if lichess_source == "local" and csv_path:
         puzzles_by_tier = fetcher.fetch_from_csv(
-            count_per_tier=max_per_tier // 3,
+            count_per_tier=puzzle_quota,
             seed=seed,
         )
         for tier, puzzles in puzzles_by_tier.items():
@@ -442,7 +438,7 @@ def build_dataset(
 
     # 2. Real game positions
     pgn_path = dataset_config.get("pgn_path")
-    if pgn_path and Path(pgn_path).exists():
+    if design == "mixed" and pgn_path and Path(pgn_path).exists():
         sampler = PGNPositionSampler(pgn_path)
         positions_by_phase = sampler.sample_positions(
             count_per_phase=max_per_tier // 3,
@@ -456,14 +452,11 @@ def build_dataset(
                 all_positions[tier].append(pos)
 
     # 3. Generated positions
-    generated = generate_positions(
-        count=max_per_tier,
-        seed=seed,
-    )
-    for pos in generated:
-        # Assign to medium tier by default (will be adjusted by Stockfish eval)
-        tier = "medium"
-        all_positions[tier].append(pos)
+    if design == "mixed":
+        generated = generate_positions(count=max(0, max_per_tier), seed=seed)
+        for pos in generated:
+            pos["difficulty"] = "medium"
+            all_positions["medium"].append(pos)
 
     # Deduplicate positions by FEN across all tiers before ID assignment.
     # Positions from different sources (Lichess, PGN, generated) can share the
@@ -505,6 +498,11 @@ def build_dataset(
             pos["id"] = pos_id
 
         final_dataset[tier] = positions
+
+    if design == "lichess_puzzles" and not unlimited and dataset_config.get("require_full_tiers", True):
+        incomplete = {tier: len(rows) for tier, rows in final_dataset.items() if len(rows) != max_per_tier}
+        if incomplete:
+            raise ValueError(f"Insufficient unique puzzles for required tier quotas: {incomplete}")
 
     # Save to files
     output_path = Path(output_dir)

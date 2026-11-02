@@ -8,7 +8,7 @@ import multiprocessing
 import signal
 import sqlite3
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 # Add src to path
@@ -125,7 +125,7 @@ def main():  # pragma: no cover
     log_dir = paths.get("logs_dir", "results/logs")
 
     # Initialize job queue
-    job_queue = JobQueue(db_path)
+    job_queue = JobQueue.readonly_snapshot(db_path) if args.dry_run else JobQueue(db_path)
 
     if args.status:
         # Show status and exit
@@ -167,8 +167,9 @@ def main():  # pragma: no cover
     signal.signal(signal.SIGTERM, signal_handler)
 
     # Write run log
-    run_id = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
-    write_run_log(config, run_id, log_dir)
+    if not args.dry_run:
+        run_id = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+        write_run_log(config, run_id, log_dir)
 
     print(f"\nStarting {num_workers} workers...")
     print(f"Pending jobs: {progress['pending']}")
@@ -193,7 +194,7 @@ def main():  # pragma: no cover
     data_dir = paths.get("data_dir", "data")
     needed_ids: set[int] = set()
     try:
-        conn_tmp = sqlite3.connect(db_path)
+        conn_tmp = sqlite3.connect(Path(db_path).resolve().as_uri() + "?mode=ro", uri=True)
         cur_tmp = conn_tmp.cursor()
         cur_tmp.execute(
             "SELECT DISTINCT position_id FROM jobs WHERE status IN ('pending', 'in_progress')"

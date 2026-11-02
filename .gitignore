@@ -15,11 +15,21 @@ jobs/
 chess_bench.db
 data/jobs.db
 
-# Results (generated output — not committed, reproduced from evaluations.jsonl)
+# Results: existing tracked files are preserved historical snapshots.
+# Ignore only new generated output; fresh audit exports use explicit destinations.
 results/evaluations.jsonl
-results/evaluations_retried.jsonl
+# Historical retry output is deliberately tracked.
 results/plots/
-results/metrics/
+results/metrics/*
+# Deliberately tracked legacy metric snapshots, not refreshed publication output.
+!results/metrics/by_difficulty.csv
+!results/metrics/by_model.csv
+!results/metrics/by_model_family.csv
+!results/metrics/by_phase.csv
+!results/metrics/by_source.csv
+!results/metrics/hallucination_rate.csv
+!results/metrics/learning_deltas.csv
+!results/metrics/summary.json
 results/logs/
 results/archive/
 results/benchmark.db
@@ -37,3 +47,15 @@ dashboard/tailwind.min.js
 
 # OS
 .DS_Store
+
+# Local secrets and model/runtime artifacts
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+finetuned_checkpoints/
+finetuned_gguf/
+unsloth_compiled_cache/
+runs/
+experiments/

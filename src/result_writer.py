@@ -140,6 +140,17 @@ def build_result_record(
     record["t3_p2_theme_correct"] = scores.get("t3_p2_theme_correct")
     record["t3_score"] = scores.get("t3_score")
 
+    for key in (
+        "t2_reference_eval_before", "t2_reference_eval_after",
+        "t2_reference_engine", "t2_reference_budget", "t2_reference_units",
+        "t2_scoring_version",
+    ):
+        if key in scores:
+            record[key] = scores[key]
+    for key in ("t1_reference_engine", "t1_reference_budget", "t1_reference_units", "t1_reference_provenance"):
+        if key in job:
+            record[key] = job[key]
+
     # Add parse errors if any
     if parsed_response.get("parse_errors"):
         record["parse_errors"] = parsed_response["parse_errors"]

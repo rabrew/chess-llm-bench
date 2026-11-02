@@ -58,10 +58,7 @@ def run(ollama_base: str, config_path: str, logger: Any) -> None:
             found = sorted(
                 f for f in candidate.glob("*.gguf") if "mmproj" not in f.name.lower()
             )
-            if found:
-                gguf_dir = candidate
-                gguf_files = found
-                break
+            gguf_files.extend(found)
     if not gguf_files:
         logger.error(
             f"No .gguf file found in {gguf_dir}\n"
@@ -69,7 +66,7 @@ def run(ollama_base: str, config_path: str, logger: Any) -> None:
         )
         sys.exit(1)
     if len(gguf_files) > 1:
-        logger.warning(f"Multiple .gguf files found — using: {gguf_files[0]}")
+        raise ValueError(f"Multiple .gguf model files found; select an unambiguous export directory: {gguf_files}")
     gguf_path = gguf_files[0]
 
     logger.info(f"Model tag  : {ollama_ft_tag}")

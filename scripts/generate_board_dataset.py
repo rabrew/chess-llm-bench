@@ -38,20 +38,20 @@ def load_benchmark_fens(results_path: str) -> set[str]:
     """Load all unique FENs used in the benchmark from evaluations.jsonl."""
     fens: set[str] = set()
     path = Path(results_path)
-    if not path.exists():
-        return fens
-    with open(path) as f:
-        for line in f:
-            line = line.strip()
-            if not line:
+    with path.open() as handle:
+        for line_number, line in enumerate(handle, 1):
+            if not line.strip():
                 continue
             try:
-                rec = json.loads(line)
-                fen = rec.get("fen", "").strip()
-                if fen:
-                    fens.add(fen)
-            except json.JSONDecodeError:
-                continue
+                record = json.loads(line)
+            except json.JSONDecodeError as exc:
+                raise ValueError(f"Invalid benchmark JSON at line {line_number}: {exc.msg}") from exc
+            fen = record.get("fen") if isinstance(record, dict) else None
+            if not isinstance(fen, str) or not fen.strip():
+                raise ValueError(f"Missing benchmark FEN at line {line_number}")
+            fens.add(fen.strip())
+    if not fens:
+        raise ValueError("Benchmark exclusion file contains no FENs")
     return fens
 
 

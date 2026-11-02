@@ -3,6 +3,10 @@
 
 import argparse
 import json
+import logging
+import math
+
+import chess
 import sys
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
@@ -24,12 +28,44 @@ def evaluate_position(args):
     from src.engine_wrapper import StockfishEngine
 
     try:
-        engine = StockfishEngine(path=stockfish_path, depth=depth, threads=1)
-        result = engine.evaluate(fen)
-        engine.close()
+        with StockfishEngine(path=stockfish_path, depth=depth, threads=1) as engine:
+            result = engine.evaluate(fen)
         return fen, result["eval"], result["best_move"]
-    except Exception as e:
+    except Exception as error:
+        logging.getLogger("chess_llm_bench").warning("Stockfish failed for %s: %s", fen, error)
         return fen, None, None
+
+
+def needs_stockfish_evaluation(position: dict, depth: int) -> bool:
+    """Do not certify legacy aliases or another engine's score as Stockfish."""
+    provenance = position.get("reference_provenance")
+    if not isinstance(provenance, dict):
+        return True
+    score = position.get("stockfish_eval")
+    if not isinstance(score, (int, float)) or isinstance(score, bool) or not math.isfinite(score):
+        return True
+    if provenance.get("engine") != "stockfish" or provenance.get("depth") != depth:
+        return True
+    try:
+        board = chess.Board(position["fen"])
+        move = position.get("stockfish_best_move")
+        return not move or board.parse_san(move) not in board.legal_moves
+    except (ValueError, KeyError, TypeError):
+        return True
+
+
+def store_stockfish_evaluation(position: dict, score: int, move: str, depth: int, path: str) -> None:
+    """Store a source-labelled reference; preserve old source values separately."""
+    previous = position.get("reference_provenance") or {}
+    if isinstance(previous, dict) and previous.get("engine") == "lc0-onnx":
+        position.setdefault("lc0_eval", position.get("stockfish_eval"))
+    position.update(
+        stockfish_eval=score, stockfish_best_move=move,
+        reference_provenance={
+            "engine": "stockfish", "depth": depth, "executable": path,
+            "units": "centipawns", "perspective": "white", "version": "unrecorded",
+        },
+    )
 
 
 def main():
@@ -106,7 +142,7 @@ def main():
         tier_data[tier] = positions
 
         for i, pos in enumerate(positions):
-            if "stockfish_eval" not in pos or "stockfish_best_move" not in pos:
+            if needs_stockfish_evaluation(pos, depth):
                 all_positions.append((tier, i, pos["fen"]))
 
     if not all_positions:
@@ -141,8 +177,7 @@ def main():
         for tier, idx, fen in all_positions:
             if fen in results:
                 eval_score, best_move = results[fen]
-                tier_data[tier][idx]["stockfish_eval"] = eval_score
-                tier_data[tier][idx]["stockfish_best_move"] = best_move
+                store_stockfish_evaluation(tier_data[tier][idx], eval_score, best_move, depth, stockfish_path)
 
         for tier, positions in tier_data.items():
             file_path = data_dir / f"{tier}.json"

@@ -2,7 +2,8 @@
 # Live progress monitor — refreshes every 5 seconds
 # Source of truth: results/evaluations.jsonl (DB is wiped per tier, so unreliable for done counts)
 
-cd /home/rabrew/Desktop/chess-llm-bench
+REPO="${CHESS_BENCH_ROOT:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)}"
+cd -- "$REPO" || exit 1
 source venv/bin/activate 2>/dev/null || true
 
 while true; do

@@ -1,8 +1,10 @@
 #!/bin/bash
+REPO="${CHESS_BENCH_ROOT:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)}"
+cd -- "$REPO" || exit 1
 # Monitor script - constantly checks tmux session for errors
 
-mkdir -p /home/rabrew/Desktop/chess-llm-bench/results/logs
-LOGFILE="/home/rabrew/Desktop/chess-llm-bench/results/logs/crash_report.txt"
+mkdir -p results/logs
+LOGFILE="results/logs/crash_report.txt"
 SESSION="chess"
 LAST_PROGRESS=""
 
@@ -26,7 +28,7 @@ while true; do
         log "========================================"
 
         # Check if it completed successfully or crashed
-        if [ -f "/home/rabrew/Desktop/chess-llm-bench/results/evaluations.jsonl" ]; then
+        if [ -f "results/evaluations.jsonl" ]; then
             log "STATUS: Completed successfully (results file exists)"
         else
             log "STATUS: May have crashed (no results file yet)"

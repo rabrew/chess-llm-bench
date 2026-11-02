@@ -37,6 +37,16 @@ from .utils import load_config
 logger = logging.getLogger("chess_llm_bench")
 
 
+def _is_legal_move(fen: str, move: str | None) -> bool:
+    if not move:
+        return False
+    board = chess.Board(fen)
+    try:
+        return board.parse_san(move) in board.legal_moves
+    except ValueError:
+        return False
+
+
 class Worker:
     """Benchmark worker that processes jobs from the queue."""
 
@@ -62,8 +72,11 @@ class Worker:
 
         # Initialize components — resolve paths to absolute to survive multiprocessing cwd changes
         paths = config.get("paths", {})
-        self.job_queue = JobQueue(os.path.abspath(paths.get("jobs_db", "jobs/db/jobs.db")))
-        self.result_writer = ResultWriter(
+        queue_path = os.path.abspath(paths.get("jobs_db", "jobs/db/jobs.db"))
+        self.job_queue = (
+            JobQueue.readonly_snapshot(queue_path) if dry_run else JobQueue(queue_path)
+        )
+        self.result_writer = None if dry_run else ResultWriter(
             os.path.abspath(paths.get("results_file", "results/evaluations.jsonl"))
         )
         self.data_loader = DataLoader(os.path.abspath(paths.get("data_dir", "data")))
@@ -94,6 +107,9 @@ class Worker:
             eval_range.get("max", 2000),
         )
         self.cpl_threshold = eval_config.get("cpl_threshold", 50)
+        self.rescue_enabled = eval_config.get("rescue_enabled", True)
+        if not isinstance(self.rescue_enabled, bool):
+            raise ValueError("evaluation.rescue_enabled must be a boolean")
 
         # Load completed job IDs from the DB (status='done') rather than
         # scanning the JSONL results file.  The DB query is O(done_jobs) and
@@ -139,6 +155,8 @@ class Worker:
             "theme": pos.get("theme", ""),
             "stockfish_eval": pos.get("stockfish_eval", 0),
             "stockfish_best_move": pos.get("stockfish_best_move", ""),
+            **{key: value for key, value in pos.items() if key.startswith("t1_reference_")},
+            "t1_reference_provenance": pos.get("reference_provenance"),
         }
 
         logger.info(f"Processing job {job_id} ({job['model']})")
@@ -156,14 +174,12 @@ class Worker:
         fen = job["fen"]
         pgn_moves = job.get("pgn_moves")
 
-        def _is_legal(fen: str, san: str | None) -> bool:
-            if not san:
-                return False
-            try:
-                board = chess.Board(fen)
-                return board.parse_san(san) in board.legal_moves
-            except Exception:
-                return False
+        move_audit = {
+            "t2_move_attempt_1": None,
+            "t2_legal_attempt_1": None,
+            "t2_rescue_path": "not_applicable",
+            "t2_rescue_enabled": self.rescue_enabled,
+        }
 
         if prompt_format == "eval_only":
             prompt = build_eval_prompt(fen, pgn_moves)
@@ -180,6 +196,11 @@ class Worker:
                 self.job_queue.fail_job(job_id, llm_result.get("error", "Unknown error"))
                 return None
             move_text = extract_move_from_text(fen, llm_result["response"])
+            move_audit.update(
+                t2_move_attempt_1=move_text,
+                t2_legal_attempt_1=_is_legal_move(fen, move_text),
+                t2_rescue_path="legal_list_scan",
+            )
             parsed = {
                 "eval": None,
                 "move": move_text,
@@ -205,22 +226,7 @@ class Worker:
                 return None
             parsed = parse_response(llm_result["response"])
 
-            # If combined prompt returned illegal/missing move, retry with isolated call
-            if not _is_legal(fen, parsed.get("move")):
-                # First try to rescue a legal move from the original response
-                rescued = extract_move_from_text(fen, llm_result["response"])
-                if rescued:
-                    parsed["move"] = rescued
-                else:
-                    move_prompt = build_move_prompt(fen)
-                    move_result = self.llm_client.chat(job["model"], move_prompt, system_prompt=MOVE_SYSTEM_PROMPT, temperature=0)
-                    extracted = None
-                    if move_result["success"] and move_result["response"].strip():
-                        extracted = extract_move_from_text(fen, move_result["response"])
-                    # Explicitly null out the move if both rescue attempts failed;
-                    # the original illegal value must not reach the scorer.
-                    parsed["move"] = extracted
-                    llm_result["inference_ms"] += move_result.get("inference_ms", 0)
+            move_audit = self._audit_and_rescue_move(job["model"], fen, parsed, llm_result)
 
             if (
                 parsed["eval"] is None
@@ -248,6 +254,8 @@ class Worker:
             inference_ms=llm_result["inference_ms"],
         )
 
+        result.update(move_audit)
+
         # Write result
         if not self.dry_run:
             self.result_writer.write_result(result)
@@ -261,7 +269,8 @@ class Worker:
             "enabled", True
         )
         if (
-            correction_enabled
+            not self.dry_run
+            and correction_enabled
             and job.get("job_type") == "standard"
             and should_trigger_correction(scores.get("t2_cpl"), self.cpl_threshold)
         ):
@@ -275,6 +284,35 @@ class Worker:
         )
 
         return result
+
+    def _audit_and_rescue_move(self, model, fen, parsed, llm_result):
+        """Capture the first parser result before applying optional assistance."""
+        first_move = parsed.get("move")
+        first_legal = _is_legal_move(fen, first_move)
+        audit = {
+            "t2_move_attempt_1": first_move,
+            "t2_legal_attempt_1": first_legal,
+            "t2_rescue_path": "none" if first_legal else "disabled",
+            "t2_rescue_enabled": self.rescue_enabled,
+        }
+        if first_legal or not self.rescue_enabled:
+            return audit
+        rescued = extract_move_from_text(fen, llm_result["response"])
+        if rescued:
+            parsed["move"] = rescued
+            audit["t2_rescue_path"] = "response_scan"
+            return audit
+        move_result = self.llm_client.chat(
+            model, build_move_prompt(fen),
+            system_prompt=MOVE_SYSTEM_PROMPT, temperature=0,
+        )
+        extracted = None
+        if move_result["success"] and move_result["response"].strip():
+            extracted = extract_move_from_text(fen, move_result["response"])
+        parsed["move"] = extracted
+        llm_result["inference_ms"] += move_result.get("inference_ms", 0)
+        audit["t2_rescue_path"] = "reprompt" if extracted else "failed"
+        return audit
 
     def run(self, max_jobs: int | None = None) -> int:
         """Run the worker loop.

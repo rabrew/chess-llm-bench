@@ -11,7 +11,6 @@ import chess
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from src.utils import load_config, setup_logging
 
-import onnxruntime as ort
 from tqdm import tqdm
 
 
@@ -76,8 +75,40 @@ def wdl_to_centipawns(wdl: np.ndarray) -> int:
         return max(-10000, min(10000, cp))
 
 
+def store_lc0_evaluation(position: dict, score: int, model_path: str) -> None:
+    """Keep a source-specific value and label the compatibility aliases."""
+    previous = position.get("reference_provenance") or {}
+    if isinstance(previous, dict) and previous.get("engine") == "stockfish":
+        position.setdefault("stockfish_reference_eval", position.get("stockfish_eval"))
+        position.setdefault("stockfish_reference_best_move", position.get("stockfish_best_move"))
+    position.update(
+        lc0_eval=score, stockfish_eval=score, stockfish_best_move=None,
+        reference_provenance={
+            "engine": "lc0-onnx", "model_path": model_path,
+            "search_nodes": 0, "evaluation": "single forward pass WDL-to-cp",
+            "units": "centipawns", "perspective": "white", "version": "unrecorded",
+        },
+    )
+
+
+def needs_lc0_evaluation(position: dict, model_path: str) -> bool:
+    provenance = position.get("reference_provenance")
+    if not isinstance(provenance, dict):
+        return True
+    score = position.get("lc0_eval")
+    return not (
+        isinstance(score, (int, float)) and not isinstance(score, bool)
+        and np.isfinite(score)
+        and provenance.get("engine") == "lc0-onnx"
+        and provenance.get("model_path") == model_path
+    )
+
+
 def main():
+    import onnxruntime as ort
+
     parser = argparse.ArgumentParser(description="Fast batch Lc0 evaluation v2")
+    parser.add_argument("--config", default="config/config.yaml")
     parser.add_argument("--data-dir", default="data")
     parser.add_argument("--batch-size", type=int, default=512)
     parser.add_argument("--checkpoint-every", type=int, default=200000)
@@ -118,7 +149,7 @@ def main():
             positions = json.load(f)
         tier_data[tier] = positions
         for i, pos in enumerate(positions):
-            if "stockfish_eval" not in pos:
+            if needs_lc0_evaluation(pos, onnx_path):
                 positions_to_eval.append((tier, i, pos["fen"]))
 
     if not positions_to_eval:
@@ -144,12 +175,15 @@ def main():
             encoded = encode_position(board)
             encoded_data.append(encoded)
             meta_data.append((tier, idx, board.turn == chess.BLACK))
-        except Exception:
+        except (ValueError, TypeError) as error:
+            logger.warning("Cannot encode position %s/%s: %s", tier, idx, error)
             continue
     encode_pbar.close()
 
     # Stack into single array for fast slicing
     print(f"Stacking {len(encoded_data):,} encoded positions...")
+    if not encoded_data:
+        raise ValueError("No valid positions could be encoded")
     all_encoded = np.stack(encoded_data, axis=0)
     del encoded_data  # Free memory
 
@@ -189,8 +223,7 @@ def main():
                 if is_black:
                     cp = -cp
 
-                tier_data[tier][idx]["stockfish_eval"] = cp
-                tier_data[tier][idx]["stockfish_best_move"] = None
+                store_lc0_evaluation(tier_data[tier][idx], cp, onnx_path)
                 evaluated += 1
 
             pbar.update(batch_end - batch_start)

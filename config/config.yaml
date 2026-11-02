@@ -13,6 +13,7 @@ lc0:
   nodes: 800  # Search budget per position for CPL ground truth (enrich_cpl.py)
 
 ollama:
+  models_dir: /mnt/shared/ollama_models  # Override with OLLAMA_MODELS
   base_url: http://localhost:11434
   timeout: 600
   max_retries: 3

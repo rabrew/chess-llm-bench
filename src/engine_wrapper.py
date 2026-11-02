@@ -2,11 +2,108 @@
 
 import subprocess
 import logging
+import math
+import queue
+import threading
+import time
 from typing import Any
 
 import chess
 
 logger = logging.getLogger("chess_llm_bench")
+
+
+PROTOCOL_TIMEOUT_SECONDS = 60.0
+MAX_PROTOCOL_LINES = 100_000
+OUTPUT_QUEUE_LINES = 4096
+READER_POLL_SECONDS = 0.05
+READER_JOIN_SECONDS = 1.0
+
+
+def _validate_timeout(timeout: float) -> None:
+    if not isinstance(timeout, (int, float)) or not math.isfinite(timeout) or timeout <= 0:
+        raise ValueError("protocol_timeout must be a positive finite number")
+
+
+def _enqueue_output(output_lines, item, stop_event) -> bool:
+    """Bound insertion waits so a stopped consumer cannot strand its reader."""
+    while not stop_event.is_set():
+        try:
+            output_lines.put(item, timeout=READER_POLL_SECONDS)
+            return True
+        except queue.Full:
+            continue
+    return False
+
+
+def _collect_output(stream, output_lines, stop_event) -> None:
+    """Read buffered output off-thread so consumers can enforce a deadline."""
+    try:
+        while not stop_event.is_set():
+            raw_line = stream.readline()
+            item = None if raw_line == "" else raw_line.rstrip("\r\n")
+            if not _enqueue_output(output_lines, item, stop_event) or item is None:
+                return
+    except Exception as error:
+        _enqueue_output(output_lines, error, stop_event)
+
+
+def _start_reader(engine) -> None:
+    engine._output_lines = queue.Queue(maxsize=OUTPUT_QUEUE_LINES)
+    engine._reader_stop = threading.Event()
+    engine._reader_thread = threading.Thread(
+        target=_collect_output,
+        args=(engine.process.stdout, engine._output_lines, engine._reader_stop),
+        daemon=True, name="chess-uci-output",
+    )
+    engine._reader_thread.start()
+
+
+def _stop_reader(engine) -> None:
+    stop_event = getattr(engine, "_reader_stop", None)
+    if stop_event is not None:
+        stop_event.set()
+
+
+def _join_reader(engine) -> None:
+    reader = getattr(engine, "_reader_thread", None)
+    if reader is not None:
+        reader.join(timeout=READER_JOIN_SECONDS)
+        if reader.is_alive():
+            logger.warning("Engine reader has not exited after subprocess shutdown")
+
+
+def _read_output(engine, timeout=None) -> str:
+    if not engine.process or not engine.process.stdout:
+        return ""
+    try:
+        line = engine._output_lines.get(timeout=timeout)
+    except queue.Empty as error:
+        raise TimeoutError("Engine output deadline exceeded") from error
+    if line is None:
+        raise RuntimeError("Engine stdout reached EOF before protocol target")
+    if isinstance(line, Exception):
+        raise RuntimeError("Engine output reader failed") from line
+    return line
+
+
+def _wait_for_output(engine, target: str) -> list[str]:
+    deadline = time.monotonic() + engine.protocol_timeout
+    lines = []
+    while len(lines) < MAX_PROTOCOL_LINES:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise TimeoutError(f"Engine deadline exceeded waiting for {target}")
+        try:
+            line = engine._read_line(timeout=remaining)
+        except TimeoutError as error:
+            raise TimeoutError(f"Engine deadline exceeded waiting for {target}") from error
+        if not line:
+            continue
+        lines.append(line)
+        if line.split()[0] == target:
+            return lines
+    raise RuntimeError(f"Engine exceeded protocol line limit waiting for {target}")
 
 
 class StockfishEngine:
@@ -17,6 +114,7 @@ class StockfishEngine:
         path: str = "/usr/games/stockfish",
         depth: int = 22,
         threads: int = 1,
+        protocol_timeout: float = PROTOCOL_TIMEOUT_SECONDS,
     ):
         """Initialize Stockfish engine.
 
@@ -25,6 +123,8 @@ class StockfishEngine:
             depth: Search depth for evaluation
             threads: Number of threads for Stockfish to use
         """
+        _validate_timeout(protocol_timeout)
+        self.protocol_timeout = protocol_timeout
         self.path = path
         self.depth = depth
         self.threads = threads
@@ -38,10 +138,11 @@ class StockfishEngine:
                 [self.path],
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
+                stderr=subprocess.DEVNULL,
                 text=True,
                 bufsize=1,
             )
+            _start_reader(self)
             self._send("uci")
             self._wait_for("uciok")
             self._send(f"setoption name Threads value {self.threads}")
@@ -51,6 +152,7 @@ class StockfishEngine:
         except FileNotFoundError:
             raise RuntimeError(f"Stockfish not found at {self.path}")
         except Exception as e:
+            self.close()
             raise RuntimeError(f"Failed to start Stockfish: {e}")
 
     def _send(self, command: str) -> None:
@@ -59,25 +161,13 @@ class StockfishEngine:
             self.process.stdin.write(command + "\n")
             self.process.stdin.flush()
 
-    def _read_line(self) -> str:
-        """Read a line from Stockfish output."""
-        if self.process and self.process.stdout:
-            return self.process.stdout.readline().strip()
-        return ""
+    def _read_line(self, timeout=None) -> str:
+        """Read one line, distinguishing EOF from blank lines."""
+        return _read_output(self, timeout)
 
     def _wait_for(self, target: str) -> list[str]:
-        """Read lines until target string is found.
-
-        Returns:
-            List of lines read (including the target line)
-        """
-        lines = []
-        while True:
-            line = self._read_line()
-            lines.append(line)
-            if target in line:
-                break
-        return lines
+        """Read through a UCI token under a finite deadline."""
+        return _wait_for_output(self, target)
 
     def _restart(self) -> None:
         """Restart the Stockfish subprocess."""
@@ -197,6 +287,7 @@ class StockfishEngine:
 
     def close(self) -> None:
         """Shut down the Stockfish subprocess."""
+        _stop_reader(self)
         if self.process:
             try:
                 self._send("quit")
@@ -205,6 +296,7 @@ class StockfishEngine:
                 self.process.kill()
             finally:
                 self.process = None
+                _join_reader(self)
                 logger.info("Stockfish closed")
 
     def __enter__(self) -> "StockfishEngine":
@@ -223,6 +315,7 @@ class Lc0Engine:
         weights: str | None = None,
         nodes: int = 1000,
         backend: str = "cuda-auto",
+        protocol_timeout: float = PROTOCOL_TIMEOUT_SECONDS,
     ):
         """Initialize Lc0 engine.
 
@@ -238,6 +331,8 @@ class Lc0Engine:
                 "config/config.yaml (lc0.binary / lc0.weights) instead of "
                 "relying on hardcoded defaults."
             )
+        _validate_timeout(protocol_timeout)
+        self.protocol_timeout = protocol_timeout
         self.path = path
         self.weights = weights
         self.nodes = nodes
@@ -252,10 +347,11 @@ class Lc0Engine:
                 [self.path, f"--weights={self.weights}", f"--backend={self.backend}"],
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
+                stderr=subprocess.DEVNULL,
                 text=True,
                 bufsize=1,
             )
+            _start_reader(self)
             self._send("uci")
             self._wait_for("uciok")
             self._send("isready")
@@ -264,6 +360,7 @@ class Lc0Engine:
         except FileNotFoundError:
             raise RuntimeError(f"Lc0 not found at {self.path}")
         except Exception as e:
+            self.close()
             raise RuntimeError(f"Failed to start Lc0: {e}")
 
     def _send(self, command: str) -> None:
@@ -272,21 +369,13 @@ class Lc0Engine:
             self.process.stdin.write(command + "\n")
             self.process.stdin.flush()
 
-    def _read_line(self) -> str:
-        """Read a line from Lc0 output."""
-        if self.process and self.process.stdout:
-            return self.process.stdout.readline().strip()
-        return ""
+    def _read_line(self, timeout=None) -> str:
+        """Read one line, distinguishing EOF from blank lines."""
+        return _read_output(self, timeout)
 
     def _wait_for(self, target: str) -> list[str]:
-        """Read lines until target string is found."""
-        lines = []
-        while True:
-            line = self._read_line()
-            lines.append(line)
-            if target in line:
-                break
-        return lines
+        """Read through a UCI token under a finite deadline."""
+        return _wait_for_output(self, target)
 
     def _restart(self) -> None:
         """Restart the Lc0 subprocess."""
@@ -362,6 +451,7 @@ class Lc0Engine:
 
     def close(self) -> None:
         """Shut down the Lc0 subprocess."""
+        _stop_reader(self)
         if self.process:
             try:
                 self._send("quit")
@@ -370,6 +460,7 @@ class Lc0Engine:
                 self.process.kill()
             finally:
                 self.process = None
+                _join_reader(self)
                 logger.info("Lc0 closed")
 
     def __enter__(self) -> "Lc0Engine":

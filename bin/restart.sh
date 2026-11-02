@@ -2,7 +2,8 @@
 # Cleanly stop the benchmark pipeline and restart it.
 # Safe to run at any time — completed tiers are preserved in results/evaluations.jsonl.
 
-cd /home/rabrew/Desktop/chess-llm-bench
+REPO="${CHESS_BENCH_ROOT:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)}"
+cd -- "$REPO" || exit 1
 
 echo "Stopping benchmark pipeline..."
 
