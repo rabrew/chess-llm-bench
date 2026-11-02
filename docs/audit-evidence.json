@@ -21,8 +21,8 @@
     "t3_mean_score_v2": 0.5195204765105338
   },
   "provenance": {
-    "generated_at": "2026-11-02T12:09:21.138334+00:00",
-    "analysis_git_sha": "7ccf31d4ca0cdef1bf324487d35f10e1fa61cb99",
+    "generated_at": "2026-11-02T12:16:32.483142+00:00",
+    "analysis_git_sha": "fff881574120bb1f921f6d103c68c454435ae8b1",
     "collection": {
       "status": "unverified",
       "t1_truth_engine": "unknown",
@@ -83,5 +83,17 @@
     "unknown": 343717
   },
   "historical_endpoint_records": 0,
-  "reference_provenance_status": "unverified; legacy field names and current config do not prove historical engine"
+  "reference_provenance_status": "unverified; legacy field names and current config do not prove historical engine",
+  "quality_status": {
+    "primary_metric": "blunder_rate",
+    "quality_records": 0,
+    "endpoint_records": 0,
+    "convention_zero_records": 0,
+    "historical_note": "Historical CPL does not identify original reference endpoints; corrected quality requires recorded endpoints or a verified explicit best-move-zero convention"
+  },
+  "validation": {
+    "cpu_tests_passed": 665,
+    "fatal_ruff": "passed",
+    "independent_review": "no actionable introduced findings"
+  }
 }

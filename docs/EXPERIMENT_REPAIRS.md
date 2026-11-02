@@ -41,3 +41,6 @@ Dedicated held-out T0 callback files are descriptive evidence with their own tes
 Run `make check` for CPU tests and fatal Ruff checks. See DEVELOPMENT.md. Audit bootstrap uses seed 42 and resamples positions within model; repeated prompt rows are not treated as independent samples. Input SHA256 and analysis metadata are in generated summary provenance. Runtime engine versions and training-stack versions were not exercised during this repair.
 
 Future endpoint-quality summaries include explicitly labelled, validated engine-best-move zero conventions in their denominator and report their count separately from measured endpoint pairs. This convention is not a measured after-move evaluation. Historical records without either form remain unavailable.
+
+## Final validation
+665 CPU tests passed; fatal Ruff and git diff --check passed. Independent review found no actionable introduced issues. The only warning is the existing python-chess deprecated event-loop API. The chart CLI produced three nonempty PNGs and a manifest in /tmp/chess-audit-charts. No live training or engine validation was performed.
