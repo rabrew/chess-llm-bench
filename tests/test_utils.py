@@ -213,23 +213,22 @@ class TestParseModelInfo:
 
     def test_unknown_family(self):
         info = parse_model_info("wizardlm2:7b")
-        assert info["family"] == "unknown"
+        assert info["family"] == "wizardlm"
         assert info["size_b"] == 7
 
     def test_no_tag(self):
-        info = parse_model_info("somemodel")
-        assert info["size_b"] == 0
-        assert info["size_str"] == ""
+        with pytest.raises(ValueError):
+            parse_model_info("somemodel")
 
     def test_float_size(self):
         info = parse_model_info("solar:10.7b")
-        assert info["family"] == "unknown"
+        assert info["family"] == "solar"
         # 10.7b -> size_clean = "10.7" -> float(10.7)
         assert info["size_b"] == pytest.approx(10.7)
 
     def test_invalid_size(self):
-        info = parse_model_info("model:latest")
-        assert info["size_b"] == 0
+        with pytest.raises(ValueError):
+            parse_model_info("model:latest")
 
 
 class TestClamp:

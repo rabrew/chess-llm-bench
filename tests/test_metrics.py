@@ -263,7 +263,7 @@ class TestTestHypotheses:
         for phase, t3, t2 in cases:
             for i in range(50):
                 rows.append({
-                    "job_id": f"j_{phase}_{i}", "model": "m", "model_family": "m",
+                    "job_id": f"j_{phase}_{i}", "model": "llama3.2:3b", "model_family": "llama",
                     "model_size_b": 1, "difficulty": "medium", "phase": phase,
                     "source": "lichess_puzzles",
                     "t1_absolute_error": 100, "t1_direction_correct": True,
@@ -284,7 +284,7 @@ class TestTestHypotheses:
         for phase in ("opening", "middlegame", "endgame"):
             for i in range(20):
                 rows.append({
-                    "job_id": f"j_{phase}_{i}", "model": "m", "model_family": "m",
+                    "job_id": f"j_{phase}_{i}", "model": "llama3.2:3b", "model_family": "llama",
                     "model_size_b": 1, "difficulty": "medium", "phase": phase,
                     "source": "lichess_puzzles",
                     "t1_absolute_error": 100, "t1_direction_correct": True,
@@ -319,7 +319,7 @@ class TestTestHypotheses:
         for diff, err in diff_to_err.items():
             for i in range(20):
                 rows.append({
-                    "job_id": f"j_{diff}_{i}", "model": "m", "model_family": "m",
+                    "job_id": f"j_{diff}_{i}", "model": "llama3.2:3b", "model_family": "llama",
                     "model_size_b": 1, "difficulty": diff, "phase": "middlegame",
                     "source": "lichess_puzzles",
                     "t1_absolute_error": int(err * 100),

@@ -574,7 +574,7 @@ class TestAllModelsExplicit:
         )
         assert_fully_parsed(r, 55, "Rxe5", "White")
 
-    def test_gemma3_12b(self):
+    def test_gemma3_12b_alternate_response(self):
         """Gemma3 12b — may produce markdown headers then the format."""
         r = parse_response(
             "## Chess Position Analysis\n\n"

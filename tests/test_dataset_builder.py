@@ -191,7 +191,7 @@ class TestBuildDataset:
     def test_build_with_generated_only(self, tmp_path):
         config = {
             "benchmark": {"random_seed": 42, "max_positions_per_tier": 3},
-            "dataset": {},  # No lichess source, no pgn
+            "dataset": {"design": "mixed"},  # No lichess source, no pgn
         }
         result = build_dataset(config, output_dir=str(tmp_path / "data"))
         assert isinstance(result, dict)
@@ -203,7 +203,7 @@ class TestBuildDataset:
     def test_build_assigns_unique_ids(self, tmp_path):
         config = {
             "benchmark": {"random_seed": 42, "max_positions_per_tier": 3},
-            "dataset": {},
+            "dataset": {"design": "mixed"},
         }
         result = build_dataset(config, output_dir=str(tmp_path / "data"))
         all_ids = [pos["id"] for positions in result.values() for pos in positions]
@@ -221,7 +221,7 @@ class TestBuildDataset:
         })
         config = {
             "benchmark": {"random_seed": 42, "max_positions_per_tier": 2},
-            "dataset": {"lichess_source": "api"},
+            "dataset": {"lichess_source": "api", "require_full_tiers": False},
         }
         result = build_dataset(config, output_dir=str(tmp_path / "data"))
         assert isinstance(result, dict)
@@ -229,7 +229,7 @@ class TestBuildDataset:
     def test_build_unlimited(self, tmp_path):
         config = {
             "benchmark": {"random_seed": 42, "max_positions_per_tier": 0},
-            "dataset": {},
+            "dataset": {"design": "mixed"},
         }
         result = build_dataset(config, output_dir=str(tmp_path / "data"))
         assert isinstance(result, dict)

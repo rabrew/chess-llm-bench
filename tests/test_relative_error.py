@@ -60,7 +60,7 @@ class TestHypothesisH1WithRelativeError:
                 rows.append({
                     "difficulty": diff,
                     "phase": "middlegame",
-                    "model": "test_model",
+                    "model": "qwen2.5:7b",
                     "model_family": "test",
                     "model_size_b": 7.0,
                     "t1_model_eval": 0,
@@ -112,13 +112,13 @@ class TestHypothesisH1WithRelativeError:
     def test_handles_missing_eval(self):
         # A row with NaN t1_model_eval should not blow up
         df = pd.DataFrame([
-            {"difficulty": "easy", "phase": "middlegame", "model": "m",
+            {"difficulty": "easy", "phase": "middlegame", "model": "qwen2.5:7b",
              "model_family": "test", "model_size_b": 7.0,
              "t1_model_eval": None, "t1_stockfish_eval": 100,
              "t1_absolute_error": None, "t1_direction_correct": None,
              "t1_relative_error": None,
              "t2_legal": None, "t2_cpl": None, "t3_score": None},
-            {"difficulty": "medium", "phase": "middlegame", "model": "m",
+            {"difficulty": "medium", "phase": "middlegame", "model": "qwen2.5:7b",
              "model_family": "test", "model_size_b": 7.0,
              "t1_model_eval": 50, "t1_stockfish_eval": 100,
              "t1_absolute_error": 50, "t1_direction_correct": True,
