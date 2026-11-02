@@ -20,6 +20,7 @@ from pathlib import Path
 from typing import Any
 
 import yaml
+from transformers import TrainerCallback
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
@@ -116,17 +117,22 @@ def evaluate_held_out(model: Any, tokenizer: Any, held_out: list[dict]) -> float
             output_ids = model.generate(
                 **inputs,
                 max_new_tokens=200,
+                max_length=None,
                 do_sample=False,
                 pad_token_id=tokenizer.eos_token_id,
             )
-        generated = tokenizer.decode(output_ids[0][inputs["input_ids"].shape[1]:], skip_special_tokens=True)
+        generated = tokenizer.decode(
+            output_ids[0][inputs["input_ids"].shape[1]:],
+            skip_special_tokens=True,
+            clean_up_tokenization_spaces=False,
+        )
         result = verify_board_description(fen, generated)
         total_acc += result["accuracy"]
 
     return total_acc / len(held_out) if held_out else 0.0
 
 
-class EpochAccuracyCallback:
+class EpochAccuracyCallback(TrainerCallback):
     """TRL TrainerCallback that logs board accuracy after each epoch."""
 
     def __init__(self, model: Any, tokenizer: Any, held_out: list[dict], logger: Any):
@@ -140,10 +146,20 @@ class EpochAccuracyCallback:
         self.logger.info(f"[Epoch {state.epoch:.1f}] Held-out board accuracy: {acc:.3f}")
 
 
+def _cleanup_dirs(checkpoint_dir: Path, gguf_dir: Path, logger: Any) -> None:
+    """Remove partial checkpoint and GGUF dirs after a failed run."""
+    import shutil
+    for d in [checkpoint_dir, gguf_dir, Path(str(gguf_dir) + "_gguf")]:
+        if d.exists():
+            shutil.rmtree(d)
+            logger.warning(f"Cleaned up partial directory: {d}")
+
+
 def run_finetuning(
     ollama_base: str,
     config_path: str,
     dry_run: bool,
+    resume: bool,
     logger: Any,
 ) -> None:
     config = load_ft_config(config_path)
@@ -197,11 +213,11 @@ def run_finetuning(
     # --- Imports deferred so dry-run works without GPU deps installed ---
     try:
         from unsloth import FastLanguageModel
-        from trl import SFTTrainer, TrainingArguments
+        from trl import SFTTrainer, SFTConfig
         from datasets import Dataset
     except ImportError as e:
         logger.error(f"Missing dependency: {e}")
-        logger.error("Install with: pip install 'unsloth[colab-new] @ git+https://github.com/unslothai/unsloth.git' trl datasets")
+        logger.error("Install with: pip install 'unsloth[colab-new] @ git+https://github.com/unslothai/unsloth.git' 'trl>=1.0' datasets")
         sys.exit(1)
 
     # --- Load model ---
@@ -240,40 +256,58 @@ def run_finetuning(
     # --- Accuracy callback ---
     accuracy_cb = EpochAccuracyCallback(model, tokenizer, held_out, logger)
 
-    # --- Train ---
+    # --- Train + Export GGUF (clean up partial artifacts on failure) ---
     checkpoint_dir.mkdir(parents=True, exist_ok=True)
     trainer = SFTTrainer(
         model=model,
-        tokenizer=tokenizer,
+        processing_class=tokenizer,
         train_dataset=hf_dataset,
-        dataset_text_field="text",
-        max_seq_length=training["max_seq_length"],
-        args=TrainingArguments(
+        args=SFTConfig(
+            dataset_text_field="text",
+            max_length=training["max_seq_length"],
             per_device_train_batch_size=training["per_device_train_batch_size"],
             gradient_accumulation_steps=training["gradient_accumulation_steps"],
             num_train_epochs=training["num_epochs"],
             learning_rate=training["learning_rate"],
             warmup_ratio=training["warmup_ratio"],
-            fp16=True,
+            bf16=True,
             logging_steps=50,
             output_dir=str(checkpoint_dir),
             seed=training.get("seed", 42),
+            report_to="none",
         ),
         callbacks=[accuracy_cb],
     )
     logger.info("Starting training...")
-    trainer.train()
+    try:
+        trainer.train(resume_from_checkpoint=True if resume else None)
+    except Exception as exc:
+        logger.error(f"Training failed: {exc}")
+        _cleanup_dirs(checkpoint_dir, gguf_dir, logger)
+        raise
+
     logger.info("Training complete.")
 
-    # --- Export GGUF ---
     gguf_dir.mkdir(parents=True, exist_ok=True)
     logger.info(f"Exporting GGUF to {gguf_dir}...")
-    model.save_pretrained_gguf(
-        str(gguf_dir),
-        tokenizer,
-        quantization_method=training.get("gguf_quantization", "q4_k_m"),
-    )
-    logger.info(f"GGUF saved: {gguf_dir}/model-q4_k_m.gguf")
+    try:
+        model.save_pretrained_gguf(
+            str(gguf_dir),
+            tokenizer,
+            quantization_method=training.get("gguf_quantization", "q4_k_m"),
+        )
+    except Exception as exc:
+        logger.error(f"GGUF export failed: {exc}")
+        _cleanup_dirs(checkpoint_dir, gguf_dir, logger)
+        raise
+
+    # Unsloth may append _gguf to the output dir name; check both locations.
+    actual_gguf_dir = gguf_dir if gguf_dir.exists() else Path(str(gguf_dir) + "_gguf")
+    gguf_files = list(actual_gguf_dir.glob("*.gguf")) if actual_gguf_dir.exists() else []
+    if gguf_files:
+        logger.info(f"GGUF saved: {gguf_files[0]}")
+    else:
+        logger.warning(f"No .gguf file found in {gguf_dir} or {actual_gguf_dir} — check Unsloth output above.")
     logger.info(f"Done. Run: python scripts/import_finetuned_to_ollama.py {ollama_base}")
 
 
@@ -290,10 +324,14 @@ def main() -> None:
         "--dry-run", action="store_true",
         help="Validate dataset and config without running training",
     )
+    parser.add_argument(
+        "--resume", action="store_true",
+        help="Resume training from the latest checkpoint in the checkpoint dir",
+    )
     args = parser.parse_args()
 
     logger = setup_logging("finetune_model")
-    run_finetuning(args.ollama_base, args.config, args.dry_run, logger)
+    run_finetuning(args.ollama_base, args.config, args.dry_run, args.resume, logger)
 
 
 if __name__ == "__main__":
