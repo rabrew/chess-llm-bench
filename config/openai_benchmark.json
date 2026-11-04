@@ -1,0 +1,20 @@
+{
+  "models": ["gpt-6-luna", "gpt-6.1-sol"],
+  "positions_per_tier": 50,
+  "pilot_per_tier": 1,
+  "formats": ["fen_only"],
+  "seed": 42,
+  "max_output_tokens": 2048,
+  "input_overhead_tokens": 8192,
+  "cost_margin": "1.10",
+  "max_usd": "20",
+  "pilot_max_usd": "1",
+  "timeout_seconds": 90,
+  "pricing_verified_at": "2026-11-04",
+  "pricing_url": "https://developers.openai.com/api/docs/pricing",
+  "prices": {
+    "gpt-6-luna": {"input": "0.10", "output": "0.50", "url": "https://developers.openai.com/api/docs/models/gpt-6-luna"},
+    "gpt-6.1-sol": {"input": "2", "output": "10", "url": "https://developers.openai.com/api/docs/models/gpt-6.1-sol"},
+    "gpt-6-astra": {"input": "10", "output": "50", "url": "https://developers.openai.com/api/docs/models/gpt-6-astra"}
+  }
+}
