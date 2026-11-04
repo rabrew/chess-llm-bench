@@ -16,7 +16,7 @@ from .evaluator import score_all
 from .llm_client import (build_prompt, build_eval_prompt, build_explanation_prompt, build_move_prompt,
                         parse_response, parse_eval_response, parse_explanation_response, extract_move_from_text,
                         EVAL_SYSTEM_PROMPT, EXPLANATION_SYSTEM_PROMPT, MOVE_SYSTEM_PROMPT)
-from .openai_budget import BudgetError, BudgetLedger, atomic_json, cost, fingerprint, money, read_json, priced_model, safe_path, valid_usage
+from .openai_budget import BudgetError, BudgetLedger, atomic_json, cost, fingerprint, money, read_json, priced_model, safe_path, valid_usage, verified_truncation
 
 TIERS = ('easy','medium','hard','extreme')
 API_URL = 'https://api.openai.com/v1/responses'
@@ -224,6 +224,18 @@ def interpret_response(body, job, settings):
     return result, charge, bool(reliable)
 
 
+def mark_truncated(result):
+    result['partial_scores']={key:value for key,value in result.items() if key.startswith(('t1_','t2_','t3_'))}
+    for key in result['partial_scores']:
+        if key not in ('t2_rescue_enabled','t2_rescue_path'):
+            result[key]=None
+    move_asked=result['prompt_format'] not in ('eval_only','explanation_only')
+    result.update(outcome='truncated',parse_quality='failure',terminal_reason='max_output_tokens',
+                  t2_move_attempt_1=None,t2_legal_attempt_1=False if move_asked else None,
+                  t2_legal=False if move_asked else None)
+    return result
+
+
 def execute_job(job, settings, ledger, transport, key, phase):
     ledger.reserve(job,phase)
     body = None
@@ -235,8 +247,10 @@ def execute_job(job, settings, ledger, transport, key, phase):
         result.update(outcome='stopped_ambiguous',raw_response=body,parse_quality='unavailable',
                       t2_move_attempt_1=None,t2_legal_attempt_1=None,t2_rescue_path='disabled')
         charge, reliable = job['reserved_nano'], False
+    if verified_truncation(job,body,settings):
+        mark_truncated(result)
     ledger.finish(job,result,charge,reliable)
-    return result, reliable
+    return result, reliable or (phase=='main' and result.get('outcome')=='truncated')
 
 
 def prepare_output(output, ledger_path, manifest):
@@ -257,13 +271,13 @@ def save_report(output, report, jobs, ledger):
     report['charged_nano']=sum(entry['charge_nano'] for entry in ledger.state['entries'].values())
     report['models']={}
     for job in jobs:
-        bucket=report['models'].setdefault(job['model'],dict(complete=0,parse_failure=0,stopped=0,pending=0,legal_first=0))
+        bucket=report['models'].setdefault(job['model'],dict(complete=0,parse_failure=0,terminal_failure=0,stopped=0,pending=0,legal_first=0))
         entry=ledger.state['entries'].get(job['id'])
         if not entry:
             bucket['pending']+=1
             continue
         result=entry.get('result',{})
-        bucket['stopped' if entry['status']!='complete' else 'parse_failure' if result.get('parse_quality')=='failure' else 'complete']+=1
+        bucket['terminal_failure' if entry['status']=='terminal_failure' else 'stopped' if entry['status']!='complete' else 'parse_failure' if result.get('parse_quality')=='failure' else 'complete']+=1
         bucket['legal_first']+=int(result.get('t2_legal_attempt_1') is True)
     atomic_json(output/'summary.json',report)
 
@@ -303,3 +317,89 @@ def run_benchmark(manifest, output_dir, ledger_path, phase='pilot', execute=Fals
                 raise BudgetError('Paid request stopped; reservation retained; no automatic retry')
         save_report(output,report,jobs,ledger)
     return report
+
+
+KNOWN_ORIGINAL_RUNNER = {
+    'openai_benchmark.py':'dd7011fea90d248b0d68890d7e0f8aa2e3be8e3efe55d1b53b84f2167142decf',
+    'openai_budget.py':'e011ac8476d4dcf33a8856b9b035709777c499dd0b459abcc69ca972340faa6f',
+}
+
+
+def frozen_manifest_for_run(source, settings, output):
+    expected=build_manifest(source,settings)
+    path=validate_output(output)/'manifest.json'
+    if not path.exists():
+        return expected
+    frozen=read_json(path)
+    validate_manifest(frozen)
+    if {key:value for key,value in frozen.items() if key!='runtime_migrations'} != expected:
+        raise BudgetError('Frozen source, configuration or requests changed')
+    return frozen
+
+
+def migration_candidate(source, settings, output):
+    frozen=read_json(output/'manifest.json')
+    current=build_manifest(source,settings)
+    stripped=lambda manifest:{key:value for key,value in manifest.items() if key not in ('code_sha256','runtime_migrations')}
+    if stripped(frozen)!=stripped(current):
+        raise BudgetError('Migration cannot change frozen source, sample, settings or payloads')
+    for name, digest in frozen['code_sha256'].items():
+        if digest!=current['code_sha256'][name] and (name not in KNOWN_ORIGINAL_RUNNER or digest!=KNOWN_ORIGINAL_RUNNER[name]):
+            raise BudgetError('Unknown original code fingerprint; migration refused')
+    if set(frozen['code_sha256'])!=set(current['code_sha256']):
+        raise BudgetError('Incomplete original code fingerprints')
+    validate_manifest(current)
+    return frozen,current
+
+
+def persist_terminal_migration(output, ledger, original, current, promoted):
+    manifest_hash=fingerprint(original)
+    backup=output/('manifest.before-terminal-'+manifest_hash+'.json')
+    if not backup.exists():
+        atomic_json(backup,original)
+    elif read_json(backup)!=original:
+        raise BudgetError('Original manifest snapshot conflict')
+    existing=next((row for row in ledger.state.get('terminal_policy_migrations',[])
+                   if row.get('previous_manifest_sha256')==manifest_hash and row.get('new_code_sha256')==current['code_sha256']),None)
+    journal=existing or dict(policy='known_max_output_terminal_v1',previous_manifest_sha256=manifest_hash,
+                 previous_code_sha256=original['code_sha256'],new_code_sha256=current['code_sha256'],
+                 promoted_ids=promoted,timestamp=datetime.now(timezone.utc).isoformat())
+    current['runtime_migrations']=original.get('runtime_migrations',[])+[journal]
+    if not existing:
+        ledger.state.setdefault('terminal_policy_migrations',[]).append(journal)
+    ledger.save()
+    atomic_json(output/'manifest.json',current)
+
+
+def accept_known_truncations(source, settings, output_dir, ledger_path):
+    """Explicit offline main policy migration; no key or transport access."""
+    output, ledger_file=validate_output(output_dir),validate_output(ledger_path)
+    if output==ledger_file or output in ledger_file.parents or not ledger_file.exists():
+        raise BudgetError('Existing external shared ledger is required')
+    for path in (output/'records',output/'manifest.json',Path(str(ledger_file)+'.lock')):
+        safe_path(path)
+    with FileLock(str(ledger_file)+'.lock',timeout=0):
+        original,current=migration_candidate(source,settings,output)
+        ledger=BudgetLedger(ledger_file,settings)
+        jobs={job['id']:job for job in original['jobs']}
+        promoted=[]
+        for identity,entry in ledger.state['entries'].items():
+            if entry['status']!='stopped' or identity not in jobs:
+                continue
+            if entry['request']!=jobs[identity] or entry['phase']!='main' or identity in {job['id'] for job in original['jobs'] if job['position']['fen'] in original['pilot_fens']}:
+                raise BudgetError('Only non-pilot frozen main requests can be reconciled')
+            if not verified_truncation(jobs[identity],entry.get('result',{}).get('raw_response'),settings):
+                raise BudgetError('Stopped request is not a verified terminal truncation')
+            entry['result']=mark_truncated(entry['result'])
+            entry['status']='terminal_failure'
+            promoted.append(identity)
+        code_changed=original['code_sha256']!=current['code_sha256']
+        if promoted or code_changed:
+            backup=ledger_file.with_name(ledger_file.name+'.before-terminal-v1.json')
+            if not backup.exists():
+                atomic_json(backup,read_json(ledger_file))
+            persist_terminal_migration(output,ledger,original,current,promoted)
+            for identity in promoted:
+                atomic_json(output/'records'/(identity+'.json'),ledger.state['entries'][identity]['result'])
+        return dict(promoted=len(promoted),charged_nano=sum(entry['charge_nano'] for entry in ledger.state['entries'].values()),
+                    policy='known_max_output_terminal_v1',api_calls=0)

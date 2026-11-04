@@ -83,6 +83,22 @@ def valid_usage(usage):
     return True
 
 
+def verified_truncation(job, body, settings):
+    """Only a definite, within-budget provider output cap is terminal."""
+    try:
+        usage = body.get('usage')
+        if body.get('status')!='incomplete' or body.get('incomplete_details',{}).get('reason')!='max_output_tokens' or not isinstance(body.get('id'),str) or not body['id']:
+            return False
+        if body.get('error') is not None or body.get('service_tier')!='default' or not priced_model(job['model'],body.get('model')) or not valid_usage(usage):
+            return False
+        bound, reserved = reservation(job,settings)
+        if usage['input_tokens']>bound or usage['output_tokens']!=settings['max_output_tokens'] or cost(usage['input_tokens'],usage['output_tokens'],settings['prices'][job['model']])>reserved:
+            return False
+        return not any(part.get('type')=='refusal' for item in body.get('output',[]) for part in item.get('content',[]))
+    except (AttributeError,KeyError,TypeError,ValueError,ArithmeticError):
+        return False
+
+
 def read_json(path):
     try:
         return json.loads(Path(path).read_text())
@@ -116,7 +132,7 @@ class BudgetLedger:
         for key, entry in entries.items():
             if not isinstance(key, str) or len(key) != 64 or not isinstance(entry, dict):
                 raise BudgetError('Invalid ledger entry')
-            if entry.get('status') not in ('reserved','complete','stopped') or entry.get('phase') not in ('pilot','main'):
+            if entry.get('status') not in ('reserved','complete','stopped','terminal_failure') or entry.get('phase') not in ('pilot','main'):
                 raise BudgetError('Invalid ledger status')
             for field in ('charge_nano','reserved_nano'):
                 if type(entry.get(field)) is not int or entry[field] < 0:
@@ -131,6 +147,8 @@ class BudgetLedger:
                 raise ValueError()
             if entry['status'] != 'complete':
                 if entry['charge_nano'] < reserved:
+                    raise ValueError()
+                if entry['status']=='terminal_failure' and (entry['result'].get('job_id')!=key or entry['result'].get('parse_quality')!='failure' or entry['result'].get('outcome')!='truncated' or not verified_truncation(job,entry['result'].get('raw_response'),self.settings)):
                     raise ValueError()
                 return
             result, body = entry['result'], entry['result']['raw_response']
@@ -152,6 +170,8 @@ class BudgetLedger:
         entries = self.state['entries']
         if any(entries.get(job['id'], {}).get('status') in ('reserved','stopped') for job in jobs):
             raise BudgetError('Previous paid request stopped or is uncertain; no automatic retry')
+        if phase=='pilot' and any(entries.get(job['id'],{}).get('status')=='terminal_failure' for job in jobs):
+            raise BudgetError('Terminal pilot failure cannot be retried or promoted')
         additional = sum(job['reserved_nano'] for job in jobs if job['id'] not in entries)
         total = sum(entry['charge_nano'] for entry in entries.values())
         pilot = sum(entry['charge_nano'] for entry in entries.values() if entry['phase'] == 'pilot')
@@ -168,6 +188,7 @@ class BudgetLedger:
 
     def finish(self, job, result, charge, reliable):
         entry = self.state['entries'][job['id']]
-        entry.update(status='complete' if reliable else 'stopped', result=result,
-                     charge_nano=charge if reliable else max(charge, entry['reserved_nano']))
+        terminal=result.get('outcome')=='truncated' and verified_truncation(job,result.get('raw_response'),self.settings)
+        entry.update(status='terminal_failure' if terminal else 'complete' if reliable else 'stopped', result=result,
+                     charge_nano=charge if reliable and not terminal else max(charge, entry['reserved_nano']))
         self.save()
