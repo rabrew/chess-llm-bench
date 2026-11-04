@@ -278,3 +278,98 @@ def test_secret_config_fields_rejected(settings,source):
     settings['api_key']='never-persist-this'
     with pytest.raises(ValueError,match='non-secret'):
         build_manifest(source,settings)
+
+
+def truncated(payload,key):
+    response=completed(payload,key)
+    response.update(status='incomplete',incomplete_details={'reason':'max_output_tokens'})
+    response['usage']={'input_tokens':100,'output_tokens':payload['max_output_tokens']}
+    return response
+
+
+def expand_source_for_main(source,settings):
+    settings['positions_per_tier']=2
+    rows=[json.loads(line) for line in source.read_text().splitlines()][::2]
+    extra=[]
+    for row in rows:
+        second=copy.deepcopy(row); board=chess.Board(row['fen']); board.halfmove_clock=1
+        second['fen']=board.fen(); second['position_id']+=100; extra.append(second)
+    source.write_text(''.join(json.dumps(row)+'\n' for row in rows+extra))
+
+
+def test_main_terminal_truncation_continues_without_repay(settings,source,tmp_path,monkeypatch):
+    monkeypatch.setenv('OPENAI_API_KEY','dummy'); expand_source_for_main(source,settings)
+    manifest=build_manifest(source,settings); ledger=tmp_path/'budget.json'; out=tmp_path/'run'
+    run_benchmark(manifest,out,ledger,execute=True,transport=completed)
+    calls=[]
+    def one_truncation(payload,key):
+        calls.append(1)
+        return truncated(payload,key) if len(calls)==1 else completed(payload,key)
+    run_benchmark(manifest,out,ledger,phase='main',execute=True,transport=one_truncation)
+    assert len(calls)==8
+    run_benchmark(manifest,out,ledger,phase='main',execute=True,transport=one_truncation)
+    assert len(calls)==8
+    entries=json.loads(ledger.read_text())['entries']
+    assert len(entries)==16
+    failed=[entry for entry in entries.values() if entry['status']=='terminal_failure']
+    assert len(failed)==1 and failed[0]['charge_nano']==failed[0]['reserved_nano']
+    assert failed[0]['result']['parse_quality']=='failure'
+    assert failed[0]['result']['parsed_first_attempt']['move']=='e4'
+    assert failed[0]['result']['t2_legal_attempt_1'] is False
+    assert sum(bucket['terminal_failure'] for bucket in json.loads((out/'summary.json').read_text())['models'].values())==1
+
+
+def test_old_code_migration_recovers_partial_manifest_write(settings,source,tmp_path,monkeypatch):
+    import src.openai_benchmark as runner
+    from src.openai_budget import BudgetLedger
+    monkeypatch.setenv('OPENAI_API_KEY','dummy'); expand_source_for_main(source,settings)
+    manifest=build_manifest(source,settings); ledger=tmp_path/'budget.json'; out=tmp_path/'run'
+    run_benchmark(manifest,out,ledger,execute=True,transport=completed)
+    job=next(job for job in manifest['jobs'] if job['position']['fen'] not in manifest['pilot_fens'])
+    account=BudgetLedger(ledger,settings); account.reserve(job,'main')
+    record,charge,reliable=runner.interpret_response(truncated(job['payload'],'dummy'),job,settings)
+    account.finish(job,record,charge,reliable)
+    old=copy.deepcopy(manifest); old['code_sha256'].update(runner.KNOWN_ORIGINAL_RUNNER)
+    (out/'manifest.json').write_text(json.dumps(old)); original_charge=sum(entry['charge_nano'] for entry in account.state['entries'].values())
+    original=runner.atomic_json
+    def crash(path,value):
+        if Path(path).name=='manifest.json': raise OSError('simulated output failure')
+        return original(path,value)
+    monkeypatch.setattr(runner,'atomic_json',crash)
+    with pytest.raises(OSError): runner.accept_known_truncations(source,settings,out,ledger)
+    monkeypatch.setattr(runner,'atomic_json',original)
+    runner.accept_known_truncations(source,settings,out,ledger)
+    upgraded=runner.frozen_manifest_for_run(source,settings,out)
+    state=json.loads(ledger.read_text())
+    assert state['entries'][job['id']]['status']=='terminal_failure'
+    assert sum(entry['charge_nano'] for entry in state['entries'].values())==original_charge
+    assert len(state['terminal_policy_migrations'])==1
+    assert upgraded['runtime_migrations'][0]['promoted_ids']==[job['id']]
+    assert list(out.glob('manifest.before-terminal-*.json'))
+    calls=[]
+    def remaining(payload,key): calls.append(1); return completed(payload,key)
+    run_benchmark(upgraded,out,ledger,phase='main',execute=True,transport=remaining)
+    assert len(calls)==7
+    assert runner.accept_known_truncations(source,settings,out,ledger)['promoted']==0
+
+
+
+@pytest.mark.parametrize('mutation',[{'service_tier':'priority'},{'model':'other'},
+    {'incomplete_details':{'reason':'other'}},{'usage':None},
+    {'usage':{'input_tokens':100,'output_tokens':2049}}])
+def test_terminal_recovery_rejects_unproven_body(mutation,settings,source):
+    from src.openai_budget import verified_truncation
+    job=build_manifest(source,settings)['jobs'][0]
+    body=truncated(job['payload'],'dummy'); body.update(mutation)
+    assert not verified_truncation(job,body,settings)
+
+
+def test_future_truncation_has_distinct_full_reserved_failure(settings,source,tmp_path,monkeypatch):
+    monkeypatch.setenv('OPENAI_API_KEY','dummy')
+    manifest=build_manifest(source,settings); ledger=tmp_path/'budget.json'; out=tmp_path/'run'
+    with pytest.raises(BudgetError): run_benchmark(manifest,out,ledger,execute=True,transport=truncated)
+    entry=next(iter(json.loads(ledger.read_text())['entries'].values()))
+    assert entry['status']=='terminal_failure'
+    assert entry['charge_nano']==entry['reserved_nano']
+    assert entry['result']['outcome']=='truncated'
+    with pytest.raises(BudgetError): run_benchmark(manifest,out,ledger,execute=True,transport=completed)
