@@ -1,5 +1,7 @@
 # Spec: Commercial Model Integration — Anthropic
 
+> Status update (2026-11-04): Historical Anthropic design proposal; it is not an implemented commercial runner or current pricing reference. The active OpenAI experiment is specified in [openai-budget-benchmark.md](openai-budget-benchmark.md). Proprietary parameter counts are unknown and must remain missing; the approximate size overrides below must not enter scaling analyses. Historical local comparisons also require matched prompts, reference scoring and compatible assistance policies.
+
 **Created:** 2026-05-06
 **Author:** Ryan Brew
 
