@@ -331,6 +331,19 @@ KNOWN_RECOVERY_RUNNER = {
 }
 
 
+KNOWN_INTERRUPTED_RUNNER = {
+    'openai_benchmark.py':'9305d692c7f653dc656e0067f07c1d12f5f5bdfbe994f8e49e6298e892c5745b',
+    'openai_budget.py':'4f6556e17e588c791162f52131926fa43addcc1aa925e5e7934d9abddf18c7af',
+}
+
+
+def unobserved_stopped(result):
+    fields=('raw_response','usage','parsed_first_attempt','t1_model_eval','t1_absolute_error',
+            't1_direction_correct','t2_move','t2_legal','t2_cpl','t2_move_attempt_1',
+            't2_legal_attempt_1','t3_explanation','t3_score','t3_side_claimed')
+    return isinstance(result,dict) and result.get('outcome')=='stopped_ambiguous' and result.get('parse_quality')=='unavailable' and all(result.get(key) is None for key in fields) and not any(value is not None for key,value in result.items() if key.startswith(('t1_','t2_','t3_')) and key not in ('t2_rescue_enabled','t2_rescue_path'))
+
+
 def frozen_manifest_for_run(source, settings, output):
     expected=build_manifest(source,settings)
     path=validate_output(output)/'manifest.json'
@@ -350,7 +363,7 @@ def migration_candidate(source, settings, output):
     if stripped(frozen)!=stripped(current):
         raise BudgetError('Migration cannot change frozen source, sample, settings or payloads')
     for name, digest in frozen['code_sha256'].items():
-        if digest!=current['code_sha256'][name] and (name not in KNOWN_ORIGINAL_RUNNER or digest not in (KNOWN_ORIGINAL_RUNNER[name],KNOWN_RECOVERY_RUNNER[name])):
+        if digest!=current['code_sha256'][name] and (name not in KNOWN_ORIGINAL_RUNNER or digest not in (KNOWN_ORIGINAL_RUNNER[name],KNOWN_RECOVERY_RUNNER[name],KNOWN_INTERRUPTED_RUNNER[name])):
             raise BudgetError('Unknown original code fingerprint; migration refused')
     if set(frozen['code_sha256'])!=set(current['code_sha256']):
         raise BudgetError('Incomplete original code fingerprints')
@@ -369,7 +382,9 @@ def persist_terminal_migration(output, ledger, original, current, promoted, poli
                    if row.get('previous_manifest_sha256')==manifest_hash and row.get('new_code_sha256')==current['code_sha256'] and row.get('policy')==policy),None)
     journal=existing or dict(policy=policy,previous_manifest_sha256=manifest_hash,
                  previous_code_sha256=original['code_sha256'],new_code_sha256=current['code_sha256'],
-                 promoted_ids=promoted,previous_status='reserved' if policy=='shutdown_interrupted_v1' else 'stopped',timestamp=datetime.now(timezone.utc).isoformat())
+                 promoted_ids=promoted,previous_status=(ledger.state['entries'][promoted[0]]['result'].get('previous_status','stopped') if promoted else None),
+                 previous_statuses={identity:ledger.state['entries'][identity]['result'].get('previous_status','stopped') for identity in promoted},
+                 previous_outcomes={identity:(ledger.state['entries'][identity]['result'].get('prior_result') or {}).get('outcome') for identity in promoted},timestamp=datetime.now(timezone.utc).isoformat())
     current['runtime_migrations']=original.get('runtime_migrations',[])+[journal]
     if not existing:
         ledger.state.setdefault('terminal_policy_migrations',[]).append(journal)
@@ -389,19 +404,20 @@ def accept_known_truncations(source, settings, output_dir, ledger_path, *, aband
         ledger=BudgetLedger(ledger_file,settings)
         jobs={job['id']:job for job in original['jobs']}
         promoted=[]
-        policy='shutdown_interrupted_v1' if abandon_interrupted else 'known_max_output_terminal_v1'
+        policy='unobserved_request_v1' if abandon_interrupted else 'known_max_output_terminal_v1'
         for identity,entry in ledger.state['entries'].items():
-            if entry['status']!=('reserved' if abandon_interrupted else 'stopped') or identity not in jobs:
+            if entry['status'] not in (('reserved','stopped') if abandon_interrupted else ('stopped',)) or identity not in jobs:
                 continue
             if entry['request']!=jobs[identity] or entry['phase']!='main' or identity in {job['id'] for job in original['jobs'] if job['position']['fen'] in original['pilot_fens']}:
                 raise BudgetError('Only non-pilot frozen main requests can be reconciled')
             if abandon_interrupted:
-                if entry.get('result') is not None:
-                    raise BudgetError('Reservation already has an observed result')
+                prior=entry.get('result')
+                if (entry['status']=='reserved' and prior is not None) or (entry['status']=='stopped' and not unobserved_stopped(prior)):
+                    raise BudgetError('Request already has observations or an unsupported stopped outcome')
                 result=base_record(jobs[identity])
                 result.update(outcome='interrupted_unknown',parse_quality='unavailable',raw_response=None,
                               t2_move=None,t2_legal=None,t2_move_attempt_1=None,t2_legal_attempt_1=None,
-                              previous_status='reserved',interruption_policy=policy)
+                              previous_status=entry['status'],prior_result=prior,interruption_policy=policy)
                 entry.update(status='interrupted_unknown',result=result)
                 promoted.append(identity)
                 continue
