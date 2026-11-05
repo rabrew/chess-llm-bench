@@ -271,13 +271,13 @@ def save_report(output, report, jobs, ledger):
     report['charged_nano']=sum(entry['charge_nano'] for entry in ledger.state['entries'].values())
     report['models']={}
     for job in jobs:
-        bucket=report['models'].setdefault(job['model'],dict(complete=0,parse_failure=0,terminal_failure=0,stopped=0,pending=0,legal_first=0))
+        bucket=report['models'].setdefault(job['model'],dict(complete=0,parse_failure=0,terminal_failure=0,interrupted_unknown=0,stopped=0,pending=0,legal_first=0))
         entry=ledger.state['entries'].get(job['id'])
         if not entry:
             bucket['pending']+=1
             continue
         result=entry.get('result',{})
-        bucket['terminal_failure' if entry['status']=='terminal_failure' else 'stopped' if entry['status']!='complete' else 'parse_failure' if result.get('parse_quality')=='failure' else 'complete']+=1
+        bucket['interrupted_unknown' if entry['status']=='interrupted_unknown' else 'terminal_failure' if entry['status']=='terminal_failure' else 'stopped' if entry['status']!='complete' else 'parse_failure' if result.get('parse_quality')=='failure' else 'complete']+=1
         bucket['legal_first']+=int(result.get('t2_legal_attempt_1') is True)
     atomic_json(output/'summary.json',report)
 
@@ -325,6 +325,12 @@ KNOWN_ORIGINAL_RUNNER = {
 }
 
 
+KNOWN_RECOVERY_RUNNER = {
+    'openai_benchmark.py':'9997a9660ebc32ae6949664877b22eafab097007a10a04a7fdac8b1c9f0f64c9',
+    'openai_budget.py':'267023922e859600b1c3bd5e4c7d427c42bc4e23c1cc07d7c6876f055c334355',
+}
+
+
 def frozen_manifest_for_run(source, settings, output):
     expected=build_manifest(source,settings)
     path=validate_output(output)/'manifest.json'
@@ -344,7 +350,7 @@ def migration_candidate(source, settings, output):
     if stripped(frozen)!=stripped(current):
         raise BudgetError('Migration cannot change frozen source, sample, settings or payloads')
     for name, digest in frozen['code_sha256'].items():
-        if digest!=current['code_sha256'][name] and (name not in KNOWN_ORIGINAL_RUNNER or digest!=KNOWN_ORIGINAL_RUNNER[name]):
+        if digest!=current['code_sha256'][name] and (name not in KNOWN_ORIGINAL_RUNNER or digest not in (KNOWN_ORIGINAL_RUNNER[name],KNOWN_RECOVERY_RUNNER[name])):
             raise BudgetError('Unknown original code fingerprint; migration refused')
     if set(frozen['code_sha256'])!=set(current['code_sha256']):
         raise BudgetError('Incomplete original code fingerprints')
@@ -352,7 +358,7 @@ def migration_candidate(source, settings, output):
     return frozen,current
 
 
-def persist_terminal_migration(output, ledger, original, current, promoted):
+def persist_terminal_migration(output, ledger, original, current, promoted, policy="known_max_output_terminal_v1"):
     manifest_hash=fingerprint(original)
     backup=output/('manifest.before-terminal-'+manifest_hash+'.json')
     if not backup.exists():
@@ -360,10 +366,10 @@ def persist_terminal_migration(output, ledger, original, current, promoted):
     elif read_json(backup)!=original:
         raise BudgetError('Original manifest snapshot conflict')
     existing=next((row for row in ledger.state.get('terminal_policy_migrations',[])
-                   if row.get('previous_manifest_sha256')==manifest_hash and row.get('new_code_sha256')==current['code_sha256']),None)
-    journal=existing or dict(policy='known_max_output_terminal_v1',previous_manifest_sha256=manifest_hash,
+                   if row.get('previous_manifest_sha256')==manifest_hash and row.get('new_code_sha256')==current['code_sha256'] and row.get('policy')==policy),None)
+    journal=existing or dict(policy=policy,previous_manifest_sha256=manifest_hash,
                  previous_code_sha256=original['code_sha256'],new_code_sha256=current['code_sha256'],
-                 promoted_ids=promoted,timestamp=datetime.now(timezone.utc).isoformat())
+                 promoted_ids=promoted,previous_status='reserved' if policy=='shutdown_interrupted_v1' else 'stopped',timestamp=datetime.now(timezone.utc).isoformat())
     current['runtime_migrations']=original.get('runtime_migrations',[])+[journal]
     if not existing:
         ledger.state.setdefault('terminal_policy_migrations',[]).append(journal)
@@ -371,7 +377,7 @@ def persist_terminal_migration(output, ledger, original, current, promoted):
     atomic_json(output/'manifest.json',current)
 
 
-def accept_known_truncations(source, settings, output_dir, ledger_path):
+def accept_known_truncations(source, settings, output_dir, ledger_path, *, abandon_interrupted=False):
     """Explicit offline main policy migration; no key or transport access."""
     output, ledger_file=validate_output(output_dir),validate_output(ledger_path)
     if output==ledger_file or output in ledger_file.parents or not ledger_file.exists():
@@ -383,11 +389,22 @@ def accept_known_truncations(source, settings, output_dir, ledger_path):
         ledger=BudgetLedger(ledger_file,settings)
         jobs={job['id']:job for job in original['jobs']}
         promoted=[]
+        policy='shutdown_interrupted_v1' if abandon_interrupted else 'known_max_output_terminal_v1'
         for identity,entry in ledger.state['entries'].items():
-            if entry['status']!='stopped' or identity not in jobs:
+            if entry['status']!=('reserved' if abandon_interrupted else 'stopped') or identity not in jobs:
                 continue
             if entry['request']!=jobs[identity] or entry['phase']!='main' or identity in {job['id'] for job in original['jobs'] if job['position']['fen'] in original['pilot_fens']}:
                 raise BudgetError('Only non-pilot frozen main requests can be reconciled')
+            if abandon_interrupted:
+                if entry.get('result') is not None:
+                    raise BudgetError('Reservation already has an observed result')
+                result=base_record(jobs[identity])
+                result.update(outcome='interrupted_unknown',parse_quality='unavailable',raw_response=None,
+                              t2_move=None,t2_legal=None,t2_move_attempt_1=None,t2_legal_attempt_1=None,
+                              previous_status='reserved',interruption_policy=policy)
+                entry.update(status='interrupted_unknown',result=result)
+                promoted.append(identity)
+                continue
             if not verified_truncation(jobs[identity],entry.get('result',{}).get('raw_response'),settings):
                 raise BudgetError('Stopped request is not a verified terminal truncation')
             entry['result']=mark_truncated(entry['result'])
@@ -395,11 +412,11 @@ def accept_known_truncations(source, settings, output_dir, ledger_path):
             promoted.append(identity)
         code_changed=original['code_sha256']!=current['code_sha256']
         if promoted or code_changed:
-            backup=ledger_file.with_name(ledger_file.name+'.before-terminal-v1.json')
+            backup=ledger_file.with_name(ledger_file.name+('.before-interrupted-v1.json' if abandon_interrupted else '.before-terminal-v1.json'))
             if not backup.exists():
                 atomic_json(backup,read_json(ledger_file))
-            persist_terminal_migration(output,ledger,original,current,promoted)
+            persist_terminal_migration(output,ledger,original,current,promoted,policy)
             for identity in promoted:
                 atomic_json(output/'records'/(identity+'.json'),ledger.state['entries'][identity]['result'])
         return dict(promoted=len(promoted),charged_nano=sum(entry['charge_nano'] for entry in ledger.state['entries'].values()),
-                    policy='known_max_output_terminal_v1',api_calls=0)
+                    policy=policy,api_calls=0)

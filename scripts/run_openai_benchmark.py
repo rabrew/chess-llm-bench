@@ -18,12 +18,13 @@ def main():
     parser.add_argument('--phase',choices=('pilot','main'),default='pilot')
     parser.add_argument('--execute',action='store_true')
     parser.add_argument('--accept-known-truncations',action='store_true')
+    parser.add_argument('--abandon-interrupted',action='store_true')
     args=parser.parse_args()
     settings=load_settings(args.config)
-    if args.accept_known_truncations:
-        if args.phase!='main' or args.execute:
+    if args.accept_known_truncations or args.abandon_interrupted:
+        if args.phase!='main' or args.execute or (args.accept_known_truncations and args.abandon_interrupted):
             parser.error('Maintenance requires --phase main and excludes --execute')
-        print(json.dumps(accept_known_truncations(args.source,settings,args.output_dir,args.budget_ledger),indent=2))
+        print(json.dumps(accept_known_truncations(args.source,settings,args.output_dir,args.budget_ledger,abandon_interrupted=args.abandon_interrupted),indent=2))
         return
     manifest=frozen_manifest_for_run(args.source,settings,args.output_dir)
     print(json.dumps(run_benchmark(manifest,args.output_dir,args.budget_ledger,args.phase,args.execute),indent=2))

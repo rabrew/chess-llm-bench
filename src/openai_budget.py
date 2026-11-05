@@ -132,7 +132,7 @@ class BudgetLedger:
         for key, entry in entries.items():
             if not isinstance(key, str) or len(key) != 64 or not isinstance(entry, dict):
                 raise BudgetError('Invalid ledger entry')
-            if entry.get('status') not in ('reserved','complete','stopped','terminal_failure') or entry.get('phase') not in ('pilot','main'):
+            if entry.get('status') not in ('reserved','complete','stopped','terminal_failure','interrupted_unknown') or entry.get('phase') not in ('pilot','main'):
                 raise BudgetError('Invalid ledger status')
             for field in ('charge_nano','reserved_nano'):
                 if type(entry.get(field)) is not int or entry[field] < 0:
@@ -147,6 +147,8 @@ class BudgetLedger:
                 raise ValueError()
             if entry['status'] != 'complete':
                 if entry['charge_nano'] < reserved:
+                    raise ValueError()
+                if entry['status']=='interrupted_unknown' and (entry['phase']!='main' or entry['result'].get('job_id')!=key or entry['result'].get('outcome')!='interrupted_unknown' or entry['result'].get('parse_quality')!='unavailable' or entry['result'].get('raw_response') is not None or entry['result'].get('t2_legal_attempt_1') is not None):
                     raise ValueError()
                 if entry['status']=='terminal_failure' and (entry['result'].get('job_id')!=key or entry['result'].get('parse_quality')!='failure' or entry['result'].get('outcome')!='truncated' or not verified_truncation(job,entry['result'].get('raw_response'),self.settings)):
                     raise ValueError()
@@ -170,7 +172,7 @@ class BudgetLedger:
         entries = self.state['entries']
         if any(entries.get(job['id'], {}).get('status') in ('reserved','stopped') for job in jobs):
             raise BudgetError('Previous paid request stopped or is uncertain; no automatic retry')
-        if phase=='pilot' and any(entries.get(job['id'],{}).get('status')=='terminal_failure' for job in jobs):
+        if phase=='pilot' and any(entries.get(job['id'],{}).get('status') in ('terminal_failure','interrupted_unknown') for job in jobs):
             raise BudgetError('Terminal pilot failure cannot be retried or promoted')
         additional = sum(job['reserved_nano'] for job in jobs if job['id'] not in entries)
         total = sum(entry['charge_nano'] for entry in entries.values())
