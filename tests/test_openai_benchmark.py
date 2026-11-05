@@ -419,3 +419,38 @@ def test_interrupted_pilot_and_held_lock_are_refused(settings,source,tmp_path):
     with pytest.raises(BudgetError,match='non-pilot'):
         runner.accept_known_truncations(source,settings,out,ledger,abandon_interrupted=True)
     assert json.loads(ledger.read_text())['entries'][manifest['jobs'][0]['id']]['status']=='reserved'
+
+
+@pytest.mark.parametrize('body',[None,{'status':'failed'}])
+def test_unobserved_stopped_guard_and_no_repayment(body,settings,source,tmp_path,monkeypatch):
+    import src.openai_benchmark as runner
+    from src.openai_budget import BudgetLedger
+    monkeypatch.setenv('OPENAI_API_KEY','dummy'); expand_source_for_main(source,settings)
+    manifest=build_manifest(source,settings); ledger=tmp_path/'budget.json'; out=tmp_path/'run'
+    run_benchmark(manifest,out,ledger,execute=True,transport=completed)
+    job=next(job for job in manifest['jobs'] if job['position']['fen'] not in manifest['pilot_fens'])
+    account=BudgetLedger(ledger,settings); account.reserve(job,'main')
+    result=runner.base_record(job); result.update(outcome='stopped_ambiguous',raw_response=body,parse_quality='unavailable')
+    account.finish(job,result,job['reserved_nano'],False)
+    before=json.loads(ledger.read_text()); prior_time=result['timestamp']
+    old=copy.deepcopy(manifest); old['code_sha256'].update(runner.KNOWN_INTERRUPTED_RUNNER)
+    (out/'manifest.json').write_text(json.dumps(old))
+    if body is not None:
+        with pytest.raises(BudgetError): runner.accept_known_truncations(source,settings,out,ledger,abandon_interrupted=True)
+        assert json.loads(ledger.read_text())==before
+        return
+    report=runner.accept_known_truncations(source,settings,out,ledger,abandon_interrupted=True)
+    entry=json.loads(ledger.read_text())['entries'][job['id']]
+    assert report['promoted']==1 and entry['charge_nano']==before['entries'][job['id']]['charge_nano']
+    assert entry['result']['previous_status']=='stopped'
+    assert entry['result']['prior_result']['timestamp']==prior_time
+    assert entry['result']['prior_result']['outcome']=='stopped_ambiguous'
+    upgraded=runner.frozen_manifest_for_run(source,settings,out)
+    assert upgraded['runtime_migrations'][-1]['previous_status']=='stopped'
+    assert upgraded['runtime_migrations'][-1]['previous_outcomes'][job['id']]=='stopped_ambiguous'
+    calls=[]
+    def remaining(payload,key): calls.append(1); return completed(payload,key)
+    run_benchmark(upgraded,out,ledger,phase='main',execute=True,transport=remaining)
+    assert len(calls)==7
+    run_benchmark(upgraded,out,ledger,phase='main',execute=True,transport=remaining)
+    assert len(calls)==7
