@@ -32,6 +32,18 @@ def test_rescore_missing_invalid_inputs_remain_null(theme,text):
 
 def test_shared_helper_has_explicit_lexical_version():
     from src.evaluator import match_t3_theme, T3_THEME_MATCHER_VERSION
-    assert T3_THEME_MATCHER_VERSION=='keyword_boundaries_v1'
+    assert T3_THEME_MATCHER_VERSION=='keyword_boundaries_v2'
     assert match_t3_theme('mate','material')==0
     assert score_t3('An equal position.','Equal',0,None)['t3_score']==1
+
+
+@pytest.mark.parametrize('theme,text',[
+    ('fork','White forks the king and queen.'),('fork','The king was forked.'),
+    ('fork','Forking the rooks wins.'),('pin','There are two pins.'),
+    ('mate','Black mates in two.'),('mate','The king was mated.'),
+    ('mate','White checkmated Black.'),('mate','A checkmating attack wins.'),
+    ('mate','White checkmates next move.'),
+])
+def test_curated_tactical_inflections(theme,text):
+    assert rescore_t3_theme(theme,text)==1
+    assert score_t3(text,'White',100,theme)['t3_p2_theme_correct']==1
