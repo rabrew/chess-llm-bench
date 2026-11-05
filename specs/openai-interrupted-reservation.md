@@ -34,3 +34,14 @@ prevents maintenance. Existing truncation migration crash tests continue to pass
 ## Dependencies
 
 Existing filelock and atomic state migration; no new packages or API access.
+
+## Unobserved transport outcome extension
+
+The same explicit offline abandon command may accept a non-pilot main entry
+whose prior status is stopped, exact outcome stopped_ambiguous, raw_response
+and usage are absent/null, parse_quality unavailable and no parsed/scored model
+observations exist. Keep its entire existing charge and paid identity. Preserve
+prior result metadata/timestamp and journal the actual previous status/outcome.
+Use unobserved_request_v1 policy; no shutdown cause is assumed. Known provider
+bodies, refusals, parsed observations, other stopped outcomes remain rejected.
+Allow exact8bb5dbc module fingerprints through the existing migration protocol.
