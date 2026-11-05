@@ -36,3 +36,11 @@ resolved: “no mate” still mentions mate and receives lexical theme credit.
 Python standard re module, existing theme aliases. Tests cover false positives,
 legitimate aliases, Unicode boundaries, invalid inputs and equality of both public
 scoring paths. CPU-only temporary/unit fixtures; no model/engine/API calls.
+
+## Curated inflections: keyword_boundaries_v2
+
+Add explicit grammatical forms for common fork, pin and mate terms: forks,
+forked, forking, pins, mates, mated, checkmates, checkmated and checkmating.
+Whole-word boundaries remain mandatory; these are curated aliases, not stemming.
+Bump matcher identifier to keyword_boundaries_v2 so existing v1 audit artifacts
+remain distinguishable and untouched. Negation/semantic truth remain outside scope.
