@@ -373,3 +373,49 @@ def test_future_truncation_has_distinct_full_reserved_failure(settings,source,tm
     assert entry['charge_nano']==entry['reserved_nano']
     assert entry['result']['outcome']=='truncated'
     with pytest.raises(BudgetError): run_benchmark(manifest,out,ledger,execute=True,transport=completed)
+
+
+def test_interrupted_main_preserves_unknown_charge_and_never_repeats(settings,source,tmp_path,monkeypatch):
+    import src.openai_benchmark as runner
+    from src.openai_budget import BudgetLedger
+    monkeypatch.setenv('OPENAI_API_KEY','dummy'); expand_source_for_main(source,settings)
+    manifest=build_manifest(source,settings); ledger=tmp_path/'budget.json'; out=tmp_path/'run'
+    run_benchmark(manifest,out,ledger,execute=True,transport=completed)
+    job=next(job for job in manifest['jobs'] if job['position']['fen'] not in manifest['pilot_fens'])
+    account=BudgetLedger(ledger,settings); account.reserve(job,'main')
+    charge=sum(entry['charge_nano'] for entry in account.state['entries'].values())
+    old=copy.deepcopy(manifest); old['code_sha256'].update(runner.KNOWN_RECOVERY_RUNNER)
+    (out/'manifest.json').write_text(json.dumps(old))
+    report=runner.accept_known_truncations(source,settings,out,ledger,abandon_interrupted=True)
+    assert report['promoted']==1 and report['charged_nano']==charge
+    state=json.loads(ledger.read_text()); entry=state['entries'][job['id']]
+    assert entry['status']=='interrupted_unknown'
+    assert entry['charge_nano']==entry['reserved_nano']
+    assert entry['result']['raw_response'] is None
+    assert entry['result']['t2_legal_attempt_1'] is None
+    assert entry['result']['parse_quality']=='unavailable'
+    assert runner.accept_known_truncations(source,settings,out,ledger,abandon_interrupted=True)['promoted']==0
+    calls=[]
+    def remaining(payload,key): calls.append(1); return completed(payload,key)
+    upgraded=runner.frozen_manifest_for_run(source,settings,out)
+    run_benchmark(upgraded,out,ledger,phase='main',execute=True,transport=remaining)
+    assert len(calls)==7
+    run_benchmark(upgraded,out,ledger,phase='main',execute=True,transport=remaining)
+    assert len(calls)==7
+    summary=json.loads((out/'summary.json').read_text())
+    assert sum(value['interrupted_unknown'] for value in summary['models'].values())==1
+
+
+def test_interrupted_pilot_and_held_lock_are_refused(settings,source,tmp_path):
+    import src.openai_benchmark as runner
+    from src.openai_budget import BudgetLedger, atomic_json
+    from filelock import FileLock, Timeout
+    manifest=build_manifest(source,settings); ledger=tmp_path/'budget.json'; out=tmp_path/'run'
+    out.mkdir(); (out/'records').mkdir(); atomic_json(out/'manifest.json',manifest)
+    account=BudgetLedger(ledger,settings); account.reserve(manifest['jobs'][0],'pilot')
+    with FileLock(str(ledger)+'.lock'):
+        with pytest.raises(Timeout):
+            runner.accept_known_truncations(source,settings,out,ledger,abandon_interrupted=True)
+    with pytest.raises(BudgetError,match='non-pilot'):
+        runner.accept_known_truncations(source,settings,out,ledger,abandon_interrupted=True)
+    assert json.loads(ledger.read_text())['entries'][manifest['jobs'][0]['id']]['status']=='reserved'
