@@ -11,7 +11,7 @@ import chess
 import numpy as np
 import pandas as pd
 
-from .evaluator import THEME_SYNONYMS, _camel_to_words
+from .evaluator import match_t3_theme
 from .result_writer import load_results
 from .utils import parse_model_info
 from .metric_audit import (direction_baselines, direction_diagnostics, regime_split,
@@ -158,32 +158,13 @@ def derive_endpoint_metrics(record: dict[str, Any]) -> dict[str, Any]:
 
 
 def rescore_t3_theme(theme: str | None, explanation: str | None) -> int | None:
-    """Recompute the T3 theme-correctness component using the new matcher.
+    """Rescore stored explanation text using keyword_boundaries_v1.
 
-    Postprocessing of the stored t3_explanation field — the underlying LLM
-    output is unchanged. Keyed by exact Lichess theme label first, with
-    camelCase-to-words fallback.
+    This is lexical theme presence, not a semantic explanation-quality grade.
+    Raw responses and existing stored legacy scores remain unchanged.
     """
-    if theme is None or explanation is None:
-        return None
-    if not isinstance(theme, str) or not isinstance(explanation, str):
-        return None
+    return match_t3_theme(theme, explanation)
 
-    explanation_lower = explanation.lower()
-    candidates: list[str] = []
-    candidates.extend(THEME_SYNONYMS.get(theme, []))
-    candidates.append(theme.lower())
-    candidates.append(_camel_to_words(theme))
-    candidates.append(theme.lower().replace("_", " "))
-
-    seen: set[str] = set()
-    for candidate in candidates:
-        if not candidate or candidate in seen:
-            continue
-        seen.add(candidate)
-        if candidate in explanation_lower:
-            return 1
-    return 0
 
 
 def load_results_df(

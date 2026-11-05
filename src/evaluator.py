@@ -1,6 +1,7 @@
 """Scoring logic for T1, T2, and T3 benchmark tasks."""
 
 import logging
+import re
 from typing import Any
 
 import chess
@@ -131,6 +132,25 @@ def _camel_to_words(label: str) -> str:
             out.append(" ")
         out.append(ch.lower())
     return "".join(out)
+
+
+T3_THEME_MATCHER_VERSION = "keyword_boundaries_v1"
+
+
+def match_t3_theme(theme: str | None, explanation: str | None) -> int | None:
+    """Return lexical theme presence, not factual or semantic correctness.
+
+    Inflections match only when present as explicit aliases. Unicode word
+    boundaries prevent e.g. mate/material while retaining checkmate/pinning.
+    Negated mentions intentionally remain mentions under this lexical metric.
+    """
+    if not isinstance(theme, str) or not isinstance(explanation, str):
+        return None
+    candidates = [*THEME_SYNONYMS.get(theme, []), theme.lower(),
+                  _camel_to_words(theme), theme.lower().replace("_", " ")]
+    lowered = explanation.lower()
+    return int(any(re.search(r"(?<!\w)" + re.escape(candidate) + r"(?!\w)", lowered)
+                   for candidate in set(candidates) if candidate))
 
 
 def get_direction(eval_cp: int, threshold: int = 50) -> str:
@@ -302,31 +322,8 @@ def score_t3(
     ground_truth_side = get_direction(stockfish_eval)
     p1 = 1 if side_claimed == ground_truth_side else 0
 
-    # Point 2: Theme identification.
-    #
-    # Lichess theme labels are mostly camelCase (advancedPawn, kingsideAttack,
-    # backRankMate). The synonym dict is keyed by exact label. Final fallback
-    # converts camelCase to space-separated words so unmapped labels still
-    # have a sensible matcher.
-    p2 = 0
-    explanation_lower = explanation.lower()
-
-    candidates: list[str] = []
-    if isinstance(theme, str):
-        candidates.extend(THEME_SYNONYMS.get(theme, []))
-        # Normalised forms of the label itself
-        candidates.append(theme.lower())
-        candidates.append(_camel_to_words(theme))
-        candidates.append(theme.lower().replace("_", " "))
-
-    seen: set[str] = set()
-    for candidate in candidates:
-        if not candidate or candidate in seen:
-            continue
-        seen.add(candidate)
-        if candidate in explanation_lower:
-            p2 = 1
-            break
+    # Point 2 is lexical presence; it does not establish semantic correctness.
+    p2 = match_t3_theme(theme, explanation) or 0
 
     return {
         "t3_explanation": explanation,
