@@ -158,7 +158,7 @@ def derive_endpoint_metrics(record: dict[str, Any]) -> dict[str, Any]:
 
 
 def rescore_t3_theme(theme: str | None, explanation: str | None) -> int | None:
-    """Rescore stored explanation text using keyword_boundaries_v1.
+    """Rescore stored explanation text using the shared versioned keyword matcher.
 
     This is lexical theme presence, not a semantic explanation-quality grade.
     Raw responses and existing stored legacy scores remain unchanged.

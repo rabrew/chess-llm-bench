@@ -31,8 +31,8 @@ EVAL_CLAMP_CP = 1000
 # them programmatically.
 THEME_SYNONYMS = {
     # Tactics
-    "fork": ["fork", "double attack", "knight fork", "family fork"],
-    "pin": ["pin", "pinned", "pinning", "absolute pin", "relative pin"],
+    "fork": ["fork", "forks", "forked", "forking", "double attack", "knight fork", "family fork"],
+    "pin": ["pin", "pins", "pinned", "pinning", "absolute pin", "relative pin"],
     "skewer": ["skewer", "skewered"],
     "discovery": ["discovered", "discovery", "discovered attack", "discovered check"],
     "discoveredAttack": ["discovered attack", "discovery", "discovered check", "discovered"],
@@ -57,7 +57,7 @@ THEME_SYNONYMS = {
     "skewer_": ["skewer"],
     "quietMove": ["quiet move", "waiting move", "prophylactic"],
     # Mate themes
-    "mate": ["mate", "checkmate", "mating"],
+    "mate": ["mate", "mates", "mated", "mating", "checkmate", "checkmates", "checkmated", "checkmating"],
     "mateIn1": ["mate in one", "mate in 1", "checkmate", "mate"],
     "mateIn2": ["mate in two", "mate in 2", "mating sequence"],
     "mateIn3": ["mate in three", "mate in 3", "mating sequence"],
@@ -134,7 +134,7 @@ def _camel_to_words(label: str) -> str:
     return "".join(out)
 
 
-T3_THEME_MATCHER_VERSION = "keyword_boundaries_v1"
+T3_THEME_MATCHER_VERSION = "keyword_boundaries_v2"
 
 
 def match_t3_theme(theme: str | None, explanation: str | None) -> int | None:
