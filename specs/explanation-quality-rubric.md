@@ -43,3 +43,71 @@ Existing python-chess for unambiguous legality/board facts; documented common en
 
 ## Review clarifications
 With only one assessor, label ratings as exploratory expert assessment; do not claim inter-rater reliability or a validated objective quality ranking. Define any common-complete cohort against an explicit frozen model set: the194positions answered by both OpenAI models are not automatically complete for every local model. Report each model's coverage against the full200position frame and avoid selecting cases after seeing quality scores.
+
+## Calibration revision: separate correctness, support, and verdict
+
+Protocol revision: human_grounding_support_v2_candidate. This revision is informed
+by the first four calibration positions and is not preregistered. The 24 original
+ratings remain v1 observations, with an independently preserved correction record:
+Answer 4 explanatory support 0 -> 2; Answer 21 explanatory support 2 -> 1.
+Neither factual-grounding score changed. Do not relabel the original observations
+as v2 ratings or silently revise other scores.
+
+### Factual grounding
+- 0: A central, explicitly asserted board fact or continuation is contradicted.
+- 1: A minor or noncentral factual error among otherwise supported claims.
+  A central contradiction takes precedence and receives 0 even if other facts are true.
+- 2: Specific checkable factual claims are supported in their stated contexts.
+- NA: No sufficiently checkable factual claims, or insufficient evidence.
+
+A wrong overall winner does not by itself make all supporting board facts false.
+An omitted best move affects explanatory completeness; it is not automatically
+a fabricated board fact. A hypothetical future piece location must not be tested
+as though it describes the initial board.
+
+### Explanatory support
+- 0: No reason is offered, or the central mechanism is demonstrably invalid.
+- 1: A relevant valid reason is generic, incomplete, or omits a critical resource.
+- 2: A specific, coherent reason adequately supports the stated assessment,
+  without an identified decisive omission.
+- NA: The central mechanism cannot be assessed with the available evidence.
+
+A slight advantage may receive 2 when the explanation accurately describes a
+slight advantage; magnitude alone is not a reason for 0. A description of an
+attack does not establish a winning position if a critical defensive resource
+is omitted. Preserve uncertainty instead of equating an unverified engine verdict
+or a human conjecture with an established chess fact. Do not require a particular
+puzzle theme, exact move, long variation, or verbosity when another valid reason
+suffices.
+
+### Human evidence and automation limits
+The corrected calibration file contains one assessor's judgments, not verified
+engine truth. Flags, notes about perpetual checks, proposed best moves, and
+material statements require independent context-sensitive checks before becoming
+automated ground truth. Agreement with these labels measures agreement with this
+assessor on four boards; it does not establish inter-rater reliability.
+
+The first automated revision may extract only a documented narrow subset of
+unambiguous present-board claims. Return evidence for each supported,
+contradicted, or unverified claim, retain exact text and source fingerprints,
+and report extraction coverage. Unsupported language, negation, conditional
+moves, future/past claims and variation contexts must lead to abstention where
+their meaning cannot be resolved. No extracted contradiction does not imply
+correctness. Counting correct square mentions does not establish explanatory
+support. The automatic whole-explanation grounding and support ratings remain
+null until an independently evaluated method exists.
+
+Legacy side-plus-keyword scores and the repaired lexical matcher remain separately
+named diagnostics. Compare them descriptively against both human components;
+do not fit weights or optimize thresholds on 24 answers. Do not combine the two
+human components into an arbitrary total, or treat equal numeric scales as equal
+constructs.
+
+### Frozen evaluation boundary
+Use only the four calibration positions for developing this revision. Do not
+inspect held-out answer text or labels to tune rules. Before a held-out round,
+freeze the implemented diagnostic version, parser scope and rubric instructions.
+Prepare a new blinded packet explicitly labelled with the new rubric version.
+Any held-out feedback used to change rules becomes development evidence and
+requires a fresh independent evaluation set. Four more positions remain a small
+feasibility check rather than sufficient validation of a general semantic scorer.
