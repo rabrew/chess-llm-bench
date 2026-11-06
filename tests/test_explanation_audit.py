@@ -110,3 +110,44 @@ def test_changed_source_and_human_snippet_join_fail_closed(sources,tmp_path):
     local.write_text(local.read_text()+'\n')
     with pytest.raises(ValueError,match='hash'): audit(local,root,pack,corrected,original,tmp_path/'audit',local_models=list(MODELS[:4]))
     assert not (tmp_path/'audit').exists()
+
+
+@pytest.mark.parametrize('text,status',[
+    ('The rook on a8 controls the file.','supported'),
+    ('The rook at d1 controls the file.','contradicted'),
+    ('The rook on d4 is active.','contradicted'),
+    ('If the rook on d1 arrives, it wins.','unverified'),
+    ('There is no rook on d1.','unverified'),
+    ('The rook on d1 is missing.','unverified'),
+    ('The rook on d1 is absent.','unverified'),
+    ('The rook on d1 is nonexistent.','unverified'),
+    ('The rook on d1 doesn’t exist.','unverified'),
+    ('"The rook on d1" is an example.','unverified'),
+    ('The rook on a8 will move.','unverified'),
+    ('White can place a rook on d1.','unverified'),
+    ('The rook on d1 has been captured.','unverified'),
+    ('White lacks a rook on d1.','unverified'),
+    ('The non-existent rook on d1 dominates.','unverified'),
+    ('‘The rook on d1’ is false.','unverified'),
+    ("'The rook on d1' is false.",'unverified'),
+])
+def test_optional_owner_does_not_infer_color_and_context_abstains(text,status):
+    result=board_facts(FEN,text)
+    claim=result['claims'][0]
+    assert claim['status']==status
+    assert claim['asserted_color'] is None
+
+
+def test_unavailable_ratings_cannot_be_numeric():
+    doc=ratings_document(0); doc['ratings'][0]['availability']='unavailable'
+    with pytest.raises(ValueError): validate_ratings(doc,'p','r',{'a':dict(availability='unavailable')})
+    with pytest.raises(ValueError): validate_ratings(ratings_document(),'p','r',{'a':dict(availability='unavailable')})
+
+
+def test_snippet_join_mismatch_even_with_unchanged_source_hashes(sources,tmp_path):
+    local,root,pack,original,corrected=sources
+    key_path=pack/'private/key.json'; key=json.loads(key_path.read_text())
+    next(row for row in key['answers'] if row['split']=='calibration')['explanation']='Changed saved snippet.'
+    key_path.write_text(json.dumps(key))
+    with pytest.raises(ValueError,match='join mismatch'):
+        audit(local,root,pack,corrected,original,tmp_path/'audit',local_models=list(MODELS[:4]))

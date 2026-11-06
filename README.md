@@ -56,7 +56,13 @@ Each position is evaluated on three tasks:
 |------|-----------------|--------|
 | **T1 — Eval** | Model estimates centipawn evaluation | Direction accuracy (multi-threshold), absolute / relative error vs Stockfish |
 | **T2 — Move** | Model selects a legal move | Legality rate + clamped centipawn loss + win-probability loss |
-| **T3 — Explanation** | Model explains who stands better and why | Binary: correct side + theme keyword match |
+| **T3 — Explanation** | Saved explanation diagnostics | Legacy side-agreement + keyword proxy; human grounding and support assessed separately |
+
+The historical T3 sum is a side-agreement and theme-mention proxy, not a validated
+explanation-quality measure. The [quality rubric](specs/explanation-quality-rubric.md)
+and [offline audit protocol](specs/explanation-audit.md) keep human factual grounding,
+human explanatory support, and narrow automated board-fact evidence separate.
+Automatic whole-explanation semantic ratings remain unavailable pending validation.
 
 ---
 

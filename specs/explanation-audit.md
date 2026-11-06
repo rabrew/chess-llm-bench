@@ -50,3 +50,16 @@ engines, GPU, dataset generation or research-artifact writes.
 ## Dependencies
 
 Existing python-chess, shared lexical matcher and JSON helpers; standard library.
+
+## Review refinements before execution
+
+Comparison outputs use descriptive cross-tabs and discordance counts only; MAE
+and numeric exact-match are omitted because the constructs differ. No scorer
+accuracy or same-construct agreement is claimed. Explicit unowned “the rook on
+d1” checks only type/square with asserted_color null; never infer color from a
+preceding evaluation verdict. Negated existence (absent/missing), quotations,
+conditional/future/past/variation context abstain. Publish availability alongside
+answers with/no extracted claims and literal-only evidence counts. Specific or
+verbose answers expose more checkable claims; vague answers can escape checking.
+Never rank models by fewest flags or interpret no flags as accurate explanation.
+Record Python/python-chess versions and shared evaluator source fingerprint.
