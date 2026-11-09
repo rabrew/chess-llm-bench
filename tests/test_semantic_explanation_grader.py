@@ -153,7 +153,7 @@ def test_unique_quote_binding_null_offsets_and_no_silent_repair():
     item['claims'][0]['start']=1
     with pytest.raises(ValueError): bind_extraction(text,item)
     item=extraction(text); item['claims'][0]['start']=1
-    with pytest.raises(ValueError): bind_extraction(text,item)
+    assert bind_extraction(text,item)[1][0]['method']=='unique_exact_quote_offset_corrected'
 
 
 def test_frozen_cases_and_ledger_identity_cannot_reset(prepared,tmp_path,monkeypatch):
@@ -242,3 +242,132 @@ def test_unsafe_frozen_output_detected_before_transport(prepared,tmp_path,monkey
     with pytest.raises(ValueError,match='Symlink'):
         run(output,execute=True,ledger_path=tmp_path/'ledger.json',transport=lambda *args:pytest.fail('No call'))
     assert not (tmp_path/'ledger.json').exists()
+
+
+def test_primary_quote_corrects_wrong_integer_offsets_with_audit():
+    from src.semantic_explanation_grader import bind_extraction, BINDER_VERSION
+    text="White's rook on a1 supports the queen."
+    raw=extraction(text); raw['claims'][0].update(start=7,end=999)
+    bound,bindings=bind_extraction(text,raw)
+    assert BINDER_VERSION=='unique_exact_quote_primary_v2'
+    assert bound['claims'][0]['start']==0
+    assert bindings[0]['method']=='unique_exact_quote_offset_corrected'
+    assert bindings[0]['original_start']==7 and bindings[0]['original_end']==999
+    assert raw['claims'][0]['start']==7
+    duplicated=text+' '+text
+    good=extraction(text)
+    assert bind_extraction(duplicated,good)[0]['claims'][0]['start']==0
+    bad=extraction(text); bad['claims'][0].update(start=1,end=2)
+    with pytest.raises(ValueError): bind_extraction(duplicated,bad)
+    bad=extraction(text); bad['claims'][0]['start']=True
+    with pytest.raises(ValueError): bind_extraction(text,bad)
+
+
+@pytest.fixture
+def reuse_campaign(prepared,tmp_path,config,monkeypatch):
+    output,cases,_=prepared
+    old_config={**config,'max_usd':'4'}
+    path=tmp_path/'old-settings.json'; path.write_text(json.dumps(old_config))
+    old_run=tmp_path/'old-run'; prepare(cases,path,old_run)
+    old_ledger=tmp_path/'old-ledger.json'; monkeypatch.setenv('OPENAI_API_KEY','dummy')
+    calls=[]
+    def original(payload,key,timeout):
+        calls.append(1); return response(extraction('') if len(calls)==1 else grade())
+    run(old_run,execute=True,ledger_path=old_ledger,transport=original)
+    return output,old_run,old_ledger
+
+
+def test_reuse_exact_paid_payload_without_network_and_double_account(reuse_campaign,tmp_path):
+    output,old_run,old_ledger=reuse_campaign
+    before=old_ledger.read_bytes(); old_manifest=(old_run/'manifest.json').read_bytes()
+    result=run(output,execute=True,ledger_path=tmp_path/'new-ledger.json',reuse_ledger=old_ledger,reuse_run=old_run,
+               transport=lambda *args:pytest.fail('No repeated paid request'))
+    assert result['cache_hit_count']==2
+    assert result['charged_nano']==json.loads(before)['entries'][next(iter(json.loads(before)['entries']))]['charge_nano']*2
+    assert old_ledger.read_bytes()==before and (old_run/'manifest.json').read_bytes()==old_manifest
+    state=json.loads((tmp_path/'new-ledger.json').read_text())
+    assert all(row['reuse_source']['source_response_id']=='resp_test' for row in state['entries'].values())
+    with old_ledger.open('a') as stream: stream.write('\n')
+    with pytest.raises(BudgetError):
+        run(output,execute=True,ledger_path=tmp_path/'new-ledger.json',reuse_ledger=old_ledger,reuse_run=old_run,
+            transport=lambda *args:pytest.fail('No repeat'))
+
+
+def test_reuse_aggregate_approved_cap_cannot_expand(reuse_campaign,tmp_path):
+    output,old_run,old_ledger=reuse_campaign
+    manifest=json.loads((output/'manifest.json').read_text()); config=manifest['config']; config['max_usd']='4'
+    settings=tmp_path/'over-cap.json'; settings.write_text(json.dumps(config))
+    case_file=tmp_path/'same-cases.jsonl'; case_file.write_bytes((output.parent/'cases.jsonl').read_bytes())
+    fresh=tmp_path/'too-expensive'; prepare(case_file,settings,fresh)
+    with pytest.raises(BudgetError,match='cap'):
+        run(fresh,execute=True,ledger_path=tmp_path/'new.json',reuse_ledger=old_ledger,reuse_run=old_run,
+            transport=lambda *args:pytest.fail('No call'))
+
+
+
+def test_prompts_and_api_schemas_unchanged_from_first_live_pilot():
+    from src.semantic_explanation_grader import EXTRACTION_PROMPT,JUDGE_PROMPT,API_EXTRACTION_SCHEMA
+    from src.openai_budget import fingerprint
+    assert fingerprint(EXTRACTION_PROMPT)=='232461575e881c4ac4d933e52998d97d16f13c6da5b3e5bf75769ab8725ad5dc'
+    assert fingerprint(JUDGE_PROMPT)=='12300d3015be00b4b6c059410ac71602c478e0be3ab64e301e388dd6558516ea'
+    assert fingerprint(API_EXTRACTION_SCHEMA)=='96758d51e5f65aa48970bfb1078be91b2a149e85b7b1c6254778d049e53caf14'
+    assert fingerprint(GRADE_SCHEMA)=='109e318d5308e61e564a95ea993eb7c2dee7a83490310ad07ca8ef99d072bf76'
+
+
+def test_context_and_root_board_references_only_when_provided():
+    from src.semantic_explanation_grader import evidence_references
+    evidence=dict(claims=[dict(id='c1')],contexts=[dict(id='root'),dict(id='after_Qf2')],root_board={})
+    refs=evidence_references(evidence)
+    item=grade(); item['evidence_claim_ids']=['after_Qf2','root_board']
+    assert validate_grade(item,refs)['evidence_claim_ids']==['after_Qf2','root_board']
+    assert refs['after_Qf2']==['context'] and refs['root_board']==['root_board']
+    with pytest.raises(ValueError): validate_grade(item,['c1'])
+
+
+def test_cached_bad_offsets_reused_and_only_missing_judge_called(prepared,tmp_path,config,monkeypatch):
+    from src.semantic_explanation_grader import StageLedger
+    output,cases,_=prepared; monkeypatch.setenv('OPENAI_API_KEY','dummy')
+    settings=tmp_path/'old-settings.json'; settings.write_text(json.dumps({**config,'max_usd':'4'}))
+    old_run=tmp_path/'old-run'; prepare(cases,settings,old_run)
+    old_manifest=json.loads((old_run/'manifest.json').read_text()); old_ledger=tmp_path/'old.json'
+    account=StageLedger(old_ledger,old_manifest,'live')
+    raw=extraction(''); raw['claims'][0].update(start=999,end=1000)
+    payload=build_payload('extract',old_manifest['cases'][0],old_manifest['config'])
+    account.call('opaque-a','extract',payload,lambda *args:response(raw))
+    calls=[]
+    def judge_only(payload,key,timeout):
+        assert payload['text']['format']['name']=='chess_judge'; calls.append(1); return response(grade())
+    result=run(output,execute=True,ledger_path=tmp_path/'new.json',reuse_ledger=old_ledger,reuse_run=old_run,transport=judge_only)
+    assert result['cache_hit_count']==1 and len(calls)==1
+
+
+def test_unknown_source_attempt_is_not_retried(reuse_campaign,tmp_path):
+    output,old_run,old_ledger=reuse_campaign
+    state=json.loads(old_ledger.read_text()); next(iter(state['entries'].values()))['status']='reserved'
+    old_ledger.write_text(json.dumps(state))
+    with pytest.raises(BudgetError):
+        run(output,execute=True,ledger_path=tmp_path/'new.json',reuse_ledger=old_ledger,reuse_run=old_run,
+            transport=lambda *args:pytest.fail('No unknown request repeated'))
+
+
+
+def test_existing_paid_pair_payload_mismatch_never_buys_replacement(reuse_campaign,tmp_path):
+    from src.semantic_explanation_grader import ReuseCache
+    output,old_run,old_ledger=reuse_campaign
+    manifest=json.loads((output/'manifest.json').read_text()); cache=ReuseCache(old_ledger,old_run,manifest)
+    payload=build_payload('extract',manifest['cases'][0],manifest['config'])
+    payload['input'][0]['content']+=' A changed instruction.'
+    with pytest.raises(BudgetError,match='Already-paid'):
+        cache.lookup('opaque-a','extract',payload)
+
+
+def test_cached_body_tamper_rejected_against_immutable_source(reuse_campaign,tmp_path):
+    output,old_run,old_ledger=reuse_campaign; ledger=tmp_path/'new-ledger.json'
+    run(output,execute=True,ledger_path=ledger,reuse_ledger=old_ledger,reuse_run=old_run,
+        transport=lambda *args:pytest.fail('No repeated call'))
+    state=json.loads(ledger.read_text()); entry=next(iter(state['entries'].values()))
+    entry['raw_response']['output'][0]['content'][0]['text']='Changed output with same response id and usage.'
+    ledger.write_text(json.dumps(state))
+    with pytest.raises(BudgetError,match='pinned source'):
+        run(output,execute=True,ledger_path=ledger,reuse_ledger=old_ledger,reuse_run=old_run,
+            transport=lambda *args:pytest.fail('No new call'))
