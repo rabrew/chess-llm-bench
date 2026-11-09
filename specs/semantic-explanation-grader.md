@@ -55,7 +55,10 @@ One isolated durable stage ledger under an exclusive file lock reserves integer
 nano-USD before every stage. Bound FULL serialized payload bytes including schema,
 evidence and messages, plus8192overhead, output cap including reasoning and
 minimum1.25margin. Charge measured usage only when model/tier/usage reconcile;
-unknown/failed outcomes retain full reservation and block repeats on resume.
+unknown or unreliably billed outcomes retain the full reservation and block
+repeats on resume. A completed, reliably metered response that fails semantic
+parsing or refuses is unavailable with its measured charge retained; it is never
+resent automatically.
 Stage2 depends on source-bound extraction; no automatic retries or regeneration.
 Persist full response before parsing so crashes cannot rebuy a paid stage.
 Preflight remaining case's two-stage conservative envelope before its first call.
@@ -80,3 +83,34 @@ full-payload bounds, model/tier/usage mismatch, corrupt state, and label leakage
 Existing requests/filelock/python-chess and standard library. Reuse audited
 atomic money/usage/path helpers and fixed HTTPS transport without changing them.
 No engines, GPU, Ollama or new training/benchmark workloads; fixtures only in tests.
+
+## Frozen implementation clarifications
+
+Candidate rubric identifier is exactly human_grounding_support_v2_candidate;
+evaluate only matching-version24v2 references, never pool/relabel v1. All48viewed
+cases remain development exposure. Generic prompts include central-error
+precedence, critical omissions and justified slight advantages, without real
+human examples. The selected judge shares a provider/family with two source
+systems; author blinding does not eliminate self/style bias or make this an
+independent gold standard. Preserve judge/human disagreement rather than tune it.
+
+The API extraction schema allows BOTH citation offsets null. The deterministic
+unique_verbatim_span_v1 binder fills them only for one exact occurrence, including
+overlapping-match ambiguity checks. Explicit integers are never repaired; mixed
+null/integer offsets fail. Raw extraction, normalized binding and strict helper
+validation remain separate artifacts. A high judge grade with contradicted
+checked evidence gets a derived review/tension flag without score replacement.
+
+Budget-limited execution is case-by-case under a two-stage envelope. Freeze ALL
+planned IDs even after a cap/unknown-response stop: not_run_budget, pending,
+failed or unavailable carry null ratings. Unknown calls retain full reservation
+(or larger recognized observed cost); reliable completed usage can be metered
+even when the structured scientific answer is unavailable. No automated retries.
+Run-directory and ledger locks prevent concurrent alternate-ledger duplicates;
+pinned ledger path, manifest and replay hashes prevent lost-state budget reset.
+Raw received responses persist before parsing, and every attempted stage keeps
+its exact payload/schema. Replay is explicitly labelled and never incurs cost.
+
+Safety constants name overhead/output/payload/price-age/margin/text bounds.
+Evaluation reports human NA/null, judge NA/missing, full planned-case status
+coverage, per-position grouping and separate components, never a composite.

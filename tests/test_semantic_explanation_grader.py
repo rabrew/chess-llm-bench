@@ -126,7 +126,9 @@ def test_budget_preflight_and_forbidden_metadata(tmp_path,config,monkeypatch):
     with pytest.raises(ValueError): prepare(cases,settings,tmp_path/'bad')
     cases.write_text(json.dumps(case)); config['max_usd']='0.00001'; settings.write_text(json.dumps(config))
     output=tmp_path/'run'; prepare(cases,settings,output); monkeypatch.setenv('OPENAI_API_KEY','dummy')
-    with pytest.raises(BudgetError,match='budget'): run(output,execute=True,ledger_path=tmp_path/'budget.json',transport=lambda *args:pytest.fail('No call'))
+    result=run(output,execute=True,ledger_path=tmp_path/'budget.json',transport=lambda *args:pytest.fail('No call'))
+    assert result['coverage']=={'not_run_budget':1}
+    assert json.loads((output/'frozen-grades.json').read_text())['grades'][0]['factual_grounding'] is None
 
 
 def test_unavailable_is_not_zero_and_reference_versions_do_not_pool(tmp_path,config):
@@ -138,3 +140,105 @@ def test_unavailable_is_not_zero_and_reference_versions_do_not_pool(tmp_path,con
     assert row['factual_grounding'] is None and row['status']=='unavailable'
     refs=tmp_path/'refs.jsonl'; refs.write_text(json.dumps(dict(case_id='none',rubric_version='v1',factual_grounding=0,explanatory_support=0)))
     with pytest.raises(ValueError,match='version'): evaluate(output,refs,tmp_path/'eval.json')
+
+
+def test_unique_quote_binding_null_offsets_and_no_silent_repair():
+    from src.semantic_explanation_grader import bind_extraction
+    text="White's rook on a1 supports the queen."
+    item=extraction(text); item['claims'][0]['start']=item['claims'][0]['end']=None
+    bound,bindings=bind_extraction(text,item)
+    assert bound['claims'][0]['start']==0 and bindings[0]['method']=='unique_exact_quote'
+    assert item['claims'][0]['start'] is None
+    with pytest.raises(ValueError): bind_extraction(text+' '+text,item)
+    item['claims'][0]['start']=1
+    with pytest.raises(ValueError): bind_extraction(text,item)
+    item=extraction(text); item['claims'][0]['start']=1
+    with pytest.raises(ValueError): bind_extraction(text,item)
+
+
+def test_frozen_cases_and_ledger_identity_cannot_reset(prepared,tmp_path,monkeypatch):
+    output,_,_=prepared; monkeypatch.setenv('OPENAI_API_KEY','dummy')
+    manifest=json.loads((output/'manifest.json').read_text()); original=json.loads(json.dumps(manifest))
+    manifest['cases'][0]['explanation']='Changed'; (output/'manifest.json').write_text(json.dumps(manifest))
+    with pytest.raises(ValueError): run(output)
+    (output/'manifest.json').write_text(json.dumps(original)); ledger=tmp_path/'ledger.json'
+    def fail(*args): raise requests.Timeout()
+    with pytest.raises(BudgetError): run(output,execute=True,ledger_path=ledger,transport=fail)
+    with pytest.raises(BudgetError): run(output,execute=True,ledger_path=tmp_path/'new.json',transport=lambda *args:pytest.fail('No repeat'))
+    ledger.unlink()
+    with pytest.raises(BudgetError): run(output,execute=True,ledger_path=ledger,transport=lambda *args:pytest.fail('No repeat'))
+
+
+def test_run_lock_blocks_distinct_ledger_duplicate(prepared,tmp_path,monkeypatch):
+    from filelock import FileLock,Timeout
+    output,_,_=prepared; monkeypatch.setenv('OPENAI_API_KEY','dummy')
+    with FileLock(str(output/'.run.lock')):
+        with pytest.raises(Timeout): run(output,execute=True,ledger_path=tmp_path/'other.json',transport=lambda *args:pytest.fail('No call'))
+
+
+@pytest.mark.parametrize('mutation',[dict(model='unknown-expensive'),dict(service_tier='priority'),dict(usage=None),dict(status='incomplete')])
+def test_unreliable_provider_metadata_retains_reservation(prepared,tmp_path,monkeypatch,mutation):
+    output,_,_=prepared; ledger=tmp_path/'ledger.json'; monkeypatch.setenv('OPENAI_API_KEY','dummy')
+    def bad(*args): return {**response(extraction('')),**mutation}
+    with pytest.raises(BudgetError): run(output,execute=True,ledger_path=ledger,transport=bad)
+    entry=next(iter(json.loads(ledger.read_text())['entries'].values()))
+    assert entry['status']=='blocked' and entry['charge_nano']>=entry['reserved_nano']
+    row=json.loads((output/'frozen-grades.json').read_text())['grades'][0]
+    assert row['factual_grounding'] is None
+
+
+def test_observed_usage_overrun_is_not_undercounted(prepared,tmp_path,monkeypatch):
+    output,_,_=prepared; ledger=tmp_path/'ledger.json'; monkeypatch.setenv('OPENAI_API_KEY','dummy')
+    def bad(*args):
+        body=response(extraction('')); body['usage']=dict(input_tokens=1000000,output_tokens=100,total_tokens=1000100); return body
+    with pytest.raises(BudgetError): run(output,execute=True,ledger_path=ledger,transport=bad)
+    entry=next(iter(json.loads(ledger.read_text())['entries'].values()))
+    assert entry['charge_nano']>entry['reserved_nano']
+    assert entry['charge_nano']==2001000000
+
+
+def test_replay_refusal_and_missing_stage_are_unavailable(prepared,tmp_path):
+    output,_,_=prepared; replay=tmp_path/'refusal.jsonl'
+    body=response({}); body['output'][0]['content']=[dict(type='refusal',refusal='No')]
+    replay.write_text(json.dumps(dict(case_id='opaque-a',stage='extract',response=body)))
+    result=run(output,replay_file=replay)
+    assert result['coverage']=={'unavailable':1}
+    row=json.loads((output/'frozen-grades.json').read_text())['grades'][0]
+    assert row['factual_grounding'] is None
+
+
+def test_stale_prices_block_live_but_not_plan(prepared,tmp_path):
+    output,cases,settings=prepared; config=json.loads(settings.read_text()); config['verified_at']='2000-01-01T00:00:00+00:00'
+    settings.write_text(json.dumps(config)); fresh=tmp_path/'other-run'; prepare(cases,settings,fresh)
+    assert run(fresh)['execution_mode']=='plan'
+    with pytest.raises(ValueError,match='Fresh'): run(fresh,execute=True,ledger_path=tmp_path/'ledger.json')
+
+
+def test_lost_marker_after_stage1_before_grade_cannot_reset(prepared,tmp_path,monkeypatch):
+    import src.semantic_explanation_grader as grader
+    output,_,_=prepared; ledger=tmp_path/'ledger.json'; monkeypatch.setenv('OPENAI_API_KEY','dummy'); calls=[]
+    def first(*args): calls.append(1); return response(extraction(''))
+    monkeypatch.setattr(grader,'evidence_for',lambda *args:(_ for _ in ()).throw(RuntimeError('simulated crash')))
+    with pytest.raises(RuntimeError): run(output,execute=True,ledger_path=ledger,transport=first)
+    assert not list((output/'grades').iterdir())
+    (output/'execution-mode.json').unlink()
+    with pytest.raises(BudgetError): run(output,execute=True,ledger_path=tmp_path/'new-ledger.json',transport=first)
+    assert len(calls)==1
+
+
+def test_corrupt_blocked_overrun_charge_is_rejected(prepared,tmp_path,monkeypatch):
+    output,_,_=prepared; ledger=tmp_path/'ledger.json'; monkeypatch.setenv('OPENAI_API_KEY','dummy')
+    def overrun(*args):
+        body=response(extraction('')); body['usage']=dict(input_tokens=1000000,output_tokens=100,total_tokens=1000100); return body
+    with pytest.raises(BudgetError): run(output,execute=True,ledger_path=ledger,transport=overrun)
+    state=json.loads(ledger.read_text()); entry=next(iter(state['entries'].values())); entry['charge_nano']=entry['reserved_nano']
+    ledger.write_text(json.dumps(state))
+    with pytest.raises(BudgetError): run(output,execute=True,ledger_path=ledger,transport=lambda *args:pytest.fail('No call'))
+
+
+def test_unsafe_frozen_output_detected_before_transport(prepared,tmp_path,monkeypatch):
+    output,_,_=prepared; monkeypatch.setenv('OPENAI_API_KEY','dummy')
+    (output/'frozen-grades.json').symlink_to(tmp_path/'missing-target.json')
+    with pytest.raises(ValueError,match='Symlink'):
+        run(output,execute=True,ledger_path=tmp_path/'ledger.json',transport=lambda *args:pytest.fail('No call'))
+    assert not (tmp_path/'ledger.json').exists()

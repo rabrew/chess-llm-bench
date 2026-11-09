@@ -15,8 +15,10 @@ def quoted_move(text,san):
 
 
 def claim(text,**overrides):
-    row=dict(id='c',context_id='root',kind='occupancy',start=0,end=len(text),quote=text,
-             color='White',piece='rook',square='a1',count=None,value=True,san=None)
+    kind=overrides.get('kind','occupancy')
+    defaults=dict(color=None,piece=None,square=None,count=None,value=None,san=None)
+    if kind=='occupancy': defaults.update(color='White',piece='rook',square='a1',value=True)
+    row=dict(id='c',context_id='root',kind=kind,start=0,end=len(text),quote=text,**defaults)
     row.update(overrides)
     return row
 
@@ -114,7 +116,7 @@ def test_unknown_or_cyclic_context_is_unverified(which):
 
 def test_material_and_strategy_are_distinct():
     text='White has eight pawns and will win.'
-    rows=[claim(text,id='inventory',kind='material',piece='pawn',square=None,count=8,value=None),
+    rows=[claim(text,id='inventory',kind='material',color='White',piece='pawn',square=None,count=8,value=None),
           claim(text,id='opinion',kind='strategic',color=None,piece=None,square=None,value=None)]
     result=evidence_for(chess.STARTING_FEN,text,extraction(rows))
     assert [row['status'] for row in result['claims']]==['supported','unverified']
@@ -135,3 +137,34 @@ def test_parser_null_moves_are_not_legal_chess_moves(san):
     result=evidence_for(chess.STARTING_FEN,san,extraction([row]))
     assert result['claims'][0]['status']=='contradicted'
     assert result['claims'][0]['actual']['legal'] is False
+
+
+@pytest.mark.parametrize('kind,attributes',[
+    ('occupancy',dict(color='White',piece='rook',square='a1',value=True,count=1)),
+    ('occupancy',dict(color='White',piece='rook',square='a1',value=None)),
+    ('material',dict(color='White',piece='pawn',count=8,value=False)),
+    ('material',dict(color=None,piece='pawn',count=8)),
+    ('legality',dict(san='e4',value=True,color='White')),
+    ('check',dict(value=True,piece='king')),
+    ('checkmate',dict(value=None)),
+    ('strategic',dict(value=True)),
+])
+def test_claim_kind_rejects_missing_or_ignored_attributes(kind,attributes):
+    text='e4'
+    with pytest.raises(ValueError): validate_extraction(text,extraction([claim(text,kind=kind,**attributes)]))
+
+
+def test_check_claim_different_side_is_explicitly_unverified():
+    text='Black is in check.'
+    row=claim(text,kind='check',color='Black',value=True)
+    result=evidence_for(chess.STARTING_FEN,text,extraction([row]))
+    assert result['claims'][0]['status']=='unverified'
+    assert 'side to move' in result['claims'][0]['actual']['reason']
+
+
+def test_null_prefix_is_unverified_not_a_legal_context():
+    text='--'
+    contexts=[context(),context('invalid','root',[quoted_move(text,'--')])]
+    result=evidence_for(chess.STARTING_FEN,text,extraction([claim(text,context_id='invalid')],contexts))
+    assert result['contexts'][1]['status']=='unverified'
+    assert result['claims'][0]['status']=='unverified'

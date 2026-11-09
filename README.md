@@ -64,6 +64,14 @@ and [offline audit protocol](specs/explanation-audit.md) keep human factual grou
 human explanatory support, and narrow automated board-fact evidence separate.
 Automatic whole-explanation semantic ratings remain unavailable pending validation.
 
+The [experimental semantic judge](specs/semantic-explanation-grader.md) adds two-stage
+claim extraction and grading, with python-chess checks between the stages.
+`scripts/grade_explanations.py prepare` freezes neutral inputs; `grade` without
+`--execute` or `--replay` only produces a free cost plan. Replay supports offline
+testing. Live calls require an explicit budget configuration and execution flag.
+Candidate judge grades remain separate from verified evidence and published metrics;
+the 48 already viewed human ratings are development evidence, not fresh validation.
+
 ---
 
 ## Models
