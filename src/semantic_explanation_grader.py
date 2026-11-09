@@ -18,7 +18,7 @@ from .openai_budget import atomic_json, cost, fingerprint, money, priced_model, 
 from .openai_benchmark import http_response
 from .semantic_chess_evidence import EXTRACTION_SCHEMA, validate_extraction, evidence_for
 
-GRADER_VERSION='semantic_v1'
+GRADER_VERSION='semantic_v2'
 RUBRIC_VERSION='human_grounding_support_v2_candidate'
 REPO=Path(__file__).resolve().parent.parent
 DIMENSIONS=('factual_grounding','explanatory_support')
@@ -51,7 +51,7 @@ API_EXTRACTION_SCHEMA=json.loads(json.dumps(EXTRACTION_SCHEMA))
 for _shape in (API_EXTRACTION_SCHEMA['properties']['claims']['items'],
                API_EXTRACTION_SCHEMA['properties']['contexts']['items']['properties']['moves']['items']):
     for _offset in ('start','end'): _shape['properties'][_offset]={'type':['integer','null']}
-BINDER_VERSION='unique_verbatim_span_v1'
+BINDER_VERSION='unique_exact_quote_primary_v2'
 
 
 def bind_extraction(text,raw):
@@ -65,13 +65,18 @@ def bind_extraction(text,raw):
     for kind,item in items:
         if not isinstance(item,dict) or not {'start','end','quote'}<=set(item): raise ValueError('Missing citation fields')
         start,end,quote=item['start'],item['end'],item['quote']; method='explicit_exact_span'
+        original_start,original_end=start,end
         if (start is None)!=(end is None): raise ValueError('Both offsets must be null or explicit')
-        if start is None:
-            if not isinstance(quote,str) or not quote: raise ValueError('A nonempty exact quote is required')
+        if start is not None and (type(start) is not int or type(end) is not int): raise ValueError('Offsets must be integers, not bool/float')
+        if not isinstance(quote,str) or not quote: raise ValueError('A nonempty exact quote is required')
+        explicit_valid=start is not None and 0<=start<end<=len(text) and text[start:end]==quote
+        if not explicit_valid:
             start=text.find(quote)
-            if start<0 or text.find(quote,start+1)>=0: raise ValueError('Nullable offsets require a unique exact source quote')
-            item.update(start=start,end=start+len(quote)); method='unique_exact_quote'
-        bindings.append(dict(kind=kind,method=method,start=item['start'],end=item['end'],quote=quote))
+            if start<0 or text.find(quote,start+1)>=0: raise ValueError('Invalid offsets require a unique exact source quote')
+            item.update(start=start,end=start+len(quote))
+            method='unique_exact_quote' if original_start is None else 'unique_exact_quote_offset_corrected'
+        bindings.append(dict(kind=kind,method=method,original_start=original_start,original_end=original_end,
+                             start=item['start'],end=item['end'],quote=quote))
     validate_extraction(text,bound)
     return bound,bindings
 
@@ -201,10 +206,79 @@ def metered(body,payload,bound,reserve,config):
     return amount if usage['input_tokens']<=bound and usage['output_tokens']<=payload['max_output_tokens'] and amount<=reserve else None
 
 
+class CachedResponse:
+    def __init__(self,body,source):
+        self.body=body; self.source=source
+
+
+class ReuseCache:
+    """Read-only validated receipts; never instantiate the old mutating ledger."""
+    def __init__(self,ledger_path,run_dir,manifest):
+        self.path=outside(ledger_path); self.run_dir=outside(run_dir); self.entries={}
+        try:
+            ledger_bytes=self.path.read_bytes(); manifest_path=safe_path(self.run_dir/'manifest.json')
+            manifest_bytes=manifest_path.read_bytes(); old=json.loads(manifest_bytes); state=json.loads(ledger_bytes)
+        except (OSError,ValueError): raise BudgetError('Reuse source missing/corrupt') from None
+        if set(state)!={'version','manifest_hash','mode','entries'} or state['mode']!='live' or state['version'] not in ('semantic_v1','semantic_v2') or old.get('version')!=state['version'] or state['manifest_hash']!=fingerprint(old):
+            raise BudgetError('Reuse ledger/manifest identity mismatch')
+        validate_config(old['config']); self.old=old; self.manifest=manifest
+        self.validate_source(old,manifest)
+        self.total=0; pairs=set()
+        for identity,entry in state['entries'].items():
+            self.validate_entry(identity,entry,state,old,pairs)
+            pair=(entry['case_id'],entry['stage'],fingerprint(entry['payload']))
+            if pair in self.entries: raise BudgetError('Duplicate reuse response identity')
+            self.entries[pair]=(identity,entry); self.total+=entry['charge_nano']
+        if self.total+money(manifest['config']['max_usd'])>money(old['config']['max_usd']): raise BudgetError('Reuse plus new cap exceeds original approved cap')
+        self.provenance=dict(ledger_path=str(self.path),run_dir=str(self.run_dir),
+            ledger_sha256=hashlib.sha256(ledger_bytes).hexdigest(),manifest_sha256=hashlib.sha256(manifest_bytes).hexdigest(),
+            source_conservative_charge_nano=self.total,original_cap_nano=money(old['config']['max_usd']))
+
+    def validate_source(self,old,current):
+        if old.get('rubric_version')!=RUBRIC_VERSION or old['cases']!=current['cases'] or old['hashes']['source_sha256']!=current['hashes']['source_sha256'] or old['hashes']['cases']!=fingerprint(old['cases']):
+            raise BudgetError('Reuse neutral source/cases/rubric mismatch')
+        for name in ('extraction_schema','strict_extraction_schema','grade_schema','extraction_prompt','judge_prompt'):
+            if old['hashes'].get(name)!=current['hashes'].get(name): raise BudgetError('Reuse prompts/API schemas changed')
+        ignored={'max_usd','verified_at'}
+        if {key:value for key,value in old['config'].items() if key not in ignored}!={key:value for key,value in current['config'].items() if key not in ignored}:
+            raise BudgetError('Reuse request/pricing settings changed')
+        if old['hashes'].get('settings')!=fingerprint(old['config']) or not isinstance(old['hashes'].get('code'),dict) or any(not isinstance(value,str) or not re.fullmatch('[a-f0-9]{64}',value) for value in old['hashes']['code'].values()):
+            raise BudgetError('Reuse original provenance is invalid')
+
+    def validate_entry(self,identity,entry,state,old,pairs):
+        if not isinstance(entry,dict) or entry.get('status')!='received' or entry.get('reuse_source') is not None: raise BudgetError('Reuse source contains unresolved or non-original paid attempts')
+        required={'case_id','stage','payload','bound','reserved_nano','charge_nano','status','raw_response'}
+        if set(entry) not in (required,required|{'reuse_source'}): raise BudgetError('Invalid source receipt fields')
+        pair=(entry['case_id'],entry['stage'])
+        if pair in pairs or pair[1] not in ('extract','judge'): raise BudgetError('Duplicate source paid stage')
+        pairs.add(pair)
+        if pair[0] not in {case['case_id'] for case in old['cases']} or identity!=fingerprint([state['manifest_hash'],*pair,entry['payload']]): raise BudgetError('Reuse source request hash mismatch')
+        bound,reserve=stage_bound(entry['payload'],old['config']); body=entry['raw_response']
+        actual=metered(body,entry['payload'],bound,reserve,old['config'])
+        if type(entry['bound']) is not int or type(entry['reserved_nano']) is not int or type(entry['charge_nano']) is not int or entry['bound']!=bound or entry['reserved_nano']!=reserve or actual is None or entry['charge_nano']!=actual or not isinstance(body.get('id'),str) or not body['id'] or body.get('error') is not None:
+            raise BudgetError('Reuse reliable billing/body validation failed')
+        case=next(case for case in old['cases'] if case['case_id']==pair[0])
+        if pair[1]=='extract' and entry['payload']!=old['prepared_extraction_requests'].get(pair[0]): raise BudgetError('Reuse source extraction payload mismatch')
+        try: data=json.loads(entry['payload']['input'][1]['content'])
+        except (KeyError,TypeError,ValueError): raise BudgetError('Invalid source payload data') from None
+        if data.get('fen')!=case['fen'] or data.get('untrusted_explanation')!=case['explanation']: raise BudgetError('Reuse source request/case mismatch')
+
+    def lookup(self,case_id,stage,payload):
+        found=self.entries.get((case_id,stage,fingerprint(payload)))
+        if found is None:
+            if any(identity==case_id and kind==stage for identity,kind,_ in self.entries):
+                raise BudgetError('Already-paid source stage payload differs; no replacement request allowed')
+            return None
+        identity,entry=found
+        source=dict(source_ledger_sha256=self.provenance['ledger_sha256'],source_manifest_sha256=self.provenance['manifest_sha256'],
+                    source_entry_id=identity,source_response_id=entry['raw_response']['id'],payload_sha256=fingerprint(payload))
+        return CachedResponse(json.loads(json.dumps(entry['raw_response'])),source)
+
+
 class StageLedger:
     """Exclusive lock held by caller; received raw responses survive parse/output crashes."""
-    def __init__(self,path,manifest,mode):
-        self.path=path; self.manifest=manifest; self.mode=mode
+    def __init__(self,path,manifest,mode,reuse_cache=None):
+        self.path=path; self.manifest=manifest; self.mode=mode; self.reuse_cache=reuse_cache
         self.state=read_json(path) if path.exists() else dict(version=GRADER_VERSION,manifest_hash=fingerprint(manifest),mode=mode,entries={})
         if set(self.state)!={'version','manifest_hash','mode','entries'} or self.state['version']!=GRADER_VERSION or self.state['manifest_hash']!=fingerprint(manifest) or self.state['mode']!=mode or not isinstance(self.state['entries'],dict): raise BudgetError('Corrupt/incompatible semantic stage ledger')
         self.validate(); self.save()
@@ -214,10 +288,16 @@ class StageLedger:
     def validate(self):
         pairs=set(); ids={case['case_id'] for case in self.manifest['cases']}
         for identity,entry in self.state['entries'].items():
-            if set(entry)!={'case_id','stage','payload','bound','reserved_nano','charge_nano','status','raw_response'}: raise BudgetError('Corrupt stage entry fields')
+            if set(entry)!={'case_id','stage','payload','bound','reserved_nano','charge_nano','status','raw_response','reuse_source'}: raise BudgetError('Corrupt stage entry fields')
             pair=(entry['case_id'],entry['stage'])
             if pair in pairs or pair[0] not in ids or pair[1] not in ('extract','judge'): raise BudgetError('Duplicate/foreign stage entry')
             pairs.add(pair)
+            reuse=entry['reuse_source']
+            if reuse is not None and (self.mode!='live' or not isinstance(reuse,dict) or set(reuse)!={'source_ledger_sha256','source_manifest_sha256','source_entry_id','source_response_id','payload_sha256'} or reuse.get('payload_sha256')!=fingerprint(entry['payload']) or not isinstance(entry['raw_response'],dict) or reuse.get('source_response_id')!=entry['raw_response'].get('id')):
+                raise BudgetError('Invalid cached receipt provenance')
+            if reuse is not None:
+                known=self.reuse_cache.lookup(entry['case_id'],entry['stage'],entry['payload']) if self.reuse_cache else None
+                if known is None or known.source!=reuse or known.body!=entry['raw_response']: raise BudgetError('Cached receipt no longer matches its pinned source')
             if identity!=fingerprint([self.state['manifest_hash'],*pair,entry['payload']]): raise BudgetError('Corrupt request identity')
             bound,reserve=stage_bound(entry['payload'],self.manifest['config'])
             if type(entry['bound']) is not int or type(entry['reserved_nano']) is not int or entry['bound']!=bound or entry['reserved_nano']!=(reserve if self.mode=='live' else 0) or type(entry['charge_nano']) is not int or entry['charge_nano']<0: raise BudgetError('Corrupt reservation')
@@ -242,14 +322,17 @@ class StageLedger:
     def call(self,case_id,stage,payload,adapter):
         existing=self.existing(case_id,stage,payload)
         if existing is not None: return existing
+        if self.reuse_cache: self.reuse_cache.lookup(case_id,stage,payload)
         config=self.manifest['config']; bound,reserve=stage_bound(payload,config); reserve=reserve if self.mode=='live' else 0
         if self.mode=='live' and self.charged()+reserve>money(config['max_usd']): raise BudgetError('Stage budget exhausted')
         identity=fingerprint([self.state['manifest_hash'],case_id,stage,payload])
-        entry=dict(case_id=case_id,stage=stage,payload=payload,bound=bound,reserved_nano=reserve,charge_nano=reserve,status='reserved',raw_response=None)
+        entry=dict(case_id=case_id,stage=stage,payload=payload,bound=bound,reserved_nano=reserve,charge_nano=reserve,status='reserved',raw_response=None,reuse_source=None)
         self.state['entries'][identity]=entry; self.save()
         try: body=adapter(case_id,stage,payload)
         except (requests.RequestException,BudgetError,ValueError,TypeError,KeyError):
             entry['status']='blocked'; self.save(); raise BudgetError('Unknown stage response; full reservation retained') from None
+        if isinstance(body,CachedResponse):
+            entry['reuse_source']=body.source; body=body.body
         entry['raw_response']=body
         actual=metered(body,payload,bound,reserve,config) if self.mode=='live' else 0
         observed=cost(body['usage']['input_tokens'],body['usage']['output_tokens'],dict(input=config['input_usd_per_million'],output=config['output_usd_per_million'])) if isinstance(body,dict) and priced_model(config['model'],body.get('model')) and body.get('service_tier')=='default' and valid_usage(body.get('usage')) else reserve
@@ -264,6 +347,14 @@ def unavailable(case,status,reason):
                 explanatory_support=None,reason=reason)
 
 
+def evidence_references(evidence):
+    references={}
+    for kind,items in (('claim',evidence['claims']),('context',evidence['contexts'])):
+        for item in items: references.setdefault(item['id'],[]).append(kind)
+    if 'root_board' in evidence: references.setdefault('root_board',[]).append('root_board')
+    return references
+
+
 def grade_case(case,config,ledger,adapter):
     if case['availability']!='available' or not case['explanation'] or not case['explanation'].strip(): return unavailable(case,'unavailable','No assessable saved answer')
     first=build_payload('extract',case,config)
@@ -271,10 +362,11 @@ def grade_case(case,config,ledger,adapter):
     extracted,bindings=bind_extraction(case['explanation'],raw_extraction)
     evidence=evidence_for(case['fen'],case['explanation'],extracted)
     second=build_payload('judge',case,config,evidence=evidence,extracted=extracted)
-    judged=validate_grade(parse_body(ledger.call(case['case_id'],'judge',second,adapter),config['model']),[item['id'] for item in extracted['claims']])
+    references=evidence_references(evidence)
+    judged=validate_grade(parse_body(ledger.call(case['case_id'],'judge',second,adapter),config['model']),references)
     tension=judged['factual_grounding']['rating']==2 and any(item['status']=='contradicted' for item in evidence['claims'])
     return dict(case_id=case['case_id'],status='graded',raw_extraction=raw_extraction,extraction=extracted,quote_bindings=bindings,
-                binder_version=BINDER_VERSION,evidence=evidence,judge_evidence_tension=tension,requires_review=tension,
+                binder_version=BINDER_VERSION,evidence=evidence,evidence_reference_types={name:references[name] for name in judged['evidence_claim_ids']},judge_evidence_tension=tension,requires_review=tension,
                 validation_status='development_candidate_unvalidated',**judged)
 
 
@@ -310,7 +402,9 @@ def check_manifest(manifest):
 
 def freeze(output,manifest,grades,mode,ledger):
     result=dict(version=GRADER_VERSION,rubric_version=RUBRIC_VERSION,execution_mode=mode,manifest_hash=fingerprint(manifest),
-                grades=grades,grades_hash=fingerprint(grades),execution_provenance=read_json(output/'execution-mode.json'),charged_nano=ledger.charged(),coverage=dict(Counter(row['status'] for row in grades)))
+                grades=grades,grades_hash=fingerprint(grades),
+                cache_hit_count=sum(entry['reuse_source'] is not None for entry in ledger.state['entries'].values()),
+                execution_provenance=read_json(output/'execution-mode.json'),charged_nano=ledger.charged(),coverage=dict(Counter(row['status'] for row in grades)))
     atomic_json(output/'frozen-grades.json',result)
     return {key:value for key,value in result.items() if key not in ('grades',)}
 
@@ -337,11 +431,17 @@ def execute_cases(output,manifest,ledger,adapter,mode):
     return report
 
 
-def run(run_dir,*,replay_file=None,execute=False,ledger_path=None,transport=None):
+def run(run_dir,*,replay_file=None,execute=False,ledger_path=None,transport=None,reuse_ledger=None,reuse_run=None):
     output=outside(run_dir); manifest=read_json(output/'manifest.json'); check_manifest(manifest)
     for path in (output/'frozen-grades.json',output/'execution-mode.json',*[output/'grades'/(fingerprint(case['case_id'])+'.json') for case in manifest['cases']]):
         safe_path(path)
-    if not replay_file and not execute: return plan(manifest)
+    if bool(reuse_ledger)!=bool(reuse_run): raise ValueError('Reuse requires both source ledger and source run')
+    if replay_file and reuse_ledger: raise ValueError('Live receipt reuse cannot mix with replay')
+    cache=ReuseCache(reuse_ledger,reuse_run,manifest) if reuse_ledger else None
+    if not replay_file and not execute:
+        result=plan(manifest)
+        if cache: result.update(reuse_source=cache.provenance,eligible_cached_stages=len(cache.entries))
+        return result
     if replay_file and execute: raise ValueError('Replay and live execution are mutually exclusive')
     mode='live' if execute else 'replay'; config=manifest['config']; adapter=None
     if execute:
@@ -351,7 +451,9 @@ def run(run_dir,*,replay_file=None,execute=False,ledger_path=None,transport=None
         if ledger_file==output or output in ledger_file.parents: raise ValueError('Ledger must be outside run directory')
         key=os.environ.get('OPENAI_API_KEY')
         if not key: raise BudgetError('OPENAI_API_KEY is not set')
-        adapter=lambda identity,stage,payload:(transport or http_response)(payload,key,config['timeout_seconds'])
+        def adapter(identity,stage,payload):
+            hit=cache.lookup(identity,stage,payload) if cache else None
+            return hit if hit is not None else (transport or http_response)(payload,key,config['timeout_seconds'])
     else:
         ledger_file=output/'replay-ledger.json'; adapter=replay_adapter(replay_file,{case['case_id'] for case in manifest['cases']})
     safe_path(str(ledger_file)+'.lock'); ledger_file.parent.mkdir(parents=True,exist_ok=True,mode=0o700)
@@ -359,10 +461,11 @@ def run(run_dir,*,replay_file=None,execute=False,ledger_path=None,transport=None
     with FileLock(str(run_lock),timeout=0),FileLock(str(ledger_file)+'.lock',timeout=0):
         marker=output/'execution-mode.json'
         marker_value=dict(mode=mode,ledger_path=str(ledger_file),manifest_hash=fingerprint(manifest),
-                          replay_sha256=hashlib.sha256(safe_path(replay_file).read_bytes()).hexdigest() if replay_file else None)
+                          replay_sha256=hashlib.sha256(safe_path(replay_file).read_bytes()).hexdigest() if replay_file else None,
+                          reuse_source=cache.provenance if cache else None)
         if marker.exists() and (read_json(marker)!=marker_value or not ledger_file.exists()): raise BudgetError('Pinned ledger/replay/mode changed or ledger lost; no budget reset')
         if not marker.exists() and ((output/'grades').exists() or (output/'frozen-grades.json').exists()): raise BudgetError('Existing grades lack pinned accounting state')
-        ledger=StageLedger(ledger_file,manifest,mode)
+        ledger=StageLedger(ledger_file,manifest,mode,reuse_cache=cache)
         atomic_json(marker,marker_value); (output/'grades').mkdir(exist_ok=True,mode=0o700)
         frozen=output/'frozen-grades.json'
         if frozen.exists():

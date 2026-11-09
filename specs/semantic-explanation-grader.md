@@ -137,3 +137,17 @@ state without constructing a mutating ledger instance. Cache hits incur the same
 actual conservative charge AGAIN in the new ledger. Require old conservative
 spend plus new cap not exceed the old approved cap, so the approved USD3 total
 cannot expand. Never alter/refund the source ledger or its grades.
+
+A reuse cache also requires an explicit --reuse-run source manifest. Lookup binds
+case ID, stage and the FULL canonical payload, so duplicate prose across cases
+cannot choose among stochastic outcomes. If an old paid case/stage exists but
+its payload differs, fail closed instead of buying a replacement. Only genuinely
+absent stages may make new requests. New cached receipt bodies are checked back
+against the immutable source on every resume. Source entries with uncertain
+status are rejected, not ignored through cache misses.
+
+The structured grade field evidence_claim_ids keeps its API spelling/schema,
+but may cite any actually provided atomic-claim ID, context ID, or root_board.
+Record evidence_reference_types to distinguish these scopes. Unknown names still
+fail. This fixes previously rejected valid evidence references without changing
+any numeric grade, prompt or schema and without consulting human quality labels.
