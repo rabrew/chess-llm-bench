@@ -114,3 +114,26 @@ its exact payload/schema. Replay is explicitly labelled and never incurs cost.
 Safety constants name overhead/output/payload/price-age/margin/text bounds.
 Evaluation reports human NA/null, judge NA/missing, full planned-case status
 coverage, per-position grouping and separate components, never a composite.
+
+## Infrastructure-only revision: semantic_v2
+
+The first live pilot exposed character-offset failures despite exact unique source
+quotes. This revision is based on infrastructure errors, not human quality labels.
+Preserve all semantic_v1 run files and the exact extraction/judge prompts and API
+schemas. Binder unique_exact_quote_primary_v2 may correct BOTH integer offsets
+when the explicit slice is invalid/wrong only if the unmodified exact quote occurs
+uniquely. Record original_start/end, bound span and explicit correction method.
+Correct explicit spans still disambiguate repeated quotes. Unknown/ambiguous
+quotes with incorrect spans, mixed null/integer or wrong-type offsets fail. No
+fuzzy matching, Unicode normalization, quote rewriting or semantic relaxation.
+
+Optional --reuse-ledger plus explicit --reuse-run reads immutable old live state.
+Reuse only the same case ID/stage/full canonical payload fingerprint with reliable
+received provider output, validated source-manifest link, unchanged neutral source,
+prompts/schemas, rates and request settings. Reserved/blocked source requests are
+never retried through cache misses. Pin source ledger and manifest byte hashes,
+paths and response provenance in the new run; changes/loss fail closed. Read old
+state without constructing a mutating ledger instance. Cache hits incur the same
+actual conservative charge AGAIN in the new ledger. Require old conservative
+spend plus new cap not exceed the old approved cap, so the approved USD3 total
+cannot expand. Never alter/refund the source ledger or its grades.
